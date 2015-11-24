@@ -2,7 +2,7 @@
 libobs-based capture system for Forge
 
 ## Building
-Requires libobs from [obs-studio](https://github.com/jp9000/obs-studio) and [boost](httop://www.boost.org) with the following environment variables set
+Requires libobs from [obs-studio](https://github.com/jp9000/obs-studio) and [boost](http://www.boost.org) with the following environment variables set
 
 __$(Boost)__ - path to boost base dir
 __$(OBSLib)__ - path to libobs for includes eg: /obs-studio/libobs
