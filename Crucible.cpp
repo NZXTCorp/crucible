@@ -5,6 +5,7 @@
 #include <windows.h>
 
 #include <util/base.h>
+#include <util/dstr.hpp>
 #include <obs.hpp>
 
 #include <iostream>
@@ -50,6 +51,43 @@ void OBSStopRecording(void *data, calldata_t *params)
 	blog(LOG_INFO, "Recording stopped, code %d", code);
 }
 
+/*template <typename T>
+static DStr GetModulePath(T *sym)*/
+static DStr GetModulePath(const char *name)
+{
+	DStr res;
+
+	HMODULE module;
+	if (!GetModuleHandleEx(
+			//GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+			GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			/*(LPCTSTR)sym*/ name, &module)) {
+		blog(LOG_ERROR, "module handle ex: %d", GetLastError());
+		return res;
+	}
+
+	char filename[MAX_PATH];
+	if (!GetModuleFileNameA(module, filename, MAX_PATH))
+		return res;
+
+	filename[MAX_PATH - 1] = 0;
+
+	char drive[_MAX_DRIVE] = "";
+	char dir[_MAX_DIR] = "";
+	if (_splitpath_s(filename, drive, _MAX_DRIVE, dir, _MAX_DIR,
+			NULL, 0, NULL, 0))
+		return res;
+
+	dstr_printf(res, "%s%s", drive, dir);
+	return res;
+}
+
+#ifdef _WIN64
+#define BIT_STRING "64bit"
+#else
+#define BIT_STRING "32bit"
+#endif
+
 void TestVideoRecording(TestWindow &window)
 {
 	try
@@ -86,6 +124,14 @@ void TestVideoRecording(TestWindow &window)
 		OBSDisplay display(obs_display_create(&dinfo));
 		if (!display)
 			throw "Couldn't create display";
+
+		{
+			DStr obs_path = GetModulePath(/*&obs_startup*/ "obs.dll");
+			DStr bin_path, data_path;
+			dstr_printf(bin_path, "%s../../obs-plugins/" BIT_STRING, obs_path->array);
+			dstr_printf(data_path, "%s../../data/obs-plugins/%%module%%", obs_path->array);
+			obs_add_module_path(bin_path, data_path);
+		}
 
 		obs_load_all_modules();
 
