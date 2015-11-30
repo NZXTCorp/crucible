@@ -44,8 +44,8 @@
     <LocalDebuggerEnvironment>PATH=$(PATH);$(OBSBuild)\..\rundir\$(Configuration)\bin\32bit\</LocalDebuggerEnvironment>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LibraryPath>$(OBSBuild)\Debug;$(Boost)\stage\lib;$(LibraryPath)</LibraryPath>
     <IncludePath>$(OBSLib);$(Boost);$(IncludePath)</IncludePath>
+    <LibraryPath>$(OBSBuild)\Release;$(Boost)\stage\lib;$(LibraryPath)</LibraryPath>
     <LocalDebuggerEnvironment>PATH=$(PATH);$(OBSBuild)\..\rundir\$(Configuration)\bin\32bit\</LocalDebuggerEnvironment>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -71,6 +71,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>obs.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
