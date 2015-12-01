@@ -9,7 +9,10 @@
 #include <obs.hpp>
 
 #include <iostream>
+#include <mutex>
 using namespace std;
+
+#include "IPC.hpp"
 
 // window class borrowed from forge, remove once we've got headless mode working
 #include "TestWindow.h"
@@ -51,11 +54,18 @@ void OBSStopRecording(void *data, calldata_t *params)
 	blog(LOG_INFO, "Recording stopped, code %d", code);
 }
 
-static OBSData OBSDataCreate()
+static OBSData OBSDataCreate(const string &json={})
 {
-	OBSData data = obs_data_create();
+	OBSData data = json.empty() ? obs_data_create() : obs_data_create_from_json(json.c_str());
 	obs_data_release(data);
 	return data;
+}
+
+static OBSData OBSDataGetObj(obs_data_t *data, const char *name)
+{
+	OBSData obj = obs_data_get_obj(data, name);
+	obs_data_release(obj);
+	return obj;
 }
 
 /*template <typename T>
@@ -215,13 +225,26 @@ struct CrucibleContext {
 		stopRecording.Connect(obs_output_get_signal_handler(output), "stop", OBSStopRecording, nullptr);
 	}
 
+#define CONCAT2(x, y) x ## y
+#define CONCAT(x, y) CONCAT2(x, y)
+#define LOCK auto CONCAT(lockGuard, __LINE__) = lock_guard<mutex>{updateMutex};
+
+	mutex updateMutex;
+
 	void UpdateGameCapture(obs_data_t *settings)
 	{
+		LOCK;
 		obs_source_update(gameCapture, settings);
+	}
+
+	void UpdateEncoder(obs_data_t *settings)
+	{
+		obs_encoder_update(h264, settings);
 	}
 
 	void StopVideo()
 	{
+		LOCK;
 		obs_output_stop(output);
 
 		ovi.fps_den = 0;
@@ -230,6 +253,7 @@ struct CrucibleContext {
 
 	bool StartVideo()
 	{
+		LOCK;
 		ovi.fps_den = fps_den;
 		ResetVideo();
 
@@ -237,6 +261,22 @@ struct CrucibleContext {
 	}
 
 };
+
+static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
+{
+	if (!data)
+		return;
+
+	auto obj = OBSDataCreate({data, data+size});
+
+	// TODO: Handle changes to frame rate, target resolution, encoder type,
+	//       ...
+
+	cc.StopVideo();
+	cc.UpdateGameCapture(OBSDataGetObj(obj, "game_capture"));
+	cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
+	cc.StartVideo();
+}
 
 void TestVideoRecording(TestWindow &window)
 {
@@ -270,6 +310,13 @@ void TestVideoRecording(TestWindow &window)
 		obs_data_set_bool(csettings, "capture_cursor", true);
 		obs_data_set_string(csettings, "window", "Half-Life 2#3A Lost Coast:Valve001:hl2.exe");
 		crucibleContext.UpdateGameCapture(csettings);
+
+		auto handleCommand = [&](const uint8_t *data, size_t size)
+		{
+			HandleCommand(crucibleContext, data, size);
+		};
+
+		IPCServer remote{"ForgeCrucible", handleCommand};
 
 		if (!crucibleContext.StartVideo())
 			throw "Can't start recording";
