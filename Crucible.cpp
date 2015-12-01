@@ -51,6 +51,13 @@ void OBSStopRecording(void *data, calldata_t *params)
 	blog(LOG_INFO, "Recording stopped, code %d", code);
 }
 
+static OBSData OBSDataCreate()
+{
+	OBSData data = obs_data_create();
+	obs_data_release(data);
+	return data;
+}
+
 /*template <typename T>
 static DStr GetModulePath(T *sym)*/
 static DStr GetModulePath(const char *name)
@@ -88,32 +95,162 @@ static DStr GetModulePath(const char *name)
 #define BIT_STRING "32bit"
 #endif
 
-void TestVideoRecording(TestWindow &window)
+template <typename T, typename U>
+static void InitRef(T &ref, const char *msg, void (*release)(U*), U *val)
 {
-	try
+	if (!val)
+		throw msg;
+
+	ref = val;
+	release(val);
+}
+
+struct CrucibleContext {
+	obs_video_info ovi;
+	uint32_t fps_den;
+	OBSSource tunes, gameCapture;
+	OBSEncoder h264, aac;
+	OBSOutput output;
+	OBSSignal startRecording, stopRecording;
+
+	bool ResetVideo()
 	{
-		struct obs_video_info ovi;
+		return obs_reset_video(&ovi) == 0;
+	}
+
+	void InitLibobs()
+	{
 		ovi.adapter = 0;
 		ovi.base_width = 1280;
 		ovi.base_height = 720;
-		ovi.fps_num = 30000;
-		ovi.fps_den = 1001;
+		ovi.fps_num = 30;
+		ovi.fps_den = fps_den = 1;
 		ovi.graphics_module = "libobs-d3d11.dll";
-		ovi.output_format = VIDEO_FORMAT_RGBA;
+		ovi.output_format = VIDEO_FORMAT_NV12;
 		ovi.output_width = 1280;
 		ovi.output_height = 720;
+		ovi.scale_type = OBS_SCALE_BICUBIC;
+		ovi.range = VIDEO_RANGE_PARTIAL;
+		ovi.gpu_conversion = true;
+		ovi.colorspace = VIDEO_CS_601;
+		if (ovi.output_width >= 1280 || ovi.output_height >= 720)
+			ovi.colorspace = VIDEO_CS_709;
 
-		if (obs_reset_video(&ovi) != 0)
+		if (!ResetVideo())
 			throw "Couldn't initialize video";
 
-		struct obs_audio_info ai;
+		obs_audio_info ai;
 		ai.samples_per_sec = 44100;
 		ai.speakers = SPEAKERS_STEREO;
 		ai.buffer_ms = 1000;
 		if (!obs_reset_audio(&ai))
 			throw "Couldn't initialize audio";
 
-		// todo: find/create a way to do this without rendering to a window (maybe a 'headless' swap chain option? so calls to present and stuff are silently ignored but querying its width/height works ok and such)
+		{
+			DStr obs_path = GetModulePath(/*&obs_startup*/ "obs.dll");
+			DStr bin_path, data_path;
+			dstr_printf(bin_path, "%s../../obs-plugins/" BIT_STRING, obs_path->array);
+			dstr_printf(data_path, "%s../../data/obs-plugins/%%module%%", obs_path->array);
+			obs_add_module_path(bin_path, data_path);
+		}
+
+		obs_load_all_modules();
+	}
+
+	void InitSources()
+	{
+		// create audio source
+		InitRef(tunes, "Couldn't create audio input source", obs_source_release,
+				obs_source_create(OBS_SOURCE_TYPE_INPUT, "wasapi_output_capture", "wasapi loopback", nullptr, nullptr));
+
+		// create game capture video source
+		InitRef(gameCapture, "Couldn't create game capture source", obs_source_release,
+				obs_source_create(OBS_SOURCE_TYPE_INPUT, "game_capture", "game capture", nullptr, nullptr));
+
+		obs_set_output_source(0, gameCapture);
+		obs_set_output_source(1, tunes);
+	}
+
+	void InitEncoders()
+	{
+		auto vsettings = OBSDataCreate();
+		obs_data_set_int(vsettings, "bitrate", 2500);
+		obs_data_set_int(vsettings, "buffer_size", 0);
+		obs_data_set_int(vsettings, "crf", 23);
+		obs_data_set_bool(vsettings, "use_bufsize", true);
+		obs_data_set_bool(vsettings, "cbr", false);
+		obs_data_set_string(vsettings, "profile", "high");
+		obs_data_set_string(vsettings, "preset", "veryfast");
+
+		InitRef(h264, "Couldn't create video encoder", obs_encoder_release,
+				obs_video_encoder_create("obs_x264", "x264 video", vsettings, nullptr));
+
+
+		auto asettings = OBSDataCreate();
+		obs_data_set_int(asettings, "bitrate", 128);
+
+		InitRef(aac, "Couldn't create audio encoder", obs_encoder_release,
+				obs_audio_encoder_create("CoreAudio_AAC", "coreaudio aac", asettings, 0, nullptr));
+
+
+		obs_encoder_set_video(h264, obs_get_video());
+		obs_encoder_set_audio(aac, obs_get_audio());
+	}
+
+	void InitOutput()
+	{
+		auto osettings = OBSDataCreate();
+		obs_data_set_string(osettings, "path", "test.mp4");
+
+		InitRef(output, "Couldn't create output", obs_output_release,
+				obs_output_create("ffmpeg_muxer", "ffmpeg recorder", osettings, nullptr));
+
+		obs_output_set_video_encoder(output, h264);
+		obs_output_set_audio_encoder(output, aac, 0);
+	}
+
+	void InitSignals()
+	{
+		startRecording.Connect(obs_output_get_signal_handler(output), "start", OBSStartRecording, nullptr);
+		stopRecording.Connect(obs_output_get_signal_handler(output), "stop", OBSStopRecording, nullptr);
+	}
+
+	void UpdateGameCapture(obs_data_t *settings)
+	{
+		obs_source_update(gameCapture, settings);
+	}
+
+	void StopVideo()
+	{
+		obs_output_stop(output);
+
+		ovi.fps_den = 0;
+		ResetVideo();
+	}
+
+	bool StartVideo()
+	{
+		ovi.fps_den = fps_den;
+		ResetVideo();
+
+		return obs_output_start(output);
+	}
+
+};
+
+void TestVideoRecording(TestWindow &window)
+{
+	try
+	{
+		CrucibleContext crucibleContext;
+
+		crucibleContext.InitLibobs();
+		crucibleContext.InitSources();
+		crucibleContext.InitEncoders();
+		crucibleContext.InitOutput();
+		crucibleContext.StopVideo();
+
+		// TODO: remove once we're done debugging
 		gs_init_data dinfo = {};
 		dinfo.cx = 800;
 		dinfo.cy = 480;
@@ -125,91 +262,16 @@ void TestVideoRecording(TestWindow &window)
 		if (!display)
 			throw "Couldn't create display";
 
-		{
-			DStr obs_path = GetModulePath(/*&obs_startup*/ "obs.dll");
-			DStr bin_path, data_path;
-			dstr_printf(bin_path, "%s../../obs-plugins/" BIT_STRING, obs_path->array);
-			dstr_printf(data_path, "%s../../data/obs-plugins/%%module%%", obs_path->array);
-			obs_add_module_path(bin_path, data_path);
-		}
-
-		obs_load_all_modules();
-
-		// create audio source
-		OBSSource tunes(obs_source_create(OBS_SOURCE_TYPE_INPUT, "wasapi_output_capture", "wasapi loopback", nullptr, nullptr));
-		if (!tunes)
-			throw "Couldn't create audio input source";
-
-		// create game capture video source
-		OBSSource source(obs_source_create(OBS_SOURCE_TYPE_INPUT, "game_capture", "game capture", nullptr, nullptr));
-		if (!source)
-			throw "Couldn't create game capture test source";
-		
-		// create scene
-		OBSScene scene(obs_scene_create("test scene"));
-		if (!scene)
-			throw "Couldn't create scene";
-
-		// add the source to the scene
-		OBSSceneItem item = nullptr;
-		item = obs_scene_add(scene, source);
-		
-		// add audio to scene
-		item = obs_scene_add(scene, tunes);
+		obs_display_add_draw_callback(display, RenderWindow, nullptr);
 
 		// update source settings - tell game_capture to try and capture hl2: lost coast
-		OBSData csettings(obs_data_create());
+		auto csettings = OBSDataCreate();
 		obs_data_set_bool(csettings, "capture_any_fullscreen", false);
 		obs_data_set_bool(csettings, "capture_cursor", true);
 		obs_data_set_string(csettings, "window", "Half-Life 2#3A Lost Coast:Valve001:hl2.exe");
-		obs_source_update(source, csettings);
+		crucibleContext.UpdateGameCapture(csettings);
 
-		// set up encoder
-		OBSData vsettings(obs_data_create());
-		obs_data_set_int(vsettings, "bitrate", 2500);
-		obs_data_set_int(vsettings, "buffer_size", 0);
-		obs_data_set_int(vsettings, "crf", 23);
-		obs_data_set_bool(vsettings, "use_bufsize", true);
-		obs_data_set_bool(vsettings, "cbr", false);
-		obs_data_set_string(vsettings, "profile", "high");
-		obs_data_set_string(vsettings, "preset", "veryfast");
-
-		OBSEncoder h264encoder(obs_video_encoder_create("obs_x264", "x264 video", vsettings, nullptr));
-		if (!h264encoder)
-			throw "Couldn't create video encoder";
-
-		//OBSData asettings = obs_data_create();
-		//obs_data_set_int(asettings, "bitrate", 128000);
-		// TODO: settings for audio?
-		OBSEncoder aacEncoder(obs_audio_encoder_create("CoreAudio_AAC", "coreaudio aac", nullptr, 0, nullptr));
-		if (!aacEncoder)
-			throw "Couldn't create audio encoder";
-
-		// set up output to file
-		OBSData osettings = obs_data_create();
-		obs_data_set_string(osettings, "path", "test.mp4");
-
-		OBSOutput output = obs_output_create("ffmpeg_muxer", "ffmpeg recorder", osettings, nullptr);
-		if (!output)
-			throw "Couldn't create output";
-
-		OBSSignal startRecording, stopRecording;
-		startRecording.Connect(obs_output_get_signal_handler(output), "start", OBSStartRecording, nullptr);
-		stopRecording.Connect(obs_output_get_signal_handler(output), "stop", OBSStopRecording, nullptr);
-
-		// set the scene as the primary output source
-		obs_set_output_source(0, obs_scene_get_source(scene));
-
-		// connect video and audio to encoders
-		obs_encoder_set_video(h264encoder, obs_get_video());
-		obs_encoder_set_audio(aacEncoder, obs_get_audio());
-		// connect those encoders to the video output
-		obs_output_set_video_encoder(output, h264encoder);
-		obs_output_set_audio_encoder(output, aacEncoder, 0);
-
-		obs_display_add_draw_callback(display, RenderWindow, nullptr);
-
-		if (!obs_output_start(output))
+		if (!crucibleContext.StartVideo())
 			throw "Can't start recording";
 
 		MSG msg;
@@ -219,8 +281,7 @@ void TestVideoRecording(TestWindow &window)
 			DispatchMessage(&msg);
 		}
 
-		// stop recording
-		obs_output_stop(output);
+		crucibleContext.StopVideo();
 	}
 	catch (const char *err)
 	{
