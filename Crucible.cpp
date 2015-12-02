@@ -17,6 +17,18 @@ using namespace std;
 // window class borrowed from forge, remove once we've got headless mode working
 #include "TestWindow.h"
 
+namespace std {
+
+template <>
+struct default_delete<obs_data_item_t> {
+	void operator()(obs_data_item_t *item)
+	{
+		obs_data_item_release(&item);
+	}
+};
+
+}
+
 static IPCClient event_client, log_client;
 
 // logging lifted straight out of the test app
@@ -268,6 +280,30 @@ struct CrucibleContext {
 
 };
 
+static void HandleConnectCommand(CrucibleContext &cc, OBSData &obj)
+{
+	const char *str = nullptr;
+
+	if ((str = obs_data_get_string(obj, "log"))) {
+		if (log_client.Open(str))
+			blog(LOG_INFO, "Connected log to '%s'", str);
+	}
+
+	if ((str = obs_data_get_string(obj, "event"))) {
+		if (event_client.Open(str))
+			blog(LOG_INFO, "Connected event to '%s'", str);
+	}
+}
+
+static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
+{
+	cc.StopVideo();
+	cc.UpdateGameCapture(OBSDataGetObj(obj, "game_capture"));
+	cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
+	blog(LOG_INFO, "Starting new capture");
+	cc.StartVideo();
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	if (!data)
@@ -275,13 +311,33 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 
 	auto obj = OBSDataCreate({data, data+size});
 
+	blog(LOG_INFO, "got: %s", data);
+
+	unique_ptr<obs_data_item_t> item{obs_data_item_byname(obj, "command")};
+	if (!item) {
+		blog(LOG_WARNING, "Missing command element on command channel");
+		return;
+	}
+
+	const char *str = obs_data_item_get_string(item.get());
+	if (!str) {
+		blog(LOG_WARNING, "Invalid command element");
+		return;
+	}
+
+	if (string("connect") == str) {
+		HandleConnectCommand(cc, obj);
+		return;
+	} else if (string("capture_new_process") == str) {
+		HandleCaptureCommand(cc, obj);
+		return;
+	}
+
+	blog(LOG_WARNING, "Unknown command: %s", str);
+
+
 	// TODO: Handle changes to frame rate, target resolution, encoder type,
 	//       ...
-
-	cc.StopVideo();
-	cc.UpdateGameCapture(OBSDataGetObj(obj, "game_capture"));
-	cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
-	cc.StartVideo();
 }
 
 void TestVideoRecording(TestWindow &window)
