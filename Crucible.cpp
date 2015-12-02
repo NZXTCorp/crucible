@@ -245,7 +245,8 @@ struct CrucibleContext {
 	void StopVideo()
 	{
 		LOCK;
-		obs_output_stop(output);
+		if (obs_output_active(output))
+			obs_output_stop(output);
 
 		ovi.fps_den = 0;
 		ResetVideo();
