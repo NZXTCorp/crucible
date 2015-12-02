@@ -239,7 +239,11 @@ struct CrucibleContext {
 	void InitSignals()
 	{
 		startRecording.Connect(obs_output_get_signal_handler(output), "start", OBSStartRecording, nullptr);
-		stopRecording.Connect(obs_output_get_signal_handler(output), "stop", OBSStopRecording, nullptr);
+
+		stopRecording.Connect(obs_output_get_signal_handler(output), "stop", [](void *data, calldata*)
+		{
+			static_cast<CrucibleContext*>(data)->StopVideo();
+		}, this);
 
 		stopCapture.Connect(obs_source_get_signal_handler(gameCapture), "stop_capture", [](void *data, calldata_t*)
 		{
@@ -254,29 +258,41 @@ struct CrucibleContext {
 
 #define CONCAT2(x, y) x ## y
 #define CONCAT(x, y) CONCAT2(x, y)
-#define LOCK auto CONCAT(lockGuard, __LINE__) = lock_guard<mutex>{updateMutex};
+#define LOCK auto CONCAT(lockGuard, __LINE__) = lock_guard<recursive_mutex>{updateMutex};
 
-	mutex updateMutex;
+	recursive_mutex updateMutex;
 
 	void UpdateGameCapture(obs_data_t *settings)
 	{
+		if (!settings)
+			return;
+
 		LOCK;
 		obs_source_update(gameCapture, settings);
 	}
 
 	void UpdateEncoder(obs_data_t *settings)
 	{
+		if (!settings)
+			return;
+
 		obs_encoder_update(h264, settings);
 	}
 
+	bool stopping = false;
 	void StopVideo()
 	{
 		LOCK;
+		if (stopping)
+			return;
+
+		stopping = true;
 		if (obs_output_active(output))
 			obs_output_stop(output);
 
 		ovi.fps_den = 0;
 		ResetVideo();
+		stopping = false;
 	}
 
 	void StartVideo()
