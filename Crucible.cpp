@@ -352,6 +352,7 @@ void TestVideoRecording(TestWindow &window)
 		crucibleContext.InitSources();
 		crucibleContext.InitEncoders();
 		crucibleContext.InitOutput();
+		crucibleContext.InitSignals();
 		crucibleContext.StopVideo();
 
 		// TODO: remove once we're done debugging
