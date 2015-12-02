@@ -380,9 +380,6 @@ void TestVideoRecording(TestWindow &window)
 
 		IPCServer remote{"ForgeCrucible", handleCommand};
 
-		if (!crucibleContext.StartVideo())
-			throw "Can't start recording";
-
 		MSG msg;
 		while (GetMessage(&msg, NULL, 0, 0))
 		{
