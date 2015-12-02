@@ -138,7 +138,7 @@ struct CrucibleContext {
 	OBSSource tunes, gameCapture;
 	OBSEncoder h264, aac;
 	OBSOutput output;
-	OBSSignal startRecording, stopRecording;
+	OBSSignal startRecording, stopRecording, stopCapture, startCapture;
 
 	bool ResetVideo()
 	{
@@ -240,6 +240,16 @@ struct CrucibleContext {
 	{
 		startRecording.Connect(obs_output_get_signal_handler(output), "start", OBSStartRecording, nullptr);
 		stopRecording.Connect(obs_output_get_signal_handler(output), "stop", OBSStopRecording, nullptr);
+
+		stopCapture.Connect(obs_source_get_signal_handler(gameCapture), "stop_capture", [](void *data, calldata_t*)
+		{
+			obs_output_stop(static_cast<obs_output_t*>(data));
+		}, output);
+
+		startCapture.Connect(obs_source_get_signal_handler(gameCapture), "start_capture", [](void *data, calldata_t*)
+		{
+			obs_output_start(static_cast<obs_output_t*>(data));
+		}, output);
 	}
 
 #define CONCAT2(x, y) x ## y
@@ -269,7 +279,7 @@ struct CrucibleContext {
 		ResetVideo();
 	}
 
-	bool StartVideo()
+	void StartVideo()
 	{
 		LOCK;
 		ovi.fps_den = fps_den;
@@ -277,7 +287,6 @@ struct CrucibleContext {
 
 		obs_encoder_set_video(h264, obs_get_video());
 		obs_encoder_set_audio(aac, obs_get_audio());
-		return obs_output_start(output);
 	}
 
 };
