@@ -275,6 +275,8 @@ struct CrucibleContext {
 		ovi.fps_den = fps_den;
 		ResetVideo();
 
+		obs_encoder_set_video(h264, obs_get_video());
+		obs_encoder_set_audio(aac, obs_get_audio());
 		return obs_output_start(output);
 	}
 
