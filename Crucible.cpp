@@ -17,14 +17,19 @@ using namespace std;
 // window class borrowed from forge, remove once we've got headless mode working
 #include "TestWindow.h"
 
+static IPCClient event_client, log_client;
+
 // logging lifted straight out of the test app
 void do_log(int log_level, const char *msg, va_list args, void *param)
 {
 	char bla[4096];
-	vsnprintf(bla, 4095, msg, args);
+	size_t n = vsnprintf(bla, 4095, msg, args);
 
 	OutputDebugStringA(bla);
 	OutputDebugStringA("\n");
+
+	if (log_client)
+		log_client.Write(bla, n + 1);
 
 	//cout << bla << endl;
 
