@@ -136,9 +136,10 @@ struct CrucibleContext {
 	obs_video_info ovi;
 	uint32_t fps_den;
 	OBSSource tunes, gameCapture;
+	OBSSourceSignal stopCapture, startCapture;
 	OBSEncoder h264, aac;
 	OBSOutput output;
-	OBSSignal startRecording, stopRecording, stopCapture, startCapture;
+	OBSOutputSignal startRecording, stopRecording;
 
 	bool ResetVideo()
 	{
@@ -224,7 +225,25 @@ struct CrucibleContext {
 		obs_encoder_set_audio(aac, obs_get_audio());
 	}
 
-	void InitOutput()
+	void InitSignals()
+	{
+		stopRecording
+			.SetSignal("stop")
+			.SetFunc([=](calldata*)
+		{
+			StopVideo();
+		});
+
+		stopCapture
+			.SetOwner(gameCapture)
+			.SetSignal("stop_capture");
+
+		startCapture
+			.SetOwner(gameCapture)
+			.SetSignal("start_capture");
+	}
+
+	void CreateOutput()
 	{
 		auto osettings = OBSDataCreate();
 		obs_data_set_string(osettings, "path", "test.mp4");
@@ -234,26 +253,31 @@ struct CrucibleContext {
 
 		obs_output_set_video_encoder(output, h264);
 		obs_output_set_audio_encoder(output, aac, 0);
-	}
 
-	void InitSignals()
-	{
-		startRecording.Connect(obs_output_get_signal_handler(output), "start", OBSStartRecording, nullptr);
+		stopRecording
+			.Disconnect()
+			.SetOwner(output)
+			.Connect();
 
-		stopRecording.Connect(obs_output_get_signal_handler(output), "stop", [](void *data, calldata*)
+		auto weakOutput = OBSGetWeakRef(output);
+
+		stopCapture
+			.Disconnect()
+			.SetFunc([=](calldata_t*)
 		{
-			static_cast<CrucibleContext*>(data)->StopVideo();
-		}, this);
+			auto ref = OBSGetStrongRef(weakOutput);
+			if (ref)
+				obs_output_stop(ref);
+		}).Connect();
 
-		stopCapture.Connect(obs_source_get_signal_handler(gameCapture), "stop_capture", [](void *data, calldata_t*)
+		startCapture
+			.Disconnect()
+			.SetFunc([=](calldata_t*)
 		{
-			obs_output_stop(static_cast<obs_output_t*>(data));
-		}, output);
-
-		startCapture.Connect(obs_source_get_signal_handler(gameCapture), "start_capture", [](void *data, calldata_t*)
-		{
-			obs_output_start(static_cast<obs_output_t*>(data));
-		}, output);
+			auto ref = OBSGetStrongRef(weakOutput);
+			if (ref)
+				obs_output_start(ref);
+		}).Connect();
 	}
 
 #define CONCAT2(x, y) x ## y
@@ -290,6 +314,8 @@ struct CrucibleContext {
 		if (obs_output_active(output))
 			obs_output_stop(output);
 
+		output = nullptr;
+
 		ovi.fps_den = 0;
 		ResetVideo();
 		stopping = false;
@@ -303,6 +329,8 @@ struct CrucibleContext {
 
 		obs_encoder_set_video(h264, obs_get_video());
 		obs_encoder_set_audio(aac, obs_get_audio());
+
+		CreateOutput();
 	}
 
 };
@@ -376,7 +404,6 @@ void TestVideoRecording(TestWindow &window)
 		crucibleContext.InitLibobs();
 		crucibleContext.InitSources();
 		crucibleContext.InitEncoders();
-		crucibleContext.InitOutput();
 		crucibleContext.InitSignals();
 		crucibleContext.StopVideo();
 
