@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <mutex>
+#include <thread>
 using namespace std;
 
 #include "IPC.hpp"
@@ -140,6 +141,18 @@ struct CrucibleContext {
 	OBSEncoder h264, aac;
 	OBSOutput output;
 	OBSOutputSignal startRecording, stopRecording;
+
+	uint32_t target_width = 1280;
+	uint32_t target_height = 720;
+
+	struct RestartThread {
+		thread t;
+		~RestartThread()
+		{
+			if (t.joinable())
+				t.join();
+		}
+	} restartThread;
 
 	bool ResetVideo()
 	{
@@ -272,8 +285,12 @@ struct CrucibleContext {
 
 		startCapture
 			.Disconnect()
-			.SetFunc([=](calldata_t*)
+			.SetFunc([=](calldata_t *data)
 		{
+			if (UpdateSize(static_cast<uint32_t>(calldata_int(data, "width")),
+				       static_cast<uint32_t>(calldata_int(data, "height"))))
+				return;
+
 			auto ref = OBSGetStrongRef(weakOutput);
 			if (ref)
 				obs_output_start(ref);
@@ -301,6 +318,44 @@ struct CrucibleContext {
 			return;
 
 		obs_encoder_update(h264, settings);
+	}
+
+	bool UpdateSize(uint32_t width, uint32_t height)
+	{
+		LOCK;
+
+		if (width == ovi.base_width && height == ovi.base_height)
+			return false;
+
+		if (width > target_width) {
+			auto scale = width / static_cast<float>(target_width);
+			auto new_height = height / scale;
+
+			ovi.base_width = width;
+			ovi.base_height = height;
+			ovi.output_width = target_width;
+			ovi.output_height = static_cast<uint32_t>(new_height);
+
+		} else {
+			ovi.base_width = width;
+			ovi.base_height = height;
+			ovi.output_width = width;
+			ovi.output_height = height;
+		}
+
+		// TODO: this is probably not really safe, should introduce a command queue soon
+		if (restartThread.t.joinable())
+			restartThread.t.join();
+
+		restartThread.t = thread{[=]()
+		{
+			StopVideo();
+			StartVideo();
+
+			obs_output_start(this->output);
+		}};
+
+		return true;
 	}
 
 	bool stopping = false;
