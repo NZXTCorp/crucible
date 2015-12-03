@@ -42,11 +42,13 @@
     <IncludePath>$(OBSLib);$(Boost);$(IncludePath)</IncludePath>
     <LibraryPath>$(OBSBuild)\$(Configuration);$(Boost)\stage\lib;$(OBSBuild)\..\deps\ipc-util\$(Configuration);$(LibraryPath)</LibraryPath>
     <LocalDebuggerEnvironment>PATH=$(PATH);$(OBSBuild)\..\rundir\$(Configuration)\bin\32bit\</LocalDebuggerEnvironment>
+    <LocalDebuggerCommandArguments>-standalone</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IncludePath>$(OBSLib);$(Boost);$(IncludePath)</IncludePath>
     <LibraryPath>$(OBSBuild)\$(Configuration);$(Boost)\stage\lib;$(OBSBuild)\..\deps\ipc-util\$(Configuration);$(LibraryPath)</LibraryPath>
     <LocalDebuggerEnvironment>PATH=$(PATH);$(OBSBuild)\..\rundir\$(Configuration)\bin\32bit\</LocalDebuggerEnvironment>
+    <LocalDebuggerCommandArguments>-standalone</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

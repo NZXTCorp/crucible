@@ -10,6 +10,8 @@
 
 #include <iostream>
 #include <mutex>
+#include <sstream>
+#include <string>
 #include <thread>
 using namespace std;
 
@@ -450,7 +452,10 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 	//       ...
 }
 
-void TestVideoRecording(TestWindow &window)
+auto FreeProcessHandle = [](HANDLE h) { CloseHandle(h); };
+using ProcessHandle = unique_ptr<void, decltype(FreeProcessHandle)>;
+
+void TestVideoRecording(TestWindow &window, ProcessHandle &forge)
 {
 	try
 	{
@@ -491,10 +496,36 @@ void TestVideoRecording(TestWindow &window)
 		IPCServer remote{"ForgeCrucible", handleCommand};
 
 		MSG msg;
-		while (GetMessage(&msg, NULL, 0, 0))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
+		
+		if (forge) {
+			DWORD reason = WAIT_TIMEOUT;
+			HANDLE h = forge.get();
+			while (WAIT_OBJECT_0 != reason)
+			{
+				switch (reason = MsgWaitForMultipleObjects(1, &h, false, INFINITE, QS_ALLINPUT)) {
+				case WAIT_OBJECT_0:
+					blog(LOG_INFO, "Forge exited, exiting");
+					break;
+
+				case WAIT_OBJECT_0 + 1:
+					while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+					{
+						TranslateMessage(&msg);
+						DispatchMessage(&msg);
+					}
+					break;
+
+				default:
+					throw "Unexpected value from MsgWaitForMultipleObjects";
+				}
+			}
+
+		} else {
+			while (GetMessage(&msg, nullptr, 0, 0))
+			{
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+			}
 		}
 
 		crucibleContext.StopVideo();
@@ -506,9 +537,42 @@ void TestVideoRecording(TestWindow &window)
 
 }
 
+static ProcessHandle HandleCLIArgs()
+{
+	auto argvFree = [](wchar_t *argv[]) { LocalFree(argv); };
+	int argc = 0;
+	auto argv = unique_ptr<wchar_t*[], decltype(argvFree)>{CommandLineToArgvW(GetCommandLineW(), &argc), argvFree};
+
+	if (!argv || argc <= 1)
+		throw make_pair("Started without arguments, exiting", -1);
+
+	if (wstring(L"-standalone") == argv[1]) {
+		blog(LOG_INFO, "Running standalone");
+		return {};
+	}
+
+	DWORD pid;
+	wistringstream ss(argv[1]);
+	if (!(ss >> pid))
+		throw make_pair("Couldn't read PID from argv", -2);
+
+	return ProcessHandle{OpenProcess(SYNCHRONIZE, false, pid), FreeProcessHandle};
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmd)
 {
 	base_set_log_handler(do_log, nullptr);
+
+	ProcessHandle forge;
+	try
+	{
+		forge = HandleCLIArgs();
+	}
+	catch (std::pair<const char*, int> &err)
+	{
+		blog(LOG_ERROR, "ERROR: %s (%#x)", err.first, GetLastError());
+		return err.second;
+	}
 	
 	try
 	{	
@@ -524,7 +588,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		window.Show();
 
-		TestVideoRecording(window);
+		TestVideoRecording(window, forge);
 	}
 	catch (const char *err)
 	{
