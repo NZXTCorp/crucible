@@ -13,6 +13,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <vector>
 using namespace std;
 
 #include "IPC.hpp"
@@ -131,6 +132,56 @@ static DStr GetModulePath(const char *name)
 #define CONCAT2(x, y) x ## y
 #define CONCAT(x, y) CONCAT2(x, y)
 #define LOCK(x) lock_guard<decltype(x)> CONCAT(lockGuard, __LINE__){x};
+
+namespace ForgeEvents {
+	mutex eventMutex;
+	vector<OBSData> queuedEvents;
+
+	void SendEvent(obs_data_t *event)
+	{
+		if (!event)
+			return;
+
+		auto data = obs_data_get_json(event);
+		if (!data)
+			return;
+
+		LOCK(eventMutex);
+		if (event_client.Write(data, strlen(data) + 1))
+			return;
+
+		queuedEvents.push_back(event);
+		blog(LOG_INFO, "event_client.Write failed, queueing event");
+	}
+
+	OBSData EventCreate(const char * name)
+	{
+		auto event = OBSDataCreate();
+
+		obs_data_set_string(event, "event", name);
+		obs_data_set_int(event, "timestamp", GetTickCount64());
+
+		return event;
+	}
+
+	void SendRecordingStart(const char *filename)
+	{
+		auto event = EventCreate("started_recording");
+
+		obs_data_set_string(event, "filename", filename);
+
+		SendEvent(event);
+	}
+
+	void SendRecordingStop(int total_frames)
+	{
+		auto event = EventCreate("stopped_recording");
+		
+		obs_data_set_int(event, "total_frames", total_frames);
+
+		SendEvent(event);
+	}
+}
 
 template <typename T, typename U>
 static void InitRef(T &ref, const char *msg, void (*release)(U*), U *val)
@@ -253,7 +304,16 @@ struct CrucibleContext {
 			.SetSignal("stop")
 			.SetFunc([=](calldata*)
 		{
+			ForgeEvents::SendRecordingStop(obs_output_get_total_frames(output));
 			StopVideo();
+		});
+
+		startRecording
+			.SetSignal("start")
+			.SetFunc([=](calldata*)
+		{
+			auto data = OBSDataTransferOwned(obs_output_get_settings(output));
+			ForgeEvents::SendRecordingStart(obs_data_get_string(data, "path"));
 		});
 
 		stopCapture
@@ -277,6 +337,11 @@ struct CrucibleContext {
 		obs_output_set_audio_encoder(output, aac, 0);
 
 		stopRecording
+			.Disconnect()
+			.SetOwner(output)
+			.Connect();
+
+		startRecording
 			.Disconnect()
 			.SetOwner(output)
 			.Connect();
