@@ -74,18 +74,21 @@ void OBSStopRecording(void *data, calldata_t *params)
 	blog(LOG_INFO, "Recording stopped, code %d", code);
 }
 
+static OBSData OBSDataTransferOwned(obs_data_t *data)
+{
+	OBSData obj = data;
+	obs_data_release(obj);
+	return obj;
+}
+
 static OBSData OBSDataCreate(const string &json={})
 {
-	OBSData data = json.empty() ? obs_data_create() : obs_data_create_from_json(json.c_str());
-	obs_data_release(data);
-	return data;
+	return OBSDataTransferOwned(json.empty() ? obs_data_create() : obs_data_create_from_json(json.c_str()));
 }
 
 static OBSData OBSDataGetObj(obs_data_t *data, const char *name)
 {
-	OBSData obj = obs_data_get_obj(data, name);
-	obs_data_release(obj);
-	return obj;
+	return OBSDataTransferOwned(obs_data_get_obj(data, name));
 }
 
 /*template <typename T>
@@ -124,6 +127,10 @@ static DStr GetModulePath(const char *name)
 #else
 #define BIT_STRING "32bit"
 #endif
+
+#define CONCAT2(x, y) x ## y
+#define CONCAT(x, y) CONCAT2(x, y)
+#define LOCK(x) lock_guard<decltype(x)> CONCAT(lockGuard, __LINE__){x};
 
 template <typename T, typename U>
 static void InitRef(T &ref, const char *msg, void (*release)(U*), U *val)
@@ -299,10 +306,6 @@ struct CrucibleContext {
 		}).Connect();
 	}
 
-#define CONCAT2(x, y) x ## y
-#define CONCAT(x, y) CONCAT2(x, y)
-#define LOCK auto CONCAT(lockGuard, __LINE__) = lock_guard<recursive_mutex>{updateMutex};
-
 	recursive_mutex updateMutex;
 
 	void UpdateGameCapture(obs_data_t *settings)
@@ -310,7 +313,7 @@ struct CrucibleContext {
 		if (!settings)
 			return;
 
-		LOCK;
+		LOCK(updateMutex);
 		obs_source_update(gameCapture, settings);
 	}
 
@@ -324,7 +327,7 @@ struct CrucibleContext {
 
 	bool UpdateSize(uint32_t width, uint32_t height)
 	{
-		LOCK;
+		LOCK(updateMutex);
 
 		if (width == ovi.base_width && height == ovi.base_height)
 			return false;
@@ -363,7 +366,7 @@ struct CrucibleContext {
 	bool stopping = false;
 	void StopVideo()
 	{
-		LOCK;
+		LOCK(updateMutex);
 		if (stopping)
 			return;
 
@@ -380,7 +383,7 @@ struct CrucibleContext {
 
 	void StartVideo()
 	{
-		LOCK;
+		LOCK(updateMutex);
 		ovi.fps_den = fps_den;
 		ResetVideo();
 
