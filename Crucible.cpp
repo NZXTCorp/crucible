@@ -540,7 +540,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 auto FreeProcessHandle = [](HANDLE h) { CloseHandle(h); };
 using ProcessHandle = unique_ptr<void, decltype(FreeProcessHandle)>;
 
-void TestVideoRecording(TestWindow &window, ProcessHandle &forge)
+void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_event)
 {
 	try
 	{
@@ -579,6 +579,9 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge)
 		};
 
 		IPCServer remote{"ForgeCrucible", handleCommand};
+
+		if (start_event)
+			SetEvent(start_event);
 
 		MSG msg;
 		
@@ -622,7 +625,7 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge)
 
 }
 
-static ProcessHandle HandleCLIArgs()
+static ProcessHandle HandleCLIArgs(HANDLE &start_event)
 {
 	auto argvFree = [](wchar_t *argv[]) { LocalFree(argv); };
 	int argc = 0;
@@ -636,10 +639,17 @@ static ProcessHandle HandleCLIArgs()
 		return {};
 	}
 
+	if (argc <= 2)
+		throw make_pair("Not enough arguments for non-standalone", -4);
+
 	DWORD pid;
 	wistringstream ss(argv[1]);
 	if (!(ss >> pid))
 		throw make_pair("Couldn't read PID from argv", -2);
+
+	ss = wistringstream(argv[2]);
+	if (!(ss >> start_event))
+		throw make_pair("Couldn't read event id from argv", -3);
 
 	return ProcessHandle{OpenProcess(SYNCHRONIZE, false, pid), FreeProcessHandle};
 }
@@ -649,9 +659,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	base_set_log_handler(do_log, nullptr);
 
 	ProcessHandle forge;
+	HANDLE start_event = nullptr;
 	try
 	{
-		forge = HandleCLIArgs();
+		forge = HandleCLIArgs(start_event);
 	}
 	catch (std::pair<const char*, int> &err)
 	{
@@ -673,7 +684,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		window.Show();
 
-		TestVideoRecording(window, forge);
+		TestVideoRecording(window, forge, start_event);
 	}
 	catch (const char *err)
 	{
