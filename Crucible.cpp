@@ -154,6 +154,20 @@ namespace ForgeEvents {
 		blog(LOG_INFO, "event_client.Write failed, queueing event");
 	}
 
+	void SendQueuedEvents()
+	{
+		LOCK(eventMutex);
+		auto i = begin(queuedEvents);
+		auto end_ = end(queuedEvents);
+		for (; i != end_; i++) {
+			auto data = obs_data_get_json(*i);
+			if (!event_client.Write(data, strlen(data) + 1))
+				break;
+		}
+
+		queuedEvents.erase(begin(queuedEvents), i);
+	}
+
 	OBSData EventCreate(const char * name)
 	{
 		auto event = OBSDataCreate();
@@ -470,8 +484,11 @@ static void HandleConnectCommand(CrucibleContext &cc, OBSData &obj)
 	}
 
 	if ((str = obs_data_get_string(obj, "event"))) {
-		if (event_client.Open(str))
+		if (event_client.Open(str)) {
 			blog(LOG_INFO, "Connected event to '%s'", str);
+			
+			ForgeEvents::SendQueuedEvents();
+		}
 	}
 }
 
