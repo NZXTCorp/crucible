@@ -187,10 +187,11 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
-	void SendRecordingStop(int total_frames)
+	void SendRecordingStop(const char *filename, int total_frames)
 	{
 		auto event = EventCreate("stopped_recording");
 
+		obs_data_set_string(event, "filename", filename);
 		obs_data_set_int(event, "total_frames", total_frames);
 
 		SendEvent(event);
@@ -318,8 +319,10 @@ struct CrucibleContext {
 			.SetSignal("stop")
 			.SetFunc([=](calldata*)
 		{
-			ForgeEvents::SendRecordingStop(obs_output_get_total_frames(output));
-			StopVideo();
+			auto data = OBSDataTransferOwned(obs_output_get_settings(output));
+			ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
+				obs_output_get_total_frames(output));
+			StopVideo(); // leak here!!!
 		});
 
 		startRecording
