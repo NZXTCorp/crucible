@@ -190,7 +190,7 @@ namespace ForgeEvents {
 	void SendRecordingStop(int total_frames)
 	{
 		auto event = EventCreate("stopped_recording");
-		
+
 		obs_data_set_int(event, "total_frames", total_frames);
 
 		SendEvent(event);
@@ -486,7 +486,7 @@ static void HandleConnectCommand(CrucibleContext &cc, OBSData &obj)
 	if ((str = obs_data_get_string(obj, "event"))) {
 		if (event_client.Open(str)) {
 			blog(LOG_INFO, "Connected event to '%s'", str);
-			
+
 			ForgeEvents::SendQueuedEvents();
 		}
 	}
@@ -584,7 +584,7 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 			SetEvent(start_event);
 
 		MSG msg;
-		
+
 		if (forge) {
 			DWORD reason = WAIT_TIMEOUT;
 			HANDLE h = forge.get();
@@ -669,9 +669,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		blog(LOG_ERROR, "ERROR: %s (%#x)", err.first, GetLastError());
 		return err.second;
 	}
-	
+
 	try
-	{	
+	{
 		if (!obs_startup("en-US", "module-config", nullptr))
 			throw "Couldn't init OBS";
 
