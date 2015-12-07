@@ -4,6 +4,13 @@
 
 #include <string>
 
+inline OBSEncoder OBSTransferOwned(obs_encoder_t *encoder)
+{
+	OBSEncoder enc = encoder;
+	obs_encoder_release(enc);
+	return enc;
+}
+
 inline OBSData OBSTransferOwned(obs_data_t *data)
 {
 	OBSData obj = data;
