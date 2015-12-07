@@ -305,7 +305,7 @@ struct CrucibleContext {
 			.SetSignal("stop")
 			.SetFunc([=](calldata*)
 		{
-			auto data = OBSDataTransferOwned(obs_output_get_settings(output));
+			auto data = OBSTransferOwned(obs_output_get_settings(output));
 			ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
 				obs_output_get_total_frames(output));
 			StopVideo(); // leak here!!!
@@ -315,7 +315,7 @@ struct CrucibleContext {
 			.SetSignal("start")
 			.SetFunc([=](calldata*)
 		{
-			auto data = OBSDataTransferOwned(obs_output_get_settings(output));
+			auto data = OBSTransferOwned(obs_output_get_settings(output));
 			ForgeEvents::SendRecordingStart(obs_data_get_string(data, "path"));
 		});
 
