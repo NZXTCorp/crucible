@@ -77,6 +77,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AudioEncoderSelection.cpp" />
     <ClCompile Include="Crucible.cpp" />
     <ClCompile Include="TestWindow.cpp" />
   </ItemGroup>

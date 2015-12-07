@@ -23,6 +23,8 @@ using namespace std;
 // window class borrowed from forge, remove once we've got headless mode working
 #include "TestWindow.h"
 
+extern OBSEncoder CreateAudioEncoder(const char *name);
+
 namespace std {
 
 template <>
@@ -288,11 +290,9 @@ struct CrucibleContext {
 				obs_video_encoder_create("obs_x264", "x264 video", vsettings, nullptr));
 
 
-		auto asettings = OBSDataCreate();
-		obs_data_set_int(asettings, "bitrate", 128);
-
-		InitRef(aac, "Couldn't create audio encoder", obs_encoder_release,
-				obs_audio_encoder_create("CoreAudio_AAC", "coreaudio aac", asettings, 0, nullptr));
+		aac = CreateAudioEncoder("aac");
+		if (!aac)
+			throw "Couldn't create audio encoder";
 
 
 		obs_encoder_set_video(h264, obs_get_video());
