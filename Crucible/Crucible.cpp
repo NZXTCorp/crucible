@@ -10,6 +10,7 @@
 
 #include "OBSHelpers.hpp"
 
+#include <atomic>
 #include <iostream>
 #include <mutex>
 #include <sstream>
@@ -39,6 +40,14 @@ struct default_delete<obs_data_item_t> {
 
 static IPCClient event_client, log_client;
 
+atomic<bool> store_startup_log = false;
+vector<string> startup_logs;
+mutex startup_log_mutex;
+
+#define CONCAT2(x, y) x ## y
+#define CONCAT(x, y) CONCAT2(x, y)
+#define LOCK(x) lock_guard<decltype(x)> CONCAT(lockGuard, __LINE__){x};
+
 // logging lifted straight out of the test app
 void do_log(int log_level, const char *msg, va_list args, void *param)
 {
@@ -52,6 +61,11 @@ void do_log(int log_level, const char *msg, va_list args, void *param)
 		log_client.Write(bla, n + 1);
 
 	//cout << bla << endl;
+
+	if (store_startup_log) {
+		LOCK(startup_log_mutex);
+		startup_logs.push_back(bla);
+	}
 
 	if (log_level < LOG_WARNING)
 		__debugbreak();
@@ -115,10 +129,6 @@ static DStr GetModulePath(const char *name)
 #else
 #define BIT_STRING "32bit"
 #endif
-
-#define CONCAT2(x, y) x ## y
-#define CONCAT(x, y) CONCAT2(x, y)
-#define LOCK(x) lock_guard<decltype(x)> CONCAT(lockGuard, __LINE__){x};
 
 namespace ForgeEvents {
 	mutex eventMutex;
@@ -477,8 +487,23 @@ static void HandleConnectCommand(CrucibleContext &cc, OBSData &obj)
 	const char *str = nullptr;
 
 	if ((str = obs_data_get_string(obj, "log"))) {
-		if (log_client.Open(str))
+		if (log_client.Open(str)) {
+			vector<string> buffered_logs;
+			if (store_startup_log) {
+				LOCK(startup_log_mutex);
+				swap(buffered_logs, startup_logs);
+				store_startup_log = false;
+			}
+
 			blog(LOG_INFO, "Connected log to '%s'", str);
+
+			if (buffered_logs.size()) {
+				blog(LOG_INFO, "Replaying startup log to '%s':", str);
+				for (auto &log : buffered_logs)
+					log_client.Write(log);
+				blog(LOG_INFO, "Done replaying startup log to '%s'", str);
+			}
+		}
 	}
 
 	if ((str = obs_data_get_string(obj, "event"))) {
@@ -668,6 +693,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		blog(LOG_ERROR, "ERROR: %s (%#x)", err.first, GetLastError());
 		return err.second;
 	}
+
+	if (forge)
+		store_startup_log = true;
 
 	try
 	{
