@@ -29,5 +29,8 @@
     <ClInclude Include="IPC.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="OBSHelpers.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -8,6 +8,8 @@
 #include <util/dstr.hpp>
 #include <obs.hpp>
 
+#include "OBSHelpers.hpp"
+
 #include <iostream>
 #include <mutex>
 #include <sstream>
@@ -73,23 +75,6 @@ void OBSStopRecording(void *data, calldata_t *params)
 {
 	int code = (int)calldata_int(params, "code");
 	blog(LOG_INFO, "Recording stopped, code %d", code);
-}
-
-static OBSData OBSDataTransferOwned(obs_data_t *data)
-{
-	OBSData obj = data;
-	obs_data_release(obj);
-	return obj;
-}
-
-static OBSData OBSDataCreate(const string &json={})
-{
-	return OBSDataTransferOwned(json.empty() ? obs_data_create() : obs_data_create_from_json(json.c_str()));
-}
-
-static OBSData OBSDataGetObj(obs_data_t *data, const char *name)
-{
-	return OBSDataTransferOwned(obs_data_get_obj(data, name));
 }
 
 /*template <typename T>
