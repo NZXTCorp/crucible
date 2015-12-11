@@ -1,0 +1,58 @@
+//
+// GAPI_OGL.TBL
+//
+// typedefs for OpenGL functions that we use.
+// We cannot link implicitly with opengl32.lib, because we test
+// OpenGL usage in the applications by looking for OpenGL functions.
+// (Linking with opengl32.lib will make every app look like it is
+// using OpenGL).
+//
+
+GAPIOGLFUNC( wglSwapBuffers,		BOOL,	( HDC ))
+GAPIOGLFUNC( wglGetCurrentDC,		HDC,	( void ))
+GAPIOGLFUNC( wglGetCurrentContext,	HGLRC,	( void ))
+GAPIOGLFUNC( wglCreateContext,		HGLRC,	( HDC ))
+GAPIOGLFUNC( wglMakeCurrent,		BOOL,	( HDC, HGLRC ))
+GAPIOGLFUNC( wglGetProcAddress,		PROC,	( LPCSTR ))
+GAPIOGLFUNC( wglDeleteContext,		BOOL,	( HGLRC ))
+
+GAPIOGLFUNC( glBegin,				void,	(GLenum mode))	
+GAPIOGLFUNC( glDisable,				void,	(GLenum cap))
+GAPIOGLFUNC( glColor3f,				void,	(GLfloat red, GLfloat green, GLfloat blue))
+GAPIOGLFUNC( glEnable,				void,	(GLenum cap))
+GAPIOGLFUNC( glEnd,					void,	(void))
+GAPIOGLFUNC( glGetIntegerv,			void,	(GLenum pname, GLint *params))	
+GAPIOGLFUNC( glGetString,			const GLubyte*, (GLenum name))
+GAPIOGLFUNC( glLoadIdentity,		void,	(void))
+GAPIOGLFUNC( glMatrixMode,			void,	(GLenum mode))
+GAPIOGLFUNC( glOrtho,				void,	(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdouble zNear, GLdouble zFar))
+GAPIOGLFUNC( glPopAttrib,			void,	(void))
+GAPIOGLFUNC( glPopMatrix,			void,	(void))
+GAPIOGLFUNC( glPushAttrib,			void,	(GLbitfield mask))
+GAPIOGLFUNC( glPushMatrix,			void,	(void))
+GAPIOGLFUNC( glReadBuffer,			void,	(GLenum mode))
+GAPIOGLFUNC( glDrawBuffer,			void,	(GLenum mode))
+GAPIOGLFUNC( glReadPixels,			void,	(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid *pixels))
+GAPIOGLFUNC( glShadeModel,			void,	(GLenum mode))
+GAPIOGLFUNC( glVertex2i,			void,	(GLint x, GLint y))
+GAPIOGLFUNC( glViewport,			void,	(GLint x, GLint y, GLsizei width, GLsizei height))
+
+GAPIOGLFUNC( glHint,				void,	(GLenum target, GLenum mode))
+GAPIOGLFUNC( glClearColor,			void,	(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha))
+GAPIOGLFUNC( glPixelStorei,			void,	(GLenum pname, GLint param))
+GAPIOGLFUNC( glGenTextures,			void,	(GLsizei n, GLuint *textures))
+GAPIOGLFUNC( glGetError,			GLenum,	(void))
+GAPIOGLFUNC( glBindTexture,			void,	(GLenum target, GLuint texture))
+GAPIOGLFUNC( glTexParameteri,		void,	(GLenum target, GLenum pname, GLint param))
+GAPIOGLFUNC( glTexEnvf,				void,	(GLenum target, GLenum pname, GLfloat param))
+GAPIOGLFUNC( glTexEnvi,				void,	(GLenum target, GLenum pname, GLint param))
+GAPIOGLFUNC( glDeleteTextures,		void,	(GLsizei n, GLuint *textures))
+GAPIOGLFUNC( glInterleavedArrays,	void,	(GLenum format, GLsizei stride, const GLvoid *pointer))
+GAPIOGLFUNC( glDrawArrays,			void,	(GLenum mode, GLint first, GLsizei count))
+GAPIOGLFUNC( glTexImage2D,			void,	(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels))
+GAPIOGLFUNC( glTexSubImage2D,		void,	(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid *pixels))
+GAPIOGLFUNC( glColor4f, 			void,	(GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha))
+GAPIOGLFUNC( glColor4ub,			void,	(GLubyte red, GLubyte green, GLubyte blue, GLubyte alpha))
+GAPIOGLFUNC( glTexCoord2f,			void,	(GLfloat s, GLfloat t))
+GAPIOGLFUNC( glVertex2f,			void,	(GLfloat x, GLfloat y))
+GAPIOGLFUNC( glBlendFunc,			void,	(GLenum sfactor, GLenum dfactor))
