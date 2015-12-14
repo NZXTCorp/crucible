@@ -212,6 +212,7 @@ struct CrucibleContext {
 	OBSSourceSignal stopCapture, startCapture;
 	OBSEncoder h264, aac;
 	string filename = "test.mp4";
+	string muxerSettings = "";
 	OBSOutput output;
 	OBSOutputSignal startRecording, stopRecording;
 
@@ -342,6 +343,7 @@ struct CrucibleContext {
 	{
 		auto osettings = OBSDataCreate();
 		obs_data_set_string(osettings, "path", filename.c_str());
+		obs_data_set_string(osettings, "muxer_settings", muxerSettings.c_str());
 
 		InitRef(output, "Couldn't create output", obs_output_release,
 				obs_output_create("ffmpeg_muxer", "ffmpeg recorder", osettings, nullptr));
@@ -410,6 +412,15 @@ struct CrucibleContext {
 
 		LOCK(updateMutex);
 		filename = path;
+	}
+
+	void UpdateMuxerSettings(const char *settings)
+	{
+		if (!settings)
+			return;
+
+		LOCK(updateMutex);
+		muxerSettings = settings;
 	}
 
 	bool UpdateSize(uint32_t width, uint32_t height)
@@ -521,6 +532,7 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 	cc.UpdateGameCapture(OBSDataGetObj(obj, "game_capture"));
 	cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
 	cc.UpdateFilename(obs_data_get_string(obj, "filename"));
+	cc.UpdateMuxerSettings(obs_data_get_string(obj, "muxer_settings"));
 	blog(LOG_INFO, "Starting new capture");
 	cc.StartVideo();
 }
