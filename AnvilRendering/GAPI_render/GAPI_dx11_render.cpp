@@ -484,7 +484,7 @@ void DX11Renderer::DrawNewIndicator( IDXGISwapChain *pSwapChain, IndicatorEvent 
 	pContext->IAGetInputLayout( IREF_GETPPTR(pOldInputLayout, ID3D11InputLayout) );	
 
 // setup
-	pContext->OMSetRenderTargets(1, IREF_GETPPTR(pRenderTargetView, ID3D11RenderTargetView), nullptr );
+	pContext->OMSetRenderTargets(1, pRenderTargetView.get_Array(), nullptr );
 	pContext->RSSetViewports(1, &vp);						// Set the new viewport for the indicator
 	pContext->RSSetState(m_pRasterState);					// Set the new state
 	pContext->OMSetDepthStencilState(m_pDepthState, 1);		// Set depth-stencil state to temporarily disable z-buffer
@@ -500,15 +500,15 @@ void DX11Renderer::DrawNewIndicator( IDXGISwapChain *pSwapChain, IndicatorEvent 
 	pContext->VSSetShader( m_pVertexShader, NULL, 0 );
 	pContext->PSSetShader( m_pPixelShader, NULL, 0 );
 
-	pContext->PSSetShaderResources( 0, 1, IREF_GETPPTR(m_pResViewNotification[eIndicatorEvent], ID3D11ShaderResourceView) );
-	pContext->PSSetSamplers( 0, 1, IREF_GETPPTR(m_pSamplerState, ID3D11SamplerState) );
+	pContext->PSSetShaderResources( 0, 1, m_pResViewNotification[eIndicatorEvent].get_Array() );
+	pContext->PSSetSamplers( 0, 1, m_pSamplerState.get_Array() );
 
 	UpdateNotificationVB( eIndicatorEvent, alpha );
 
 // draw
 	UINT stride = sizeof( TEXMAPVERTEX );
 	UINT offset = 0;
-	pContext->IASetVertexBuffers( 0, 1, IREF_GETPPTR(m_pVBNotification, ID3D11Buffer), &stride, &offset );
+	pContext->IASetVertexBuffers( 0, 1, m_pVBNotification.get_Array(), &stride, &offset );
 	pContext->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP );
 	pContext->Draw( 4, 0 );
 
@@ -516,7 +516,7 @@ void DX11Renderer::DrawNewIndicator( IDXGISwapChain *pSwapChain, IndicatorEvent 
 	pContext->IASetPrimitiveTopology( old_topology );
 	pContext->IASetInputLayout( pOldInputLayout.get_RefObj() );	
 
-	pContext->OMSetRenderTargets(1, IREF_GETPPTR(pOldRenderTargetView, ID3D11RenderTargetView), pDepthStencilView);
+	pContext->OMSetRenderTargets(1, pOldRenderTargetView.get_Array(), pDepthStencilView);
 
 	pContext->RSSetViewports(1, &originalVP);				// restore the old viewport
 	pContext->RSSetState(pSavedRSState);					// restore the old state

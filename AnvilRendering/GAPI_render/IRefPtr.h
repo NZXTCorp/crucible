@@ -63,6 +63,11 @@ public:
 		AssertIREF(m_pObj);
 		return m_pObj != nullptr;
 	}
+	_TYPE** get_Array()
+	{
+		assert(m_pObj);
+		return &m_pObj;
+	}
 	_TYPE** get_PPtr()
 	{
 		// QueryInterface or similiar wants a pointer to a pointer to fill in my interface.
