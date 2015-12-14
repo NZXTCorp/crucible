@@ -603,6 +603,8 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 		obs_display_add_draw_callback(display, RenderWindow, nullptr);
 
 		auto path = GetModulePath(nullptr);
+		DStr path64;
+		dstr_printf(path64, "%sAnvilRendering64.dll", path->array);
 		dstr_cat(path, "AnvilRendering.dll");
 
 		// update source settings - tell game_capture to try and capture hl2: lost coast
@@ -610,6 +612,7 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 		obs_data_set_bool(csettings, "capture_any_fullscreen", false);
 		obs_data_set_bool(csettings, "capture_cursor", true);
 		obs_data_set_string(csettings, "overlay_dll", path);
+		obs_data_set_string(csettings, "overlay_dll64", path64);
 		obs_data_set_string(csettings, "window", "Half-Life 2#3A Lost Coast:Valve001:hl2.exe");
 		crucibleContext.UpdateGameCapture(csettings);
 
