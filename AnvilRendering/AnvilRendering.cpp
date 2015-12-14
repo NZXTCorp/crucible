@@ -4,7 +4,6 @@
 #include "stdafx.h"
 
 #include "../Crucible/IPC.hpp"
-#include "../Crucible/OverlayInfo.h"
 
 #include "AnvilRendering.h"
 #include "GAPI_render/NewIndicator.h"
