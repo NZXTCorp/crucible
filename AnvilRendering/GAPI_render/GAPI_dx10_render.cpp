@@ -13,6 +13,8 @@
 
 #include "GAPI_dx10_render.h"
 
+#include <memory>
+
 typedef HRESULT (WINAPI *PFN_D3D10_COMPILESHADER)(LPCSTR pSrcData, SIZE_T SrcDataSize, LPCSTR pFileName, CONST D3D10_SHADER_MACRO* pDefines, LPD3D10INCLUDE pInclude, 
     LPCSTR pFunctionName, LPCSTR pProfile, UINT Flags, ID3D10Blob** ppShader, ID3D10Blob** ppErrorMsgs);
 
@@ -617,4 +619,43 @@ void DX10Renderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 
 	pRenderTargetView.ReleaseRefObj( );
 	pOldInputLayout.ReleaseRefObj( );
+}
+
+
+static DX10Renderer *get_renderer(IDXGISwapChain *swap)
+{
+	using namespace std;
+	static unique_ptr<DX10Renderer> renderer;
+
+	if (!renderer)
+	{
+		ID3D10Device *dev = nullptr;
+		auto hr = swap->GetDevice(__uuidof(ID3D10Device), (void**)&dev);
+		if (FAILED(hr) || !dev)
+			return nullptr;
+
+		DXGI_SWAP_CHAIN_DESC desc;
+		hr = swap->GetDesc(&desc);
+		if (FAILED(hr))
+			return nullptr;
+
+		g_Proc.m_Stats.m_SizeWnd.cx = desc.BufferDesc.Width;
+		g_Proc.m_Stats.m_SizeWnd.cy = desc.BufferDesc.Height;
+
+		D3D10_LoadFunctions();
+
+		renderer.reset(new DX10Renderer{ dev }); //release dev?
+		renderer->InitRenderer(swap, indicatorManager);
+	}
+
+	return renderer.get();
+}
+
+C_EXPORT void overlay_draw_d3d10(IDXGISwapChain *swap)
+{
+	auto renderer = get_renderer(swap);
+	if (!renderer)
+		return;
+
+	renderer->DrawNewIndicator(INDICATE_CAPTURING, 255);
 }
