@@ -15,6 +15,8 @@
 
 #include "GAPI_dx11_render.h"
 
+#include <memory>
+
 extern pD3DCompile s_D3DCompile;
 
 struct TEXMAPVERTEX 
@@ -629,4 +631,41 @@ void DX11Renderer::DrawIndicator( IDXGISwapChain *pSwapChain, TAKSI_INDICATE_TYP
 	pRenderTargetView.ReleaseRefObj( );
 	pOldRenderTargetView.ReleaseRefObj( );
 	pOldInputLayout.ReleaseRefObj( );
+}
+
+
+static DX11Renderer *get_renderer(IDXGISwapChain *swap)
+{
+	using namespace std;
+	static unique_ptr<DX11Renderer> renderer;
+
+	if (!renderer)
+	{
+		ID3D11Device *dev = nullptr;
+		auto hr = swap->GetDevice(__uuidof(ID3D11Device), (void**)&dev);
+		if (FAILED(hr) || !dev)
+			return nullptr;
+
+		DXGI_SWAP_CHAIN_DESC desc;
+		hr = swap->GetDesc(&desc);
+		if (FAILED(hr))
+			return nullptr;
+
+		g_Proc.m_Stats.m_SizeWnd.cx = desc.BufferDesc.Width;
+		g_Proc.m_Stats.m_SizeWnd.cy = desc.BufferDesc.Height;
+
+		renderer.reset(new DX11Renderer{dev}); //release dev?
+		renderer->InitRenderer(indicatorManager);
+	}
+
+	return renderer.get();
+}
+
+C_EXPORT void overlay_draw_d3d11(IDXGISwapChain *swap)
+{
+	auto renderer = get_renderer(swap);
+	if (!renderer)
+		return;
+
+	renderer->DrawNewIndicator(swap, INDICATE_CAPTURING, 255);
 }
