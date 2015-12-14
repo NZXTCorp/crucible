@@ -414,3 +414,79 @@ void DX9Renderer::DrawOverlay( void )
 	m_pDevice->SetTexture( 0, pTexture );
 	pTexture->Release( );
 }
+
+
+
+static bool get_back_buffer_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
+{
+	IDirect3DSurface9 *back_buffer = nullptr;
+	D3DSURFACE_DESC desc;
+	HRESULT hr;
+
+	hr = dev->GetRenderTarget(0, &back_buffer);
+	if (FAILED(hr)) {
+		return false;
+	}
+
+	hr = back_buffer->GetDesc(&desc);
+	back_buffer->Release();
+
+	if (FAILED(hr)) {
+		hlog("d3d9_init_format_backbuffer: Failed to get "
+			"backbuffer descriptor (%#x)", hr);
+		return false;
+	}
+
+	cx = desc.Width;
+	cy = desc.Height;
+
+	return true;
+}
+
+static bool d3d9_get_swap_desc(IDirect3DDevice9 *dev, D3DPRESENT_PARAMETERS &pp)
+{
+
+	return true;
+}
+
+static bool get_swap_chain_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
+{
+	IDirect3DSwapChain9 *swap = nullptr;
+
+	auto hr = dev->GetSwapChain(0, &swap);
+	if (FAILED(hr)) {
+		hlog("d3d9_get_swap_desc: Failed to get swap chain (%#x)", hr);
+		return false;
+	}
+
+	D3DPRESENT_PARAMETERS pp;
+	hr = swap->GetPresentParameters(&pp);
+	swap->Release();
+
+	if (FAILED(hr)) {
+		hlog("d3d9_get_swap_desc: Failed to get "
+			"presentation parameters (%#x)", hr);
+		return false;
+	}
+
+	cx = pp.BackBufferWidth;
+	cy = pp.BackBufferHeight;
+	return true;
+}
+
+C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
+{
+	static DX9Renderer renderer;
+	static bool initialized = false;
+
+	if (!initialized) {
+		if (!(get_back_buffer_size(dev, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy) ||
+			get_swap_chain_size(dev, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy)))
+			return;
+
+		renderer.InitRenderer(dev, indicatorManager);
+		initialized = true;
+	}
+
+	renderer.DrawNewIndicator(INDICATE_CAPTURING, D3DCOLOR_ARGB(255, 255, 255, 255));
+}
