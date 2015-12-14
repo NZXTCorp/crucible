@@ -497,7 +497,7 @@ void DX10Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, BYTE alpha 
 	m_pDevice->IAGetInputLayout( IREF_GETPPTR(pOldInputLayout, ID3D10InputLayout) );	
 
 // setup
-	m_pDevice->OMSetRenderTargets(1, IREF_GETPPTR(m_pRenderTargetView, ID3D10RenderTargetView), nullptr );
+	m_pDevice->OMSetRenderTargets(1, m_pRenderTargetView.get_Array(), nullptr );
 	m_pDevice->RSSetViewports(1, &vp);						// Set the new viewport for the indicator
 	m_pDevice->RSSetState(m_pRasterState);					// Set the new state
 	m_pDevice->OMSetDepthStencilState(m_pDepthState, 1);		// Set depth-stencil state to temporarily disable z-buffer
@@ -510,15 +510,15 @@ void DX10Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, BYTE alpha 
 	m_pDevice->VSSetShader( m_pVertexShader );
 	m_pDevice->PSSetShader( m_pPixelShader );
 
-	m_pDevice->PSSetShaderResources( 0, 1, IREF_GETPPTR(m_pResViewNotification[eIndicatorEvent], ID3D10ShaderResourceView) );
-	m_pDevice->PSSetSamplers( 0, 1, IREF_GETPPTR(m_pSamplerState, ID3D10SamplerState) );
+	m_pDevice->PSSetShaderResources( 0, 1, m_pResViewNotification[eIndicatorEvent].get_Array() );
+	m_pDevice->PSSetSamplers( 0, 1, m_pSamplerState.get_Array() );
 
 	UpdateNotificationVB( eIndicatorEvent, alpha );
 
 // draw
 	UINT stride = sizeof( TEXMAPVERTEX );
 	UINT offset = 0;
-	m_pDevice->IASetVertexBuffers( 0, 1, IREF_GETPPTR(m_pVBNotification, ID3D101Buffer), &stride, &offset );
+	m_pDevice->IASetVertexBuffers( 0, 1, m_pVBNotification.get_Array(), &stride, &offset );
 	m_pDevice->IASetPrimitiveTopology( D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP );
 	m_pDevice->Draw( 4, 0 );
 
@@ -526,7 +526,7 @@ void DX10Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, BYTE alpha 
 	m_pDevice->IASetPrimitiveTopology( old_topology );
 	m_pDevice->IASetInputLayout( pOldInputLayout.get_RefObj() );	
 
-	m_pDevice->OMSetRenderTargets( 1, IREF_GETPPTR(pRenderTargetView, ID3D10RenderTargetView), pDepthStencilView );
+	m_pDevice->OMSetRenderTargets( 1, pRenderTargetView.get_Array(), pDepthStencilView );
 
 	m_pDevice->RSSetViewports( 1, &originalVP );				// restore the old viewport
 	m_pDevice->RSSetState( pSavedRSState );					// restore the old state
