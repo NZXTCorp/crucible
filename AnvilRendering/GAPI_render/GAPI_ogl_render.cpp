@@ -381,13 +381,24 @@ static void get_window_size(HDC hdc, LONG *cx, LONG *cy)
 	*cy = rc.bottom;
 }
 
+static OpenGLRenderer render;
+static bool initialized = false;
+static HGLRC render_context = nullptr;
+
+void overlay_gl_free()
+{
+	render.FreeRenderer();
+
+	if (render_context) {
+		s_wglDeleteContext(render_context);
+		render_context = nullptr;
+	}
+
+	initialized = false;
+}
 
 C_EXPORT void overlay_draw_gl(HDC hdc)
 {
-	static OpenGLRenderer render;
-	static bool initialized = false;
-	static HGLRC render_context = nullptr;
-
 	if (!s_wglCreateContext)
 		LoadOpenGLFunctions();
 

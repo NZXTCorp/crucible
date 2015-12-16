@@ -62,8 +62,18 @@ C_EXPORT bool overlay_init(void (*hlog_)(const char *fmt, ...))
 	return true;
 }
 
+void overlay_d3d11_free();
+void overlay_d3d10_free();
+void overlay_d3d9_free();
+void overlay_gl_free();
+
 C_EXPORT void overlay_free()
 {
+	overlay_d3d11_free();
+	overlay_d3d10_free();
+	overlay_d3d9_free();
+	overlay_gl_free();
+
 	if (gdi_token)
 		Gdiplus::GdiplusShutdown(gdi_token);
 	hlog("Stopped overlay");

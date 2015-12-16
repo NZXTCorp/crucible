@@ -622,11 +622,11 @@ void DX10Renderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 }
 
 
+using namespace std;
+static unique_ptr<DX10Renderer> renderer;
+
 static DX10Renderer *get_renderer(IDXGISwapChain *swap)
 {
-	using namespace std;
-	static unique_ptr<DX10Renderer> renderer;
-
 	if (!renderer)
 	{
 		ID3D10Device *dev = nullptr;
@@ -649,6 +649,12 @@ static DX10Renderer *get_renderer(IDXGISwapChain *swap)
 	}
 
 	return renderer.get();
+}
+
+
+void overlay_d3d10_free()
+{
+	//renderer.reset(); // just cause 2 doesn't like this call, see overlay_d3d11_free
 }
 
 C_EXPORT void overlay_draw_d3d10(IDXGISwapChain *swap)

@@ -634,11 +634,11 @@ void DX11Renderer::DrawIndicator( IDXGISwapChain *pSwapChain, TAKSI_INDICATE_TYP
 }
 
 
+using namespace std;
+static unique_ptr<DX11Renderer> renderer;
+
 static DX11Renderer *get_renderer(IDXGISwapChain *swap)
 {
-	using namespace std;
-	static unique_ptr<DX11Renderer> renderer;
-
 	if (!renderer)
 	{
 		ID3D11Device *dev = nullptr;
@@ -659,6 +659,11 @@ static DX11Renderer *get_renderer(IDXGISwapChain *swap)
 	}
 
 	return renderer.get();
+}
+
+void overlay_d3d11_free()
+{
+	//renderer.reset(); // wow and gta 5 don't seem to like this reset/FreeRenderer call
 }
 
 C_EXPORT void overlay_draw_d3d11(IDXGISwapChain *swap)

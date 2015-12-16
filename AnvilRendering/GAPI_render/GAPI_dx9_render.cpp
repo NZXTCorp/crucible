@@ -474,17 +474,29 @@ static bool get_swap_chain_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
 	return true;
 }
 
+static DX9Renderer renderer;
+static bool initialized = false;
+
+void overlay_d3d9_free()
+{
+	if (!initialized)
+		return;
+
+	renderer.FreeRenderer();
+	initialized = false;
+}
+
 C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 {
-	static DX9Renderer renderer;
-	static bool initialized = false;
 
 	if (!initialized) {
 		if (!(get_back_buffer_size(dev, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy) ||
 			get_swap_chain_size(dev, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy)))
 			return;
 
-		renderer.InitRenderer(dev, indicatorManager);
+		if (!renderer.InitRenderer(dev, indicatorManager))
+			return;
+
 		initialized = true;
 	}
 
