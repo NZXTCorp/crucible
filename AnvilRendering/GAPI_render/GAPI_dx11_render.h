@@ -64,8 +64,8 @@ class DX11Renderer
 private:
 	ID3D11Device *m_pDevice;
 
-	IRefPtr<ID3D11RasterizerState> m_pRasterState;
-	IRefPtr<ID3D11DepthStencilState> m_pDepthState;
+	ID3D11RasterizerState *m_pRasterState;
+	ID3D11DepthStencilState *m_pDepthState;
 
 	IRefPtr<ID3D11Texture2D> m_pIndicatorTexture[INDICATE_NONE]; // textures for new indicators
 

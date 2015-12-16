@@ -309,7 +309,7 @@ bool DX10Renderer::InitRenderer( IDXGISwapChain *pSwapChain, IndicatorManager &m
     rasterizerState.ScissorEnable = false;
     rasterizerState.MultisampleEnable = false;
     rasterizerState.AntialiasedLineEnable = false;
-	hRes = m_pDevice->CreateRasterizerState( &rasterizerState, IREF_GETPPTR(m_pRasterState, ID3D11RasterizerState) );
+	hRes = m_pDevice->CreateRasterizerState( &rasterizerState, &m_pRasterState );
 	CHEK( hRes, "CreateRasterizerState" );
 
 	// set up the depth/stencil state we want
@@ -328,7 +328,7 @@ bool DX10Renderer::InitRenderer( IDXGISwapChain *pSwapChain, IndicatorManager &m
 	dsDesc.BackFace.StencilFailOp = D3D10_STENCIL_OP_KEEP;
 	dsDesc.BackFace.StencilFunc = D3D10_COMPARISON_ALWAYS;
 	dsDesc.BackFace.StencilPassOp = D3D10_STENCIL_OP_KEEP;
-	hRes = m_pDevice->CreateDepthStencilState( &dsDesc, IREF_GETPPTR(m_pDepthState, ID3D10DepthStencilState));
+	hRes = m_pDevice->CreateDepthStencilState( &dsDesc, &m_pDepthState);
 	CHEK( hRes, "CreateDepthStencilState" );
 
 	// set up indicator textures
@@ -433,8 +433,6 @@ bool DX10Renderer::InitRenderer( IDXGISwapChain *pSwapChain, IndicatorManager &m
 
 void DX10Renderer::FreeRenderer( void )
 {
-	m_pRasterState.ReleaseRefObj( );
-	m_pDepthState.ReleaseRefObj( );
 	m_pVBNotification.ReleaseRefObj( );
 	m_pVBSquareIndicator.ReleaseRefObj( );
 	m_pVBSquareBorder.ReleaseRefObj( );
@@ -654,7 +652,7 @@ static DX10Renderer *get_renderer(IDXGISwapChain *swap)
 
 void overlay_d3d10_free()
 {
-	//renderer.reset(); // just cause 2 doesn't like this call, see overlay_d3d11_free
+	renderer.reset();
 }
 
 C_EXPORT void overlay_draw_d3d10(IDXGISwapChain *swap)

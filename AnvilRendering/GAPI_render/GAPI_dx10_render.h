@@ -66,8 +66,8 @@ class DX10Renderer
 private:
 	ID3D10Device *m_pDevice;
 
-	IRefPtr<ID3D10RasterizerState> m_pRasterState;
-	IRefPtr<ID3D10DepthStencilState> m_pDepthState;
+	ID3D10RasterizerState *m_pRasterState;
+	ID3D10DepthStencilState *m_pDepthState;
 
 	IRefPtr<ID3D10Texture2D> m_pIndicatorTexture[INDICATE_NONE]; // textures for new indicators
 

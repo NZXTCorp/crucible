@@ -278,7 +278,7 @@ bool DX11Renderer::InitRenderer( IndicatorManager &manager )
     rasterizerState.ScissorEnable = false;
     rasterizerState.MultisampleEnable = false;
     rasterizerState.AntialiasedLineEnable = false;
-	hRes = m_pDevice->CreateRasterizerState( &rasterizerState, IREF_GETPPTR(m_pRasterState, ID3D11RasterizerState) );
+	hRes = m_pDevice->CreateRasterizerState( &rasterizerState, &m_pRasterState );
 	CHEK( hRes, "CreateRasterizerState" );
 
 	// set up the depth/stencil state we want
@@ -297,7 +297,7 @@ bool DX11Renderer::InitRenderer( IndicatorManager &manager )
 	dsDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
 	dsDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
 	dsDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
-	hRes = m_pDevice->CreateDepthStencilState( &dsDesc, IREF_GETPPTR(m_pDepthState, ID3D11DepthStencilState));
+	hRes = m_pDevice->CreateDepthStencilState( &dsDesc, &m_pDepthState );
 	CHEK( hRes, "CreateDepthStencilState" );
 
 	// set up indicator textures
@@ -403,8 +403,6 @@ bool DX11Renderer::InitRenderer( IndicatorManager &manager )
 
 void DX11Renderer::FreeRenderer( void )
 {
-	m_pRasterState.ReleaseRefObj( );
-	m_pDepthState.ReleaseRefObj( );
 	m_pVBNotification.ReleaseRefObj( );
 	m_pVBSquareIndicator.ReleaseRefObj( );
 	m_pVBSquareBorder.ReleaseRefObj( );
@@ -663,7 +661,7 @@ static DX11Renderer *get_renderer(IDXGISwapChain *swap)
 
 void overlay_d3d11_free()
 {
-	//renderer.reset(); // wow and gta 5 don't seem to like this reset/FreeRenderer call
+	renderer.reset();
 }
 
 C_EXPORT void overlay_draw_d3d11(IDXGISwapChain *swap)
