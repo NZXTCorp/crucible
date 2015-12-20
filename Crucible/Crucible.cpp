@@ -228,6 +228,24 @@ namespace AnvilCommands {
 		obs_data_set_string(obj, "command", cmd);
 		return obj;
 	}
+
+	void ShowRecording()
+	{
+		auto cmd = CommandCreate("indicator");
+
+		obs_data_set_string(cmd, "indicator", "capturing");
+
+		SendCommand(cmd);
+	}
+
+	void ShowIdle()
+	{
+		auto cmd = CommandCreate("indicator");
+
+		obs_data_set_string(cmd, "indicator", "idle");
+
+		SendCommand(cmd);
+	}
 }
 
 template <typename T, typename U>
@@ -356,6 +374,7 @@ struct CrucibleContext {
 			auto data = OBSTransferOwned(obs_output_get_settings(output));
 			ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
 				obs_output_get_total_frames(output));
+			AnvilCommands::ShowIdle();
 			StopVideo(); // leak here!!!
 		});
 
@@ -365,6 +384,7 @@ struct CrucibleContext {
 		{
 			auto data = OBSTransferOwned(obs_output_get_settings(output));
 			ForgeEvents::SendRecordingStart(obs_data_get_string(data, "path"));
+			AnvilCommands::ShowRecording();
 		});
 
 		stopCapture
