@@ -500,5 +500,8 @@ C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 		initialized = true;
 	}
 
-	renderer.DrawNewIndicator(INDICATE_CAPTURING, D3DCOLOR_ARGB(255, 255, 255, 255));
+	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)
+	{
+		renderer.DrawNewIndicator(indicator, D3DCOLOR_ARGB(alpha, 255, 255, 255));
+	});
 }

@@ -41,6 +41,14 @@ ULONGLONG m_ulIndicatorEventStart; // time we started current indicator event
 ULONGLONG m_ulIndicatorEventStop; // time we should stop current indicator event
 ULONGLONG m_ulIndicatorLastUpdate; // time we last updated current indicator event
 
+
+static IndicatorEvent currentIndicator = INDICATE_NONE;
+
+void ShowCurrentIndicator(const std::function<void(IndicatorEvent, BYTE /*alpha*/)> &func)
+{
+	func(currentIndicator, 255);
+}
+
 ProcessCompat g_Proc;
 
 pD3DCompile s_D3DCompile = nullptr;

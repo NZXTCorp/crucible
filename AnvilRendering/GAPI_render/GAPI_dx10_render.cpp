@@ -661,5 +661,8 @@ C_EXPORT void overlay_draw_d3d10(IDXGISwapChain *swap)
 	if (!renderer)
 		return;
 
-	renderer->DrawNewIndicator(INDICATE_CAPTURING, 255);
+	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)
+	{
+		renderer->DrawNewIndicator(indicator, alpha);
+	});
 }

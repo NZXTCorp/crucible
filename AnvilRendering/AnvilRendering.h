@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #define C_EXPORT extern "C" __declspec(dllexport)
 
 extern void (*hlog)(const char *fmt, ...);
@@ -18,3 +20,6 @@ extern ProcessCompat g_Proc;
 
 class IndicatorManager;
 extern IndicatorManager indicatorManager;
+
+enum IndicatorEvent;
+void ShowCurrentIndicator(const std::function<void(IndicatorEvent, BYTE /*alpha*/)> &func);

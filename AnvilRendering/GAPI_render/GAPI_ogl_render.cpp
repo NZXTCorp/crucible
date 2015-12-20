@@ -415,7 +415,10 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 	get_window_size(hdc, &g_Proc.m_Stats.m_SizeWnd.cx, &g_Proc.m_Stats.m_SizeWnd.cy);
 
 	//render.DrawIndicator(TAKSI_INDICATE_Recording);
-	render.DrawNewIndicator(INDICATE_CAPTURING, 255);
+	ShowCurrentIndicator([](IndicatorEvent indicator, BYTE alpha)
+	{
+		render.DrawNewIndicator(indicator, alpha);
+	});
 
 	s_wglMakeCurrent(hdc, current_context);
 }
