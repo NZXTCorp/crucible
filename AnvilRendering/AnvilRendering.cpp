@@ -8,6 +8,8 @@
 #include "AnvilRendering.h"
 #include "GAPI_render/NewIndicator.h"
 
+#include <json/reader.h>
+
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -49,11 +51,43 @@ void ShowCurrentIndicator(const std::function<void(IndicatorEvent, BYTE /*alpha*
 	func(currentIndicator, 255);
 }
 
+namespace CrucibleCommand {
+
+using namespace json;
+
+static void HandleCommands(uint8_t *data, size_t size)
+{
+	if (!data)
+		return;
+	
+	try {
+		Object obj;
+
+		hlog("Anvil got: '%s'", data);
+		istringstream ss{{data, data + size - 1}};
+		Reader::Read(obj, ss);
+
+		auto cmd = static_cast<String>(obj["command"]).Value();
+
+		if (!cmd.length())
+			return hlog("Got invalid command with 0 length");
+
+		hlog("Got unknown command '%s' (%d)", cmd.c_str(), cmd.length());
+
+	} catch (Exception &e) {
+		hlog("Unable to process command in HandleCommands: %s", e.what());
+	}
+}
+
+}
+
 ProcessCompat g_Proc;
 
 pD3DCompile s_D3DCompile = nullptr;
 
 IndicatorManager indicatorManager;
+
+IPCServer crucibleConnection;
 
 ULONG_PTR gdi_token = 0;
 
@@ -66,6 +100,8 @@ C_EXPORT bool overlay_init(void (*hlog_)(const char *fmt, ...))
 	Gdiplus::Status status = Gdiplus::GdiplusStartup(&gdi_token, &gdiplusStartupInput, NULL);
 
 	indicatorManager.LoadImages();
+
+	crucibleConnection.Start("AnvilRenderer" + to_string(GetCurrentProcessId()), CrucibleCommand::HandleCommands);
 
 	return true;
 }
