@@ -56,6 +56,19 @@ struct IPCServer {
 		Start(name, std::forward<Func>(func));
 	}
 
+	bool Start(const std::string &name, void (*func)(uint8_t*, size_t))
+	{
+		server.reset(new ipc_pipe_server{});
+
+		func_.reset(new std::function<void(uint8_t*, size_t)>{func});
+
+		return ipc_pipe_server_start(server.get(), name.c_str(),
+			[](void *param, uint8_t *data, size_t size)
+		{
+			(*static_cast<std::function<void(uint8_t*, size_t)>*>(param))(data, size);
+		}, static_cast<void*>(func_.get()));
+	}
+
 	template <typename Func>
 	bool Start(const std::string &name, Func &&func)
 	{
