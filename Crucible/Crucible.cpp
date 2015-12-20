@@ -195,6 +195,41 @@ namespace ForgeEvents {
 	}
 }
 
+namespace AnvilCommands {
+	IPCClient anvil_client;
+	mutex commandMutex;
+
+	void Connect(DWORD pid)
+	{
+		LOCK(commandMutex);
+
+		anvil_client.Open("AnvilRenderer" + to_string(pid));
+	}
+
+	void SendCommand(obs_data_t *cmd)
+	{
+		if (!cmd)
+			return;
+
+		auto data = obs_data_get_json(cmd);
+		if (!data)
+			return;
+
+		LOCK(commandMutex);
+		if (anvil_client.Write(data, strlen(data) + 1))
+			return;
+
+		blog(LOG_INFO, "anvil_client.Write failed");
+	}
+
+	OBSData CommandCreate(const char *cmd)
+	{
+		auto obj = OBSDataCreate();
+		obs_data_set_string(obj, "command", cmd);
+		return obj;
+	}
+}
+
 template <typename T, typename U>
 static void InitRef(T &ref, const char *msg, void (*release)(U*), U *val)
 {
@@ -218,6 +253,8 @@ struct CrucibleContext {
 
 	uint32_t target_width = 1280;
 	uint32_t target_height = 720;
+
+	DWORD game_pid = -1;
 
 	struct RestartThread {
 		thread t;
@@ -376,6 +413,8 @@ struct CrucibleContext {
 			.Disconnect()
 			.SetFunc([=](calldata_t *data)
 		{
+			AnvilCommands::Connect(game_pid);
+
 			if (UpdateSize(static_cast<uint32_t>(calldata_int(data, "width")),
 				       static_cast<uint32_t>(calldata_int(data, "height"))))
 				return;
@@ -394,6 +433,7 @@ struct CrucibleContext {
 			return;
 
 		LOCK(updateMutex);
+		game_pid = static_cast<DWORD>(obs_data_get_int(settings, "process_id"));
 		obs_source_update(gameCapture, settings);
 	}
 
