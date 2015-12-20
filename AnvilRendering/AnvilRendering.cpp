@@ -11,6 +11,7 @@
 #include <json/reader.h>
 
 #include <atomic>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -55,6 +56,25 @@ namespace CrucibleCommand {
 
 using namespace json;
 
+static void HandleIndicatorCommand(Object &obj)
+{
+	static const map<string, IndicatorEvent> indicators = {
+		{"idle",       INDICATE_NONE},
+		{"capturing",  INDICATE_CAPTURING},
+		{"mic_idle",   INDICATE_MIC_IDLE},
+		{"mic_active", INDICATE_MIC_ACTIVE},
+		{"mic_muted",  INDICATE_MIC_MUTED},
+	};
+
+	auto indicator = static_cast<String>(obj["indicator"]).Value();
+
+	auto elem = indicators.find(indicator);
+	if (elem == end(indicators))
+		return hlog("Got invalid indicator '%s'", indicator);
+
+	currentIndicator = elem->second;
+}
+
 static void HandleCommands(uint8_t *data, size_t size)
 {
 	if (!data)
@@ -71,6 +91,9 @@ static void HandleCommands(uint8_t *data, size_t size)
 
 		if (!cmd.length())
 			return hlog("Got invalid command with 0 length");
+
+		if (cmd == "indicator")
+			return HandleIndicatorCommand(obj);
 
 		hlog("Got unknown command '%s' (%d)", cmd.c_str(), cmd.length());
 
