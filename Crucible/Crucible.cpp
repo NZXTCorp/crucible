@@ -12,6 +12,7 @@
 
 #include <atomic>
 #include <iostream>
+#include <map>
 #include <mutex>
 #include <sstream>
 #include <string>
@@ -600,6 +601,10 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
+	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
+		{"connect", HandleConnectCommand},
+		{"capture_new_process", HandleCaptureCommand},
+	};
 	if (!data)
 		return;
 
@@ -619,16 +624,11 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		return;
 	}
 
-	if (string("connect") == str) {
-		HandleConnectCommand(cc, obj);
-		return;
-	} else if (string("capture_new_process") == str) {
-		HandleCaptureCommand(cc, obj);
-		return;
-	}
+	auto elem = known_commands.find(str);
+	if (elem == cend(known_commands))
+		return blog(LOG_WARNING, "Unknown command: %s", str);
 
-	blog(LOG_WARNING, "Unknown command: %s", str);
-
+	elem->second(cc, obj);
 
 	// TODO: Handle changes to frame rate, target resolution, encoder type,
 	//       ...
