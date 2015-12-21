@@ -18,6 +18,18 @@ inline OBSData OBSTransferOwned(obs_data_t *data)
 	return obj;
 }
 
+inline OBSDataArray OBSTransferOwned(obs_data_array_t *data)
+{
+	OBSDataArray obj = data;
+	obs_data_array_release(obj);
+	return obj;
+}
+
+inline OBSDataArray OBSDataArrayCreate()
+{
+	return OBSTransferOwned(obs_data_array_create());
+}
+
 inline OBSData OBSDataCreate(const std::string &json = {})
 {
 	return OBSTransferOwned(json.empty() ? obs_data_create() : obs_data_create_from_json(json.c_str()));

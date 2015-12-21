@@ -37,6 +37,14 @@ struct default_delete<obs_data_item_t> {
 	}
 };
 
+template <>
+struct default_delete<obs_properties_t> {
+	void operator()(obs_properties_t *item)
+	{
+		obs_properties_destroy(item);
+	}
+};
+
 }
 
 static IPCClient event_client, log_client;
@@ -191,6 +199,15 @@ namespace ForgeEvents {
 
 		obs_data_set_string(event, "filename", filename);
 		obs_data_set_int(event, "total_frames", total_frames);
+
+		SendEvent(event);
+	}
+
+	void SendQueryMicsResponse(obs_data_array_t *devices)
+	{
+		auto event = EventCreate("query_mics_response");
+
+		obs_data_set_array(event, "devices", devices);
 
 		SendEvent(event);
 	}
@@ -599,11 +616,30 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 	cc.StartVideo();
 }
 
+static void HandleQueryMicsCommand(CrucibleContext&, OBSData&)
+{
+	unique_ptr<obs_properties_t> props{obs_get_source_properties(OBS_SOURCE_TYPE_INPUT, "wasapi_input_capture")};
+
+	auto devices = OBSDataArrayCreate();
+
+	auto prop = obs_properties_get(props.get(), "device_id");
+
+	for (size_t i = 0, c = obs_property_list_item_count(prop); i < c; i++) {
+		auto device = OBSDataCreate();
+		obs_data_set_string(device, "name", obs_property_list_item_name(prop, i));
+		obs_data_set_string(device, "device", obs_property_list_item_string(prop, i));
+		obs_data_array_push_back(devices, device);
+	}
+
+	ForgeEvents::SendQueryMicsResponse(devices);
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
 		{"connect", HandleConnectCommand},
 		{"capture_new_process", HandleCaptureCommand},
+		{"query_mics", HandleQueryMicsCommand},
 	};
 	if (!data)
 		return;
