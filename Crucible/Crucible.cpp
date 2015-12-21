@@ -288,7 +288,7 @@ struct CrucibleContext {
 		return obs_reset_video(&ovi) == 0;
 	}
 
-	void InitLibobs()
+	void InitLibobs(bool standalone)
 	{
 		ovi.adapter = 0;
 		ovi.base_width = 1280;
@@ -316,6 +316,7 @@ struct CrucibleContext {
 		if (!obs_reset_audio(&ai))
 			throw "Couldn't initialize audio";
 
+		if (standalone)
 		{
 			DStr obs_path = GetModulePath(/*&obs_startup*/ "obs.dll");
 			DStr bin_path, data_path;
@@ -642,7 +643,7 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 	{
 		CrucibleContext crucibleContext;
 
-		crucibleContext.InitLibobs();
+		crucibleContext.InitLibobs(!forge);
 		crucibleContext.InitSources();
 		crucibleContext.InitEncoders();
 		crucibleContext.InitSignals();
