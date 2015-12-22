@@ -20,6 +20,8 @@
 #include <vector>
 using namespace std;
 
+#include <boost/logic/tribool.hpp>
+
 #include "IPC.hpp"
 
 // window class borrowed from forge, remove once we've got headless mode working
@@ -217,6 +219,11 @@ namespace AnvilCommands {
 	IPCClient anvil_client;
 	mutex commandMutex;
 
+	atomic<bool> recording = false;
+	atomic<bool> using_mic = false;
+	atomic<bool> using_ptt = false;
+	atomic<bool> mic_muted = false;
+
 	void Connect(DWORD pid)
 	{
 		LOCK(commandMutex);
@@ -247,22 +254,49 @@ namespace AnvilCommands {
 		return obj;
 	}
 
-	void ShowRecording()
+	void SendIndicator()
 	{
 		auto cmd = CommandCreate("indicator");
 
-		obs_data_set_string(cmd, "indicator", "capturing");
+		const char *indicator = recording ? "capturing" : "idle";
+		if (recording && using_mic)
+			indicator = mic_muted ? (using_ptt ? "mic_idle" : "mic_muted") : "mic_active";
+
+		obs_data_set_string(cmd, "indicator", indicator);
 
 		SendCommand(cmd);
 	}
 
+	void ShowRecording()
+	{
+		if (recording.exchange(true))
+			return;
+
+		SendIndicator();
+	}
+
 	void ShowIdle()
 	{
-		auto cmd = CommandCreate("indicator");
+		if (!recording.exchange(false))
+			return;
 
-		obs_data_set_string(cmd, "indicator", "idle");
+		SendIndicator();
+	}
 
-		SendCommand(cmd);
+	void MicUpdated(boost::tribool muted, boost::tribool active=boost::indeterminate, boost::tribool ptt=boost::indeterminate)
+	{
+		bool changed = false;
+		if (!boost::indeterminate(active))
+			changed = active != using_mic.exchange(active);
+		if (!boost::indeterminate(muted))
+			changed = (muted != mic_muted.exchange(muted)) || changed;
+		if (!boost::indeterminate(ptt))
+			changed = (ptt != using_ptt.exchange(ptt)) || changed;
+
+		if (!changed)
+			return;
+
+		SendIndicator();
 	}
 }
 
@@ -279,7 +313,8 @@ static void InitRef(T &ref, const char *msg, void (*release)(U*), U *val)
 struct CrucibleContext {
 	obs_video_info ovi;
 	uint32_t fps_den;
-	OBSSource tunes, gameCapture;
+	OBSSource tunes, mic, gameCapture;
+	OBSSourceSignal micMuted, pttActive;
 	OBSSourceSignal stopCapture, startCapture;
 	OBSEncoder h264, aac;
 	string filename = "test.mp4";
@@ -291,6 +326,10 @@ struct CrucibleContext {
 	uint32_t target_height = 720;
 
 	DWORD game_pid = -1;
+
+	obs_hotkey_id ptt_hotkey_id = OBS_INVALID_HOTKEY_ID;
+	obs_hotkey_id mute_hotkey_id = OBS_INVALID_HOTKEY_ID;
+	obs_hotkey_id unmute_hotkey_id = OBS_INVALID_HOTKEY_ID;
 
 	struct RestartThread {
 		thread t;
@@ -348,6 +387,27 @@ struct CrucibleContext {
 
 	void InitSources()
 	{
+		InitRef(mic, "Couldn't create audio input device source", obs_source_release,
+			obs_source_create(OBS_SOURCE_TYPE_INPUT, "wasapi_input_capture", "wasapi mic", nullptr, nullptr));
+
+		auto weak_mic = OBSGetWeakRef(mic);
+		OBSEnumHotkeys([&](obs_hotkey_id id, obs_hotkey_t *key)
+		{
+			if (obs_hotkey_get_registerer_type(key) != OBS_HOTKEY_REGISTERER_SOURCE)
+				return;
+
+			if (obs_hotkey_get_registerer(key) != weak_mic)
+				return;
+
+			auto name = obs_hotkey_get_name(key);
+			if (name == string("libobs.mute"))
+				mute_hotkey_id = id;
+			else if (name == string("libobs.unmute"))
+				unmute_hotkey_id = id;
+			else if (name == string("libobs.push-to-talk"))
+				ptt_hotkey_id = id;
+		});
+
 		// create audio source
 		InitRef(tunes, "Couldn't create audio input source", obs_source_release,
 				obs_source_create(OBS_SOURCE_TYPE_INPUT, "wasapi_output_capture", "wasapi loopback", nullptr, nullptr));
@@ -386,6 +446,24 @@ struct CrucibleContext {
 
 	void InitSignals()
 	{
+		micMuted
+			.SetOwner(mic)
+			.SetSignal("mute")
+			.SetFunc([=](calldata_t *data)
+		{
+			AnvilCommands::MicUpdated(calldata_bool(data, "muted"));
+		})
+			.Connect();
+
+		pttActive
+			.SetOwner(mic)
+			.SetSignal("push_to_talk_active")
+			.SetFunc([=](calldata_t *data)
+		{
+			AnvilCommands::MicUpdated(!calldata_bool(data, "active"));
+		})
+			.Connect();
+
 		stopRecording
 			.SetSignal("stop")
 			.SetFunc([=](calldata*)
@@ -474,6 +552,41 @@ struct CrucibleContext {
 		LOCK(updateMutex);
 		game_pid = static_cast<DWORD>(obs_data_get_int(settings, "process_id"));
 		obs_source_update(gameCapture, settings);
+	}
+
+	void UpdateMic(obs_data_t *settings)
+	{
+		if (!settings)
+			return;
+
+		auto enabled = obs_data_get_bool(settings, "enabled");
+		auto ptt = obs_data_get_bool(settings, "ptt");
+		auto ptt_key = OBSDataGetObj(settings, "ptt_key");
+		auto source_settings = OBSDataGetObj(settings, "source_settings");
+
+		auto continuous = enabled && !ptt;
+		ptt = enabled && ptt;
+
+		obs_key_combination combo = {
+			(obs_data_get_bool(ptt_key, "shift") ? INTERACT_SHIFT_KEY : 0) |
+			(obs_data_get_bool(ptt_key, "meta")  ? INTERACT_COMMAND_KEY : 0) |
+			(obs_data_get_bool(ptt_key, "ctrl")  ? INTERACT_CONTROL_KEY : 0) |
+			(obs_data_get_bool(ptt_key, "alt")   ? INTERACT_ALT_KEY : 0),
+			obs_key_from_virtual_key(static_cast<int>(obs_data_get_int(ptt_key, "keycode")))
+		};
+
+		DStr str;
+		obs_key_combination_to_str(combo, str);
+		blog(LOG_INFO, "mic hotkey uses '%s'", str->array);
+
+		LOCK(updateMutex);
+		obs_source_update(mic, source_settings);
+		obs_source_set_muted(mic, false);
+		AnvilCommands::MicUpdated(ptt, enabled, ptt);
+		obs_hotkey_load_bindings(ptt_hotkey_id, &combo, ptt ? 1 : 0);
+		obs_hotkey_load_bindings(mute_hotkey_id, &combo, continuous ? 1 : 0);
+		obs_hotkey_load_bindings(unmute_hotkey_id, &combo, continuous ? 1 : 0);
+		obs_set_output_source(2, enabled ? mic : nullptr);
 	}
 
 	void UpdateEncoder(obs_data_t *settings)
@@ -634,12 +747,18 @@ static void HandleQueryMicsCommand(CrucibleContext&, OBSData&)
 	ForgeEvents::SendQueryMicsResponse(devices);
 }
 
+static void HandleUpdateMicCommand(CrucibleContext &cc, OBSData &obj)
+{
+	cc.UpdateMic(obj);
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
 		{"connect", HandleConnectCommand},
 		{"capture_new_process", HandleCaptureCommand},
 		{"query_mics", HandleQueryMicsCommand},
+		{"update_mic", HandleUpdateMicCommand},
 	};
 	if (!data)
 		return;

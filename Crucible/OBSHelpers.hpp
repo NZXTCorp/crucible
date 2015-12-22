@@ -39,3 +39,13 @@ inline OBSData OBSDataGetObj(obs_data_t *data, const char *name)
 {
 	return OBSTransferOwned(obs_data_get_obj(data, name));
 }
+
+template <typename Fun>
+inline void OBSEnumHotkeys(Fun &&fun)
+{
+	obs_enum_hotkeys([](void *data, obs_hotkey_id id, obs_hotkey_t *key)
+	{
+		(*static_cast<Fun*>(data))(id, key);
+		return true;
+	}, static_cast<void*>(&fun));
+}
