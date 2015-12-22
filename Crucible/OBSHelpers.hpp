@@ -1,8 +1,46 @@
 #pragma once
 
+#include <util/profiler.hpp>
 #include <obs.hpp>
 
+#include <memory>
 #include <string>
+
+namespace std {
+
+template <>
+struct default_delete<obs_data_item_t> {
+	void operator()(obs_data_item_t *item)
+	{
+		obs_data_item_release(&item);
+	}
+};
+
+template <>
+struct default_delete<obs_properties_t> {
+	void operator()(obs_properties_t *item)
+	{
+		obs_properties_destroy(item);
+	}
+};
+
+template <>
+struct default_delete<profiler_name_store_t> {
+	void operator()(profiler_name_store_t *store)
+	{
+		profiler_name_store_free(store);
+	}
+};
+
+template <>
+struct default_delete<profiler_snapshot_t> {
+	void operator()(profiler_snapshot_t *snap)
+	{
+		profile_snapshot_free(snap);
+	}
+};
+
+}
 
 inline OBSEncoder OBSTransferOwned(obs_encoder_t *encoder)
 {
@@ -48,4 +86,9 @@ inline void OBSEnumHotkeys(Fun &&fun)
 		(*static_cast<Fun*>(data))(id, key);
 		return true;
 	}, static_cast<void*>(&fun));
+}
+
+inline std::unique_ptr<profiler_snapshot_t> ProfileSnapshotCreate()
+{
+	return std::unique_ptr<profiler_snapshot_t>{profile_snapshot_create()};
 }

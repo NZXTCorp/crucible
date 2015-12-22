@@ -6,6 +6,7 @@
 
 #include <util/base.h>
 #include <util/dstr.hpp>
+#include <util/profiler.hpp>
 #include <obs.hpp>
 
 #include "OBSHelpers.hpp"
@@ -28,26 +29,6 @@ using namespace std;
 #include "TestWindow.h"
 
 extern OBSEncoder CreateAudioEncoder(const char *name);
-
-namespace std {
-
-template <>
-struct default_delete<obs_data_item_t> {
-	void operator()(obs_data_item_t *item)
-	{
-		obs_data_item_release(&item);
-	}
-};
-
-template <>
-struct default_delete<obs_properties_t> {
-	void operator()(obs_properties_t *item)
-	{
-		obs_properties_destroy(item);
-	}
-};
-
-}
 
 static IPCClient event_client, log_client;
 
@@ -317,7 +298,7 @@ struct CrucibleContext {
 	OBSSourceSignal micMuted, pttActive;
 	OBSSourceSignal stopCapture, startCapture;
 	OBSEncoder h264, aac;
-	string filename = "test.mp4";
+	string filename = "";
 	string muxerSettings = "";
 	OBSOutput output;
 	OBSOutputSignal startRecording, stopRecording;
@@ -660,6 +641,8 @@ struct CrucibleContext {
 		if (stopping)
 			return;
 
+		ProfileScope(profile_store_name(obs_get_profiler_name_store(), "StopVideo()"));
+
 		stopping = true;
 		if (obs_output_active(output))
 			obs_output_stop(output);
@@ -674,6 +657,12 @@ struct CrucibleContext {
 	void StartVideo()
 	{
 		LOCK(updateMutex);
+		auto name = profile_store_name(obs_get_profiler_name_store(),
+			"StartVideo(%s)", filename.c_str());
+		profile_register_root(name, 0);
+
+		ProfileScope(name);
+
 		ovi.fps_den = fps_den;
 		ResetVideo();
 
@@ -798,11 +787,15 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 	{
 		CrucibleContext crucibleContext;
 
-		crucibleContext.InitLibobs(!forge);
-		crucibleContext.InitSources();
-		crucibleContext.InitEncoders();
-		crucibleContext.InitSignals();
-		crucibleContext.StopVideo();
+		{
+			ProfileScope("CrucibleContext Init");
+
+			crucibleContext.InitLibobs(!forge);
+			crucibleContext.InitSources();
+			crucibleContext.InitEncoders();
+			crucibleContext.InitSignals();
+			crucibleContext.StopVideo();
+		}
 
 		// TODO: remove once we're done debugging
 		gs_init_data dinfo = {};
@@ -917,6 +910,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 {
 	base_set_log_handler(do_log, nullptr);
 
+	unique_ptr<profiler_name_store_t> profiler_names{profiler_name_store_create()};
+	profiler_start();
+
 	ProcessHandle forge;
 	HANDLE start_event = nullptr;
 	try
@@ -934,7 +930,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	try
 	{
-		if (!obs_startup("en-US", "module-config", nullptr))
+		if (!obs_startup("en-US", "module-config", profiler_names.get()))
 			throw "Couldn't init OBS";
 
 		TestWindow window(hInstance);
@@ -954,6 +950,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	}
 
 	obs_shutdown();
+
+	{
+		auto snap = ProfileSnapshotCreate();
+		profiler_print(snap.get());
+	}
+
+	profiler_stop();
+	profiler_names.reset();
 
 	blog(LOG_INFO, "Number of memory leaks: %ld", bnum_allocs());
 
