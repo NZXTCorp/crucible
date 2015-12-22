@@ -291,6 +291,8 @@ static void InitRef(T &ref, const char *msg, void (*release)(U*), U *val)
 	release(val);
 }
 
+static decltype(ProfileSnapshotCreate()) last_session;
+
 struct CrucibleContext {
 	obs_video_info ovi;
 	uint32_t fps_den;
@@ -454,6 +456,14 @@ struct CrucibleContext {
 				obs_output_get_total_frames(output));
 			AnvilCommands::ShowIdle();
 			StopVideo(); // leak here!!!
+
+			auto snap = ProfileSnapshotCreate();
+			auto diff = unique_ptr<profiler_snapshot_t>{profile_snapshot_diff(last_session.get(), snap.get())};
+
+			profiler_print(diff.get());
+			profiler_print_time_between_calls(diff.get());
+
+			last_session = move(snap);
 		});
 
 		startRecording
@@ -710,6 +720,9 @@ static void HandleConnectCommand(CrucibleContext &cc, OBSData &obj)
 static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 {
 	cc.StopVideo();
+
+	last_session = ProfileSnapshotCreate();
+
 	cc.UpdateGameCapture(OBSDataGetObj(obj, "game_capture"));
 	cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
 	cc.UpdateFilename(obs_data_get_string(obj, "filename"));
@@ -831,6 +844,9 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 		};
 
 		IPCServer remote{"ForgeCrucible", handleCommand};
+
+		last_session = ProfileSnapshotCreate();
+		profiler_print(last_session.get()); // print startup stats
 
 		if (start_event)
 			SetEvent(start_event);
