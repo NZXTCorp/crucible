@@ -4,6 +4,10 @@
 
 #include "TaksiInput/HotKeys.h"
 
+#include "../Crucible/IPC.hpp"
+
+#include <atomic>
+#include <mutex>
 #include <thread>
 
 using namespace std;
@@ -38,6 +42,68 @@ static void HookMouse()
 	if (mouse_hook)
 		hlog("hooked mouse events");
 }
+
+#define CONCAT2(x, y) x ## y
+#define CONCAT(x, y) CONCAT2(x, y)
+#define LOCK(x) lock_guard<decltype(x)> CONCAT(lockGuard, __LINE__){x}
+
+static struct ForgeFramebufferServer {
+	IPCServer server;
+
+	std::string name;
+
+	atomic<bool> died = true;
+	atomic<bool> new_data = false;
+
+	vector<uint8_t> read_data;
+	vector<uint8_t> incoming_data;
+
+	mutex share_mutex;
+	vector<uint8_t> shared_data;
+
+	void Start()
+	{
+		static int restarts = 0;
+		died = false;
+
+		name = "AnvilFramebufferServer" + to_string(GetCurrentProcessId()) + "-" + to_string(restarts++);
+
+		auto expected = g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4;
+
+		server.Start(name, [&](uint8_t *data, size_t size)
+		{
+			if (!data) {
+				died = true;
+				hlog("AnvilFramebufferServer: died");
+				return;
+			}
+
+			if (size != g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4) {
+				hlog("AnvilFramebufferServer: got invalid size: %d, expected %d", size, g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4);
+				return;
+			}
+
+			hlog("AnvilFramebufferServer: got size %d", size);
+
+			incoming_data.assign(data, data + size);
+
+			LOCK(share_mutex);
+			swap(incoming_data, shared_data);
+			new_data = true;
+		}, expected > 1024 ? expected : -1);
+	}
+
+	void Stop()
+	{
+		server.server.release();
+		died = true;
+		new_data = false;
+
+		LOCK(share_mutex);
+		read_data.clear();
+		incoming_data.clear();
+	}
+} forgeFramebufferServer;
 
 void ToggleOverlay()
 {
