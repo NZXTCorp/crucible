@@ -70,7 +70,7 @@ struct IPCServer {
 	}
 
 	template <typename Func>
-	bool Start(const std::string &name, Func &&func)
+	bool Start(const std::string &name, Func &&func, int buf=-1)
 	{
 		server.reset(new ipc_pipe_server{});
 
@@ -78,11 +78,11 @@ struct IPCServer {
 
 		using NoRef_t = std::remove_reference_t<Func>;
 
-		return ipc_pipe_server_start(server.get(), name.c_str(),
+		return ipc_pipe_server_start_buf(server.get(), name.c_str(),
 				[](void *param, uint8_t *data, size_t size)
 		{
 			(*static_cast<NoRef_t*>(param))(data, size);
-		}, static_cast<void*>(func_->target<NoRef_t>()));
+		}, static_cast<void*>(func_->target<NoRef_t>()), buf);
 	}
 };
 
