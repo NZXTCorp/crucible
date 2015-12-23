@@ -114,10 +114,32 @@ IPCServer crucibleConnection;
 
 ULONG_PTR gdi_token = 0;
 
+HINSTANCE g_hInst = nullptr;
+bool g_bUseDirectInput = true;
+bool g_bUseKeyboard = true;
+bool g_bBrowserShowing = false;
+
+static WORD hotkeys[HOTKEY_QTY] = { 0 };
+
+WORD GetHotKey(HOTKEY_TYPE t)
+{
+	if (t == HOTKEY_Overlay)
+		return 0x100 | VK_SPACE;
+	if (t >= 0 && t < HOTKEY_QTY)
+		return hotkeys[t];
+	return 0;
+}
+
+
 C_EXPORT bool overlay_init(void (*hlog_)(const char *fmt, ...))
 {
 	hlog = hlog_;
 	hlog("Started overlay");
+
+	GetModuleHandleEx(
+		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+		GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+		(LPCTSTR)overlay_init, &g_hInst);
 
 	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
 	Gdiplus::Status status = Gdiplus::GdiplusStartup(&gdi_token, &gdiplusStartupInput, NULL);
@@ -129,6 +151,7 @@ C_EXPORT bool overlay_init(void (*hlog_)(const char *fmt, ...))
 	return true;
 }
 
+void StopInputHook();
 void overlay_d3d11_free();
 void overlay_d3d10_free();
 void overlay_d3d9_free();
@@ -136,6 +159,8 @@ void overlay_gl_free();
 
 C_EXPORT void overlay_free()
 {
+	StopInputHook();
+
 	overlay_d3d11_free();
 	overlay_d3d10_free();
 	overlay_d3d9_free();

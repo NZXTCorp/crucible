@@ -16,6 +16,9 @@
     <Filter Include="GAPI_render">
       <UniqueIdentifier>{59ddb5b9-36f2-458f-846a-d1e3d7c09bec}</UniqueIdentifier>
     </Filter>
+    <Filter Include="TaksiInput">
+      <UniqueIdentifier>{1658c872-8145-4850-a270-5ce306aed8b2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -63,6 +66,21 @@
     <ClInclude Include="GAPI_render\CImageGDIP.h">
       <Filter>GAPI_render</Filter>
     </ClInclude>
+    <ClInclude Include="TaksiInput\HotKeys.h">
+      <Filter>TaksiInput</Filter>
+    </ClInclude>
+    <ClInclude Include="TaksiInput\InputHooks.h">
+      <Filter>TaksiInput</Filter>
+    </ClInclude>
+    <ClInclude Include="TaksiInput\KeyboardInput.h">
+      <Filter>TaksiInput</Filter>
+    </ClInclude>
+    <ClInclude Include="TaksiInput\TaksiInput.h">
+      <Filter>TaksiInput</Filter>
+    </ClInclude>
+    <ClInclude Include="TaksiInput\CHookJump.h">
+      <Filter>TaksiInput</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -88,6 +106,21 @@
     </ClCompile>
     <ClCompile Include="GAPI_render\NewIndicator.cpp">
       <Filter>GAPI_render</Filter>
+    </ClCompile>
+    <ClCompile Include="Input.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TaksiInput\HotKeys.cpp">
+      <Filter>TaksiInput</Filter>
+    </ClCompile>
+    <ClCompile Include="TaksiInput\InputHooks.cpp">
+      <Filter>TaksiInput</Filter>
+    </ClCompile>
+    <ClCompile Include="TaksiInput\KeyboardInput.cpp">
+      <Filter>TaksiInput</Filter>
+    </ClCompile>
+    <ClCompile Include="TaksiInput\CHookJump.cpp">
+      <Filter>TaksiInput</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
