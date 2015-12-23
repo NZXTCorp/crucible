@@ -9,6 +9,7 @@
 #include "GAPI_render/NewIndicator.h"
 
 #include <json/reader.h>
+#include <json/writer.h>
 
 #include <atomic>
 #include <map>
@@ -31,6 +32,26 @@ struct FreeHandle
 using Handle = unique_ptr<void, FreeHandle>;
 
 void (*hlog)(const char *fmt, ...) = nullptr;
+
+
+namespace ForgeEvent
+{
+	using namespace json;
+
+	IPCClient forge_client;
+
+	static bool SendEvent(const Object &object)
+	{
+		ostringstream sstr;
+		Writer::Write(object, sstr);
+		return forge_client.Write(sstr.str());
+	}
+
+	static Object EventCreate(const char *name)
+	{
+		return Object().Set("event", String(name));
+	}
+}
 
 
 TAKSI_INDICATE_TYPE m_eSquareIndicator; // state for the old square indicator
@@ -75,6 +96,15 @@ static void HandleIndicatorCommand(Object &obj)
 	currentIndicator = elem->second;
 }
 
+static void HandleForgeInfo(Object &obj)
+{
+	String event = obj["anvil_event"];
+	if (event.Value().empty())
+		return hlog("Got empty anvil_event name via forge_info");
+
+	ForgeEvent::forge_client.Open(event.Value());
+}
+
 static void HandleCommands(uint8_t *data, size_t size)
 {
 	if (!data)
@@ -94,6 +124,8 @@ static void HandleCommands(uint8_t *data, size_t size)
 
 		if (cmd == "indicator")
 			return HandleIndicatorCommand(obj);
+		else if (cmd == "forge_info")
+			return HandleForgeInfo(obj);
 
 		hlog("Got unknown command '%s' (%d)", cmd.c_str(), cmd.length());
 

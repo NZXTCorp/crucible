@@ -198,18 +198,24 @@ namespace ForgeEvents {
 
 namespace AnvilCommands {
 	IPCClient anvil_client;
-	mutex commandMutex;
+	recursive_mutex commandMutex;
 
 	atomic<bool> recording = false;
 	atomic<bool> using_mic = false;
 	atomic<bool> using_ptt = false;
 	atomic<bool> mic_muted = false;
 
+	string forge_overlay_channel;
+
+	void SendForgeInfo(const char *info=nullptr);
+
 	void Connect(DWORD pid)
 	{
 		LOCK(commandMutex);
 
 		anvil_client.Open("AnvilRenderer" + to_string(pid));
+
+		SendForgeInfo();
 	}
 
 	void SendCommand(obs_data_t *cmd)
@@ -278,6 +284,20 @@ namespace AnvilCommands {
 			return;
 
 		SendIndicator();
+	}
+
+	void SendForgeInfo(const char *info)
+	{
+		LOCK(commandMutex);
+
+		if (info && info[0])
+			forge_overlay_channel = info;
+
+		auto cmd = CommandCreate("forge_info");
+
+		obs_data_set_string(cmd, "anvil_event", forge_overlay_channel.c_str());
+
+		SendCommand(cmd);
 	}
 }
 
@@ -714,6 +734,10 @@ static void HandleConnectCommand(CrucibleContext &cc, OBSData &obj)
 
 			ForgeEvents::SendQueuedEvents();
 		}
+	}
+
+	if ((str = obs_data_get_string(obj, "anvil_event"))) {
+		AnvilCommands::SendForgeInfo(str);
 	}
 }
 
