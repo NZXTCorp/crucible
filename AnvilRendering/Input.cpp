@@ -170,7 +170,7 @@ void HandleInputHook(HWND window)
 	if (g_UserDI.m_bSetup)
 		g_UserDI.ProcessDirectInput();
 
-	HookMouse();
+	//HookMouse();
 
 	ProcessHotKeys();
 }
