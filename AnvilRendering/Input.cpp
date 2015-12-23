@@ -10,6 +10,35 @@ using namespace std;
 
 static HWND win = nullptr;
 
+static HHOOK mouse_hook = nullptr;
+
+static void HookMouse()
+{
+	if (mouse_hook)
+		return;
+
+	auto thread_id = GetWindowThreadProcessId(win, nullptr);
+
+	mouse_hook = SetWindowsHookEx(WH_MOUSE, [](int code, WPARAM wParam, LPARAM lParam) -> LRESULT
+	{
+		POINT last_pt;
+
+		if (g_bBrowserShowing && code == HC_ACTION)
+		{
+			auto &mhs = *reinterpret_cast<MOUSEHOOKSTRUCT*>(lParam);
+			last_pt = mhs.pt;
+			if (MapWindowPoints(nullptr, win, &last_pt, 1))
+				hlog("mouse stuff: @%d,%d", last_pt.x, last_pt.y);
+			return 1;
+		}
+
+		return CallNextHookEx(mouse_hook, code, wParam, lParam);
+	}, NULL, thread_id);
+
+	if (mouse_hook)
+		hlog("hooked mouse events");
+}
+
 void ToggleOverlay()
 {
 	hlog(g_bBrowserShowing ? "hiding browser" : "requesting browser");
@@ -48,7 +77,9 @@ void HandleInputHook(HWND window)
 
 	if (g_UserDI.m_bSetup)
 		g_UserDI.ProcessDirectInput();
-	
+
+	HookMouse();
+
 	ProcessHotKeys();
 }
 
@@ -60,4 +91,5 @@ void StopInputHook()
 	win = nullptr;
 
 	g_HotKeys.DetachHotKeys();
+	UnhookWindowsHookEx(mouse_hook);
 }
