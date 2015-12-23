@@ -105,6 +105,20 @@ static struct ForgeFramebufferServer {
 	}
 } forgeFramebufferServer;
 
+vector<uint8_t> *ReadNewFramebuffer()
+{
+	if (!forgeFramebufferServer.new_data)
+		return nullptr;
+
+	{
+		LOCK(forgeFramebufferServer.share_mutex);
+		swap(forgeFramebufferServer.shared_data, forgeFramebufferServer.read_data);
+		forgeFramebufferServer.new_data = false;
+	}
+
+	return &forgeFramebufferServer.read_data;
+}
+
 void ToggleOverlay()
 {
 	if (g_bBrowserShowing && forgeFramebufferServer.died)

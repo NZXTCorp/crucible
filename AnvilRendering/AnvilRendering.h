@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
+#include <vector>
 
 #define C_EXPORT extern "C" __declspec(dllexport)
 
@@ -66,3 +68,5 @@ namespace ForgeEvent
 	bool ShowBrowser(const std::string &name, LONG width, LONG height);
 	bool HideBrowser();
 }
+
+std::vector<uint8_t> *ReadNewFramebuffer();
