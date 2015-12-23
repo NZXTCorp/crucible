@@ -60,3 +60,9 @@ extern HINSTANCE g_hInst;
 extern bool g_bUseDirectInput;
 extern bool g_bUseKeyboard;
 extern bool g_bBrowserShowing;
+
+namespace ForgeEvent
+{
+	bool ShowBrowser(const std::string &name, LONG width, LONG height);
+	bool HideBrowser();
+}

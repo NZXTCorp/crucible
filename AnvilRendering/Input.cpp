@@ -107,7 +107,19 @@ static struct ForgeFramebufferServer {
 
 void ToggleOverlay()
 {
-	hlog(g_bBrowserShowing ? "hiding browser" : "requesting browser");
+	if (g_bBrowserShowing && forgeFramebufferServer.died)
+		forgeFramebufferServer.Start();
+
+	if (!g_bBrowserShowing) {
+		forgeFramebufferServer.Start();
+		ForgeEvent::ShowBrowser(forgeFramebufferServer.name, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
+		hlog("Requesting browser");
+	} else {
+		ForgeEvent::HideBrowser();
+		hlog("Hiding browser");
+		forgeFramebufferServer.Stop();
+	}
+
 	g_bBrowserShowing = !g_bBrowserShowing;
 }
 
