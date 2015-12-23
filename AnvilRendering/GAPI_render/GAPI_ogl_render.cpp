@@ -412,6 +412,9 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 	if (!initialized)
 		initialized = render.InitRenderer(indicatorManager);
 
+	if (!initialized)
+		return;
+
 	get_window_size(hdc, &g_Proc.m_Stats.m_SizeWnd.cx, &g_Proc.m_Stats.m_SizeWnd.cy);
 
 	//render.DrawIndicator(TAKSI_INDICATE_Recording);
