@@ -634,6 +634,7 @@ void DX11Renderer::DrawIndicator( IDXGISwapChain *pSwapChain, TAKSI_INDICATE_TYP
 
 using namespace std;
 static unique_ptr<DX11Renderer> renderer;
+static HWND window = nullptr;
 
 static DX11Renderer *get_renderer(IDXGISwapChain *swap)
 {
@@ -651,6 +652,7 @@ static DX11Renderer *get_renderer(IDXGISwapChain *swap)
 
 		g_Proc.m_Stats.m_SizeWnd.cx = desc.BufferDesc.Width;
 		g_Proc.m_Stats.m_SizeWnd.cy = desc.BufferDesc.Height;
+		window = desc.OutputWindow;
 
 		renderer.reset(new DX11Renderer{dev}); //release dev?
 		renderer->InitRenderer(indicatorManager);
@@ -669,6 +671,8 @@ C_EXPORT void overlay_draw_d3d11(IDXGISwapChain *swap)
 	auto renderer = get_renderer(swap);
 	if (!renderer)
 		return;
+
+	HandleInputHook(window);
 
 	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)
 	{

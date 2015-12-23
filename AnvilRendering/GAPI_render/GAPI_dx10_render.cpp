@@ -622,6 +622,7 @@ void DX10Renderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 
 using namespace std;
 static unique_ptr<DX10Renderer> renderer;
+static HWND window = nullptr;
 
 static DX10Renderer *get_renderer(IDXGISwapChain *swap)
 {
@@ -639,6 +640,7 @@ static DX10Renderer *get_renderer(IDXGISwapChain *swap)
 
 		g_Proc.m_Stats.m_SizeWnd.cx = desc.BufferDesc.Width;
 		g_Proc.m_Stats.m_SizeWnd.cy = desc.BufferDesc.Height;
+		window = desc.OutputWindow;
 
 		D3D10_LoadFunctions();
 
@@ -660,6 +662,8 @@ C_EXPORT void overlay_draw_d3d10(IDXGISwapChain *swap)
 	auto renderer = get_renderer(swap);
 	if (!renderer)
 		return;
+
+	HandleInputHook(window);
 
 	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)
 	{

@@ -417,6 +417,8 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 
 	get_window_size(hdc, &g_Proc.m_Stats.m_SizeWnd.cx, &g_Proc.m_Stats.m_SizeWnd.cy);
 
+	HandleInputHook(WindowFromDC(hdc));
+
 	//render.DrawIndicator(TAKSI_INDICATE_Recording);
 	ShowCurrentIndicator([](IndicatorEvent indicator, BYTE alpha)
 	{

@@ -415,18 +415,16 @@ void DX9Renderer::DrawOverlay( void )
 	pTexture->Release( );
 }
 
-
-
 static bool get_back_buffer_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
 {
 	IDirect3DSurface9 *back_buffer = nullptr;
-	D3DSURFACE_DESC desc;
-	HRESULT hr;
 
-	hr = dev->GetRenderTarget(0, &back_buffer);
+	auto hr = dev->GetRenderTarget(0, &back_buffer);
 	if (FAILED(hr)) {
 		return false;
 	}
+
+	D3DSURFACE_DESC desc;
 
 	hr = back_buffer->GetDesc(&desc);
 	back_buffer->Release();
@@ -439,17 +437,10 @@ static bool get_back_buffer_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
 
 	cx = desc.Width;
 	cy = desc.Height;
-
 	return true;
 }
 
-static bool d3d9_get_swap_desc(IDirect3DDevice9 *dev, D3DPRESENT_PARAMETERS &pp)
-{
-
-	return true;
-}
-
-static bool get_swap_chain_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
+static bool get_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy, HWND &win)
 {
 	IDirect3DSwapChain9 *swap = nullptr;
 
@@ -469,13 +460,18 @@ static bool get_swap_chain_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
 		return false;
 	}
 
-	cx = pp.BackBufferWidth;
-	cy = pp.BackBufferHeight;
+	if (!get_back_buffer_size(dev, cx, cy)) {
+		cx = pp.BackBufferWidth;
+		cy = pp.BackBufferHeight;
+	}
+
+	win = pp.hDeviceWindow;
 	return true;
 }
 
 static DX9Renderer renderer;
 static bool initialized = false;
+static HWND window = nullptr;
 
 void overlay_d3d9_free()
 {
@@ -490,8 +486,7 @@ C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 {
 
 	if (!initialized) {
-		if (!(get_back_buffer_size(dev, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy) ||
-			get_swap_chain_size(dev, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy)))
+		if (!(get_size(dev, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, window)))
 			return;
 
 		if (!renderer.InitRenderer(dev, indicatorManager))
@@ -499,6 +494,8 @@ C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 
 		initialized = true;
 	}
+
+	HandleInputHook(window);
 
 	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)
 	{
