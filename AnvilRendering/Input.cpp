@@ -33,7 +33,24 @@ static void HookMouse()
 			last_pt = mhs.pt;
 			if (MapWindowPoints(nullptr, win, &last_pt, 1))
 				hlog("mouse stuff: @%d,%d", last_pt.x, last_pt.y);
-			return 1;
+
+			switch (wParam)
+			{
+					case WM_LBUTTONDOWN:
+					case WM_LBUTTONUP:
+					case WM_LBUTTONDBLCLK:
+					case WM_RBUTTONDOWN:
+					case WM_RBUTTONUP:
+					case WM_RBUTTONDBLCLK:
+					case WM_MBUTTONDOWN:
+					case WM_MBUTTONUP:
+					case WM_MBUTTONDBLCLK:
+					case WM_MOUSEWHEEL:
+					case WM_XBUTTONDOWN:
+					case WM_XBUTTONUP:
+					case WM_XBUTTONDBLCLK:
+						return 1;
+			}
 		}
 
 		return CallNextHookEx(mouse_hook, code, wParam, lParam);
@@ -170,7 +187,7 @@ void HandleInputHook(HWND window)
 	if (g_UserDI.m_bSetup)
 		g_UserDI.ProcessDirectInput();
 
-	//HookMouse();
+	HookMouse();
 
 	ProcessHotKeys();
 }
