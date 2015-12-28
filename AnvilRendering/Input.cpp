@@ -95,7 +95,7 @@ static struct ForgeFramebufferServer {
 
 	void Stop()
 	{
-		server.server.release();
+		server.server.reset();
 		died = true;
 		new_data = false;
 
