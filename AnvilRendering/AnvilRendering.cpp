@@ -52,6 +52,14 @@ namespace ForgeEvent
 		return Object().Set("event", String(name));
 	}
 
+	bool MouseEvent(int x, int y, int wParam)
+	{
+		return SendEvent(EventCreate("mouse_event")
+			.Set("x", Number(x))
+			.Set("y", Number(y))
+			.Set("wParam", Number(wParam)));
+	}
+
 	bool ShowBrowser(const std::string &name, LONG width, LONG height)
 	{
 		return SendEvent(EventCreate("show_browser")

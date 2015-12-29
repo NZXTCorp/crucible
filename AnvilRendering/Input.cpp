@@ -32,7 +32,10 @@ static void HookMouse()
 			auto &mhs = *reinterpret_cast<MOUSEHOOKSTRUCT*>(lParam);
 			last_pt = mhs.pt;
 			if (MapWindowPoints(nullptr, win, &last_pt, 1))
-				hlog("mouse stuff: @%d,%d", last_pt.x, last_pt.y);
+			{
+				//hlog("mouse stuff: @%d,%d", last_pt.x, last_pt.y);
+				ForgeEvent::MouseEvent(last_pt.x, last_pt.y, wParam);
+			}
 
 			switch (wParam)
 			{
