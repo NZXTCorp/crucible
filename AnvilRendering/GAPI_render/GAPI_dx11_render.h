@@ -68,11 +68,13 @@ private:
 	ID3D11DepthStencilState *m_pDepthState;
 
 	IRefPtr<ID3D11Texture2D> m_pIndicatorTexture[INDICATE_NONE]; // textures for new indicators
+	IRefPtr<ID3D11Texture2D> m_pOverlayTexture;
+	bool has_content = false;
 
 	IRefPtr<ID3D11Buffer> m_pVBSquareIndicator;
 	IRefPtr<ID3D11Buffer> m_pVBSquareBorder;
 	IRefPtr<ID3D11Buffer> m_pVBNotification;
-	//IRefPtr<ID3D11Buffer> m_pVBOverlay;
+	IRefPtr<ID3D11Buffer> m_pVBOverlay;
 	IRefPtr<ID3D11InputLayout> m_pVertexLayout;
 
 	IRefPtr<ID3D11VertexShader> m_pVertexShader;
@@ -80,7 +82,7 @@ private:
 	IRefPtr<ID3D11PixelShader> m_pPixelShaderSolid; // solid pixel shader
 	
 	IRefPtr<ID3D11ShaderResourceView> m_pResViewNotification[INDICATE_NONE]; // resource view for each indicator texture
-	//IRefPtr<ID3D11ShaderResourceView> m_pResViewOverlay;
+	IRefPtr<ID3D11ShaderResourceView> m_pResViewOverlay;
 	IRefPtr<ID3D11SamplerState> m_pSamplerState;
 	//IRefPtr<ID3D11RenderTargetView> m_pRenderTargetView; // render target view of backbuffer if we don't have one
 	IRefPtr<ID3D11BlendState> m_pBlendStateTextured; // blend state for texture drawing
@@ -88,6 +90,7 @@ private:
 	void InitIndicatorTextures( IndicatorManager &manager ); // helper to create indicator textures from the manager
 	void UpdateNotificationVB( IndicatorEvent eIndicatorEvent, BYTE alpha ); // helper to update the indicator vertex buffer
 	void UpdateSquareIndicatorVB( TAKSI_INDICATE_TYPE eIndicate ); // helper to update the indicator vertex buffer
+	void UpdateOverlayVB();
 	HRESULT CreateIndicatorVB( void );
 public:
 	DX11Renderer( ID3D11Device *pDevice );
@@ -101,6 +104,10 @@ public:
 	void DrawNewIndicator( IDXGISwapChain *pSwapChain, IndicatorEvent eIndicatorEvent, BYTE alpha );
 	// draw the old indicator
 	void DrawIndicator( IDXGISwapChain *pSwapChain, TAKSI_INDICATE_TYPE eIndicate );
+
+	// draw overlay
+	bool DrawOverlay(IDXGISwapChain *pSwapChain);
+	void UpdateOverlay();
 };
 
 #endif // GAPI_DX11_RENDER_NASTY
