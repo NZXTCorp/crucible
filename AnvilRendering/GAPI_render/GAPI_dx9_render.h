@@ -22,6 +22,7 @@ private:
 
 	IRefPtr<IDirect3DTexture9> m_pIndicatorTexture[INDICATE_NONE]; // indicator images
 	IRefPtr<IDirect3DTexture9> m_pOverlayTexture; // overlay texture
+	bool has_content = false;
 
 	void UpdateSquareBorderVB( IDirect3DVertexBuffer9 *pVB, int x, int y, int w, int h, DWORD color ); // update the square indicator border vertex buffer (it's bigger than the solid/textured quad ones)
 	void UpdateVB( IDirect3DVertexBuffer9 *pVB, int x, int y, int w, int h, DWORD color ); // update given vertex buffer position/size/color
@@ -41,7 +42,8 @@ public:
 	// draw the new indicator images
 	void DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color );
 	// draw overlay
-	void DrawOverlay( void );
+	bool DrawOverlay( void );
+	void UpdateOverlay();
 };
 
 #endif

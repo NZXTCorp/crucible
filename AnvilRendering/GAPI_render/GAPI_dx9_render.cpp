@@ -84,7 +84,7 @@ bool DX9Renderer::InitRenderer( IDirect3DDevice9 *pDevice, IndicatorManager &man
 	// fill buffers. most will be updated between frames anyway.
 	UpdateVB( m_pVBSquareIndicator, INDICATOR_X, INDICATOR_Y, INDICATOR_Width, INDICATOR_Height, 0xFF000000 );
 	UpdateSquareBorderVB( m_pVBSquareBorder, INDICATOR_X, INDICATOR_Y, INDICATOR_Width, INDICATOR_Height, 0xFF000000 );
-	UpdateVB( m_pVBOverlay, 0, 0, width, height, 0xFF000000 );
+	UpdateVB( m_pVBOverlay, 0, 0, width, height, 0xFFFFFFFF );
 	UpdateVB( m_pVBNotification, 0, 0, width, height, 0xFF000000 ); // just fill with dummy values, it's gonna be overwritten anyway
 
 	return true;
@@ -381,14 +381,17 @@ void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color 
 	}
 }
 
-void DX9Renderer::DrawOverlay( void )
+bool DX9Renderer::DrawOverlay( void )
 {
+	if (!has_content)
+		return false;
+
 	// NOTE: there will be a separate function to call to update the overlay texture and vertex buffer
 	HRESULT hRes = m_pCurrentRenderState->Capture( );
 	if ( FAILED(hRes) )
 	{
 		LOG_WARN( "DrawOverlay: capturing render state failed! 0x%x." LOG_CR, hRes );
-		return;
+		return false;
 	}
 
 	// save whatever the current texture is. not doing this will break video cutscenes and stuff
@@ -413,6 +416,36 @@ void DX9Renderer::DrawOverlay( void )
 	m_pCurrentRenderState->Apply( );
 	m_pDevice->SetTexture( 0, pTexture );
 	pTexture->Release( );
+
+	return true;
+}
+
+void DX9Renderer::UpdateOverlay()
+{
+	auto vec = ReadNewFramebuffer();
+	if (vec)
+		hlog("Got vec %p: %d vs %dx%dx4 = %d", vec, vec->size(), g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy,
+			g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4);
+	else
+		return;
+
+	D3DLOCKED_RECT lr;
+	HRESULT hr = m_pOverlayTexture->LockRect(0, &lr, NULL, D3DLOCK_DISCARD);
+	if (FAILED(hr))
+	{
+		LOG_MSG("InitIndicatorTextures: texture data lock failed!" LOG_CR);
+		return;
+	}
+
+	// these probably won't match, gpus are fussy about even dimensions and stuff. we have to copy line by line to compensate
+	//LOG_MSG("InitIndicatorTextures: d3d surface pitch is %d, image stride is %d" LOG_CR, lr.Pitch, data.Stride);
+	for (UINT y = 0; y < g_Proc.m_Stats.m_SizeWnd.cy; y++)
+		memcpy((BYTE *)lr.pBits + (y * lr.Pitch), (BYTE *)vec->data() + (y * g_Proc.m_Stats.m_SizeWnd.cx * 4), g_Proc.m_Stats.m_SizeWnd.cx * 4);
+
+
+	m_pOverlayTexture->UnlockRect(0);
+
+	has_content = true;
 }
 
 static bool get_back_buffer_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
@@ -482,6 +515,12 @@ void overlay_d3d9_free()
 	initialized = false;
 }
 
+static bool show_browser_tex()
+{
+	renderer.UpdateOverlay();
+	return renderer.DrawOverlay();
+}
+
 C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 {
 
@@ -497,6 +536,7 @@ C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 
 	HandleInputHook(window);
 
+	if (!g_bBrowserShowing || !show_browser_tex())
 	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)
 	{
 		renderer.DrawNewIndicator(indicator, D3DCOLOR_ARGB(alpha, 255, 255, 255));
