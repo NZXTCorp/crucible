@@ -139,6 +139,13 @@ vector<uint8_t> *ReadNewFramebuffer()
 	return &forgeFramebufferServer.read_data;
 }
 
+static HCURSOR previous_cursor = nullptr;
+
+void ShowCursor() // hook SetCursor instead?
+{
+	SetCursor(LoadCursorW(NULL, IDC_ARROW));
+}
+
 void ToggleOverlay()
 {
 	if (g_bBrowserShowing && forgeFramebufferServer.died)
@@ -148,10 +155,12 @@ void ToggleOverlay()
 		forgeFramebufferServer.Start();
 		ForgeEvent::ShowBrowser(forgeFramebufferServer.name, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
 		hlog("Requesting browser");
+		previous_cursor = SetCursor(LoadCursorW(NULL, IDC_ARROW));
 	} else {
 		ForgeEvent::HideBrowser();
 		hlog("Hiding browser");
 		forgeFramebufferServer.Stop();
+		SetCursor(previous_cursor);
 	}
 
 	g_bBrowserShowing = !g_bBrowserShowing;
