@@ -322,7 +322,7 @@ struct CrucibleContext {
 	OBSEncoder h264, aac;
 	string filename = "";
 	string muxerSettings = "";
-	OBSOutput output;
+	OBSOutput output, buffer;
 	OBSOutputSignal startRecording, stopRecording;
 
 	uint32_t target_width = 1280;
@@ -516,6 +516,12 @@ struct CrucibleContext {
 		obs_output_set_video_encoder(output, h264);
 		obs_output_set_audio_encoder(output, aac, 0);
 
+		InitRef(buffer, "Couldn't create buffer output", obs_output_release,
+				obs_output_create("ffmpeg_recordingbuffer", "ffmpeg recordingbuffer", nullptr, nullptr));
+
+		obs_output_set_video_encoder(buffer, h264);
+		obs_output_set_audio_encoder(buffer, aac, 0);
+
 		stopRecording
 			.Disconnect()
 			.SetOwner(output)
@@ -527,12 +533,17 @@ struct CrucibleContext {
 			.Connect();
 
 		auto weakOutput = OBSGetWeakRef(output);
+		auto weakBuffer = OBSGetWeakRef(buffer);
 
 		stopCapture
 			.Disconnect()
 			.SetFunc([=](calldata_t*)
 		{
 			auto ref = OBSGetStrongRef(weakOutput);
+			if (ref)
+				obs_output_stop(ref);
+
+			ref = OBSGetStrongRef(weakBuffer);
 			if (ref)
 				obs_output_stop(ref);
 		}).Connect();
@@ -548,6 +559,10 @@ struct CrucibleContext {
 				return;
 
 			auto ref = OBSGetStrongRef(weakOutput);
+			if (ref)
+				obs_output_start(ref);
+
+			ref = OBSGetStrongRef(weakBuffer);
 			if (ref)
 				obs_output_start(ref);
 		}).Connect();
