@@ -194,6 +194,15 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendBufferReady(const char *filename)
+	{
+		auto event = EventCreate("buffer_ready");
+
+		obs_data_set_string(event, "filename", filename);
+
+		SendEvent(event);
+	}
 }
 
 namespace AnvilCommands {
@@ -324,6 +333,7 @@ struct CrucibleContext {
 	string muxerSettings = "";
 	OBSOutput output, buffer;
 	OBSOutputSignal startRecording, stopRecording;
+	OBSOutputSignal bufferSaved;
 
 	uint32_t target_width = 1280;
 	uint32_t target_height = 720;
@@ -495,6 +505,14 @@ struct CrucibleContext {
 			AnvilCommands::ShowRecording();
 		});
 
+		bufferSaved
+			.SetSignal("buffer_output_finished")
+			.SetFunc([=](calldata_t *data)
+		{
+			auto filename = calldata_string(data, "filename");
+			ForgeEvents::SendBufferReady(filename);
+		});
+
 		stopCapture
 			.SetOwner(gameCapture)
 			.SetSignal("stop_capture");
@@ -530,6 +548,11 @@ struct CrucibleContext {
 		startRecording
 			.Disconnect()
 			.SetOwner(output)
+			.Connect();
+
+		bufferSaved
+			.Disconnect()
+			.SetOwner(buffer)
 			.Connect();
 
 		auto weakOutput = OBSGetWeakRef(output);
