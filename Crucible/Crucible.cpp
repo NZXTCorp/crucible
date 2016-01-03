@@ -570,6 +570,19 @@ struct CrucibleContext {
 
 	recursive_mutex updateMutex;
 
+	void SaveRecordingBuffer(obs_data_t *settings)
+	{
+		if (!settings)
+			return;
+
+		LOCK(updateMutex);
+		auto proc = obs_output_get_proc_handler(buffer);
+		calldata_t param{};
+		calldata_init(&param);
+		calldata_set_string(&param, "filename", obs_data_get_string(settings, "filename"));
+		proc_handler_call(proc, "output_precise_buffer", &param);
+	}
+
 	void UpdateGameCapture(obs_data_t *settings)
 	{
 		if (!settings)
@@ -793,6 +806,11 @@ static void HandleUpdateMicCommand(CrucibleContext &cc, OBSData &obj)
 	cc.UpdateMic(obj);
 }
 
+static void HandleSaveRecordingBuffer(CrucibleContext &cc, OBSData &obj)
+{
+	cc.SaveRecordingBuffer(obj);
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -800,6 +818,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{"capture_new_process", HandleCaptureCommand},
 		{"query_mics", HandleQueryMicsCommand},
 		{"update_mic", HandleUpdateMicCommand},
+		{"save_recording_buffer", HandleSaveRecordingBuffer},
 	};
 	if (!data)
 		return;
