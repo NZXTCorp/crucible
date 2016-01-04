@@ -616,16 +616,22 @@ struct CrucibleContext {
 		obs_source_update(gameCapture, settings);
 	}
 
-	void UpdateMic(obs_data_t *settings)
+	void UpdateSettings(obs_data_t *settings)
 	{
 		if (!settings)
 			return;
 
-		auto enabled = obs_data_get_bool(settings, "enabled");
-		auto ptt = obs_data_get_bool(settings, "ptt");
 		auto ptt_key = OBSDataGetObj(settings, "ptt_key");
-		auto source_settings = OBSDataGetObj(settings, "source_settings");
+		auto microphone = OBSDataGetObj(settings, "microphone");
+		if (!microphone) {
+			blog(LOG_WARNING, "no microphone data in settings");
+			return;
+		}
 
+		auto enabled = obs_data_get_bool(microphone, "enabled");
+		auto ptt = obs_data_get_bool(microphone, "ptt_mode");
+		auto source_settings = OBSDataGetObj(microphone, "source_settings");
+		
 		auto continuous = enabled && !ptt;
 		ptt = enabled && ptt;
 
@@ -824,9 +830,9 @@ static void HandleQueryMicsCommand(CrucibleContext&, OBSData&)
 	ForgeEvents::SendQueryMicsResponse(devices);
 }
 
-static void HandleUpdateMicCommand(CrucibleContext &cc, OBSData &obj)
+static void HandleUpdateSettingsCommand(CrucibleContext &cc, OBSData &obj)
 {
-	cc.UpdateMic(obj);
+	cc.UpdateSettings(OBSDataGetObj(obj, "settings"));
 }
 
 static void HandleSaveRecordingBuffer(CrucibleContext &cc, OBSData &obj)
@@ -840,7 +846,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{"connect", HandleConnectCommand},
 		{"capture_new_process", HandleCaptureCommand},
 		{"query_mics", HandleQueryMicsCommand},
-		{"update_mic", HandleUpdateMicCommand},
+		{"update_settings", HandleUpdateSettingsCommand},
 		{"save_recording_buffer", HandleSaveRecordingBuffer},
 	};
 	if (!data)
