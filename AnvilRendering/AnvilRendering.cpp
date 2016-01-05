@@ -77,6 +77,11 @@ namespace ForgeEvent
 	{
 		return SendEvent(EventCreate("hide_browser"));
 	}
+
+	bool CreateBookmark()
+	{
+		return SendEvent(EventCreate("create_bookmark"));
+	}
 }
 
 

@@ -178,8 +178,11 @@ static void ProcessHotKeys()
 			if (event.event == HKEVENT_PRESS)
 				ToggleOverlay();
 			break;
-		case HOTKEY_Screenshot:
 		case HOTKEY_Bookmark:
+			if (event.event == HKEVENT_PRESS)
+				ForgeEvent::CreateBookmark();
+			break;
+		case HOTKEY_Screenshot:
 			break;
 		}
 	}

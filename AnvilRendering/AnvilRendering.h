@@ -83,6 +83,7 @@ namespace ForgeEvent
 	bool MouseEvent(int x, int y, int wParam);
 	bool ShowBrowser(const std::string &name, LONG width, LONG height);
 	bool HideBrowser();
+	bool CreateBookmark();
 }
 
 std::vector<uint8_t> *ReadNewFramebuffer();
