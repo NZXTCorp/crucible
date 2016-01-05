@@ -6,11 +6,13 @@
 
 #include <util/base.h>
 #include <util/dstr.hpp>
+#include <util/platform.h>
 #include <util/profiler.hpp>
 #include <obs.hpp>
 
 #include "OBSHelpers.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <iostream>
 #include <map>
@@ -340,7 +342,22 @@ static void InitRef(T &ref, const char *msg, void (*release)(U*), U *val)
 
 static decltype(ProfileSnapshotCreate()) last_session;
 
+struct Bookmark {
+	video_tracked_frame_id tracked_id = 0;
+	int64_t pts = 0;
+	uint32_t fps_den = 1;
+	double time = 0.;
+};
+
 struct CrucibleContext {
+	mutex bookmarkMutex;
+	vector<Bookmark> estimatedBookmarks;
+	vector<Bookmark> bookmarks;
+	vector<Bookmark> estimatedBufferBookmarks;
+	vector<Bookmark> bufferBookmarks;
+
+	uint64_t recordingStartTime = 0;
+
 	obs_video_info ovi;
 	uint32_t fps_den;
 	OBSSource tunes, mic, gameCapture;
@@ -351,6 +368,7 @@ struct CrucibleContext {
 	string muxerSettings = "";
 	OBSOutput output, buffer;
 	OBSOutputSignal startRecording, stopRecording;
+	OBSOutputSignal sentTrackedFrame, bufferSentTrackedFrame;
 	OBSOutputSignal bufferSaved;
 
 	uint32_t target_width = 1280;
@@ -505,6 +523,8 @@ struct CrucibleContext {
 			AnvilCommands::ShowIdle();
 			StopVideo(); // leak here!!!
 
+			ClearBookmarks();
+
 			auto snap = ProfileSnapshotCreate();
 			auto diff = unique_ptr<profiler_snapshot_t>{profile_snapshot_diff(last_session.get(), snap.get())};
 
@@ -519,8 +539,17 @@ struct CrucibleContext {
 			.SetFunc([=](calldata*)
 		{
 			auto data = OBSTransferOwned(obs_output_get_settings(output));
+			recordingStartTime = os_gettime_ns();
 			ForgeEvents::SendRecordingStart(obs_data_get_string(data, "path"));
 			AnvilCommands::ShowRecording();
+		});
+
+		sentTrackedFrame
+			.SetSignal("sent_tracked_frame")
+			.SetFunc([=](calldata *data)
+		{
+			FinalizeBookmark(estimatedBookmarks, bookmarks, calldata_int(data, "id"),
+				calldata_int(data, "pts"), static_cast<uint32_t>(calldata_int(data, "timebase_den")));
 		});
 
 		bufferSaved
@@ -529,6 +558,14 @@ struct CrucibleContext {
 		{
 			auto filename = calldata_string(data, "filename");
 			ForgeEvents::SendBufferReady(filename);
+		});
+
+		bufferSentTrackedFrame
+			.SetSignal("sent_tracked_frame")
+			.SetFunc([=](calldata *data)
+		{
+			FinalizeBookmark(estimatedBufferBookmarks, bufferBookmarks, calldata_int(data, "id"),
+				calldata_int(data, "pts"), static_cast<uint32_t>(calldata_int(data, "timebase_den")));
 		});
 
 		stopCapture
@@ -568,7 +605,17 @@ struct CrucibleContext {
 			.SetOwner(output)
 			.Connect();
 
+		sentTrackedFrame
+			.Disconnect()
+			.SetOwner(output)
+			.Connect();
+
 		bufferSaved
+			.Disconnect()
+			.SetOwner(buffer)
+			.Connect();
+
+		bufferSentTrackedFrame
 			.Disconnect()
 			.SetOwner(buffer)
 			.Connect();
@@ -607,6 +654,75 @@ struct CrucibleContext {
 			if (ref)
 				obs_output_start(ref);
 		}).Connect();
+	}
+
+	void ClearBookmarks()
+	{
+		LOCK(bookmarkMutex);
+		estimatedBookmarks.clear();
+		bookmarks.clear();
+
+		estimatedBufferBookmarks.clear();
+		bufferBookmarks.clear();
+	}
+
+	vector<double> BookmarkTimes(vector<Bookmark> &bookmarks, int64_t start_pts = 0)
+	{
+		vector<double> res;
+		{
+			LOCK(bookmarkMutex);
+
+			res.reserve(bookmarks.size());
+			for (auto &bookmark : bookmarks) {
+				if (bookmark.pts < start_pts)
+					continue;
+
+				res.push_back((bookmark.pts - start_pts) / static_cast<double>(bookmark.fps_den));
+			}
+		}
+
+		return res;
+	}
+
+	void FinalizeBookmark(vector<Bookmark> &estimates, vector<Bookmark> &bookmarks, video_tracked_frame_id tracked_id, int64_t pts, uint32_t fps_den)
+	{
+		LOCK(bookmarkMutex);
+
+		auto it = find_if(begin(estimates), end(estimates), [&](const Bookmark &bookmark)
+		{
+			return bookmark.tracked_id == tracked_id;
+		});
+		if (it == end(estimates))
+			return;
+
+		auto new_time = pts / static_cast<double>(fps_den);
+
+		blog(LOG_INFO, "Updated bookmark from %g s to %g s (tracked frame %lld)", it->time, new_time, tracked_id);
+
+		it->fps_den = fps_den;
+		it->pts = pts;
+		it->time = new_time;
+
+		bookmarks.push_back(*it);
+		estimates.erase(it);
+	}
+
+	void CreateBookmark()
+	{
+		LOCK(bookmarkMutex);
+		estimatedBookmarks.emplace_back();
+		auto &bookmark = estimatedBookmarks.back();
+
+		estimatedBufferBookmarks.emplace_back();
+		auto &bufferBookmark = estimatedBufferBookmarks.back();
+
+		bookmark.time = bufferBookmark.time = (os_gettime_ns() - recordingStartTime) / 1000000000.;
+
+		auto tracked_id = obs_track_next_frame();
+
+		bookmark.tracked_id = bufferBookmark.tracked_id = tracked_id;
+
+		blog(LOG_INFO, "Created bookmark at offset %g s (estimated, tracking frame %lld)", bookmark.time, tracked_id);
 	}
 
 	recursive_mutex updateMutex;
