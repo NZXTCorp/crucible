@@ -128,6 +128,11 @@ static void HandleForgeInfo(Object &obj)
 
 static void HandleCommands(uint8_t *data, size_t size)
 {
+	static const map<string, void(*)(Object&)> handlers = {
+		{"indicator", HandleIndicatorCommand},
+		{"forge_info", HandleForgeInfo},
+	};
+
 	if (!data)
 		return;
 	
@@ -143,12 +148,11 @@ static void HandleCommands(uint8_t *data, size_t size)
 		if (!cmd.length())
 			return hlog("Got invalid command with 0 length");
 
-		if (cmd == "indicator")
-			return HandleIndicatorCommand(obj);
-		else if (cmd == "forge_info")
-			return HandleForgeInfo(obj);
-
-		hlog("Got unknown command '%s' (%d)", cmd.c_str(), cmd.length());
+		auto handler = handlers.find(cmd);
+		if (handler != cend(handlers))
+			handler->second(obj);
+		else
+			hlog("Got unknown command '%s' (%d)", cmd.c_str(), cmd.length());
 
 	} catch (Exception &e) {
 		hlog("Unable to process command in HandleCommands: %s", e.what());
