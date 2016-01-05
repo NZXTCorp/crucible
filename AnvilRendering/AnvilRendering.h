@@ -47,6 +47,21 @@ enum HOTKEY_TYPE
 	HOTKEY_QTY,
 };
 
+static inline const char *HotKeyTypeName(HOTKEY_TYPE hotkey)
+{
+	switch (hotkey)
+	{
+#define HK(x) case x: return #x
+		HK(HOTKEY_Screenshot);
+		HK(HOTKEY_Bookmark);
+		HK(HOTKEY_Overlay);
+	default:
+		break;
+	}
+
+	return "HOTKEY_unknown";
+}
+
 enum HOTKEY_EVENT
 {
 	HKEVENT_PRESS,

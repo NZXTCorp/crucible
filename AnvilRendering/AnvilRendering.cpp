@@ -17,9 +17,14 @@
 #include <mutex>
 #include <vector>
 
+#include <commctrl.h>	// HOTKEYF_ALT
 #include <d3dcompiler.h>
 
 using namespace std;
+
+#define CONCAT2(x, y) x ## y
+#define CONCAT(x, y) CONCAT2(x, y)
+#define LOCK(x) lock_guard<decltype(x)> CONCAT(lockGuard, __LINE__){x};
 
 struct FreeHandle
 {
@@ -94,6 +99,9 @@ void ShowCurrentIndicator(const std::function<void(IndicatorEvent, BYTE /*alpha*
 	func(currentIndicator, 255);
 }
 
+mutex hotkeys_mutex;
+static WORD hotkeys[HOTKEY_QTY] = { 0 };
+
 namespace CrucibleCommand {
 
 using namespace json;
@@ -126,11 +134,48 @@ static void HandleForgeInfo(Object &obj)
 	ForgeEvent::forge_client.Open(event.Value());
 }
 
+static void HandleUpdateSettings(Object &obj)
+{
+	auto UpdateHotkey = [&](HOTKEY_TYPE hotkey, const char *setting_name)
+	{
+		Object key_data = obj[setting_name];
+		if (!key_data.HasMember("keycode"))
+			return;
+
+		Boolean meta = key_data["meta"];
+		if (meta)
+			return hlog("meta modifier not supported for hotkey '%s' (%s)", HotKeyTypeName(hotkey), setting_name);
+
+		Boolean shift = key_data["shift"];
+		Boolean ctrl = key_data["ctrl"];
+		Boolean alt = key_data["alt"];
+		Number code = key_data["keycode"];
+
+		hotkeys[hotkey] = (shift ? HOTKEYF_SHIFT : 0) |
+			(ctrl ? HOTKEYF_CONTROL : 0) |
+			(alt ? HOTKEYF_ALT : 0) |
+			static_cast<int>(code.Value());
+
+		if (!hotkeys[hotkey])
+			return;
+
+		hlog("hotkey '%s' (%s) updated", HotKeyTypeName(hotkey), setting_name);
+	};
+
+	{
+		LOCK(hotkeys_mutex);
+		//UpdateHotkey(HOTKEY_Screenshot, "...?");
+		UpdateHotkey(HOTKEY_Bookmark, "bookmark_key");
+		//UpdateHotkey(HOTKEY_Overlay, "...?");
+	}
+}
+
 static void HandleCommands(uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(Object&)> handlers = {
 		{"indicator", HandleIndicatorCommand},
 		{"forge_info", HandleForgeInfo},
+		{"update_settings", HandleUpdateSettings},
 	};
 
 	if (!data)
@@ -176,14 +221,15 @@ bool g_bUseDirectInput = true;
 bool g_bUseKeyboard = true;
 bool g_bBrowserShowing = false;
 
-static WORD hotkeys[HOTKEY_QTY] = { 0 };
-
 WORD GetHotKey(HOTKEY_TYPE t)
 {
 	if (t == HOTKEY_Overlay)
 		return 0x100 | VK_SPACE;
 	if (t >= 0 && t < HOTKEY_QTY)
+	{
+		LOCK(hotkeys_mutex);
 		return hotkeys[t];
+	}
 	return 0;
 }
 
