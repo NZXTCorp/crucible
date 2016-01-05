@@ -30,6 +30,10 @@ using namespace std;
 // window class borrowed from forge, remove once we've got headless mode working
 #include "TestWindow.h"
 
+extern "C" {
+	_declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+}
+
 extern OBSEncoder CreateAudioEncoder(const char *name);
 
 static IPCClient event_client, log_client;
