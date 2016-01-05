@@ -976,6 +976,11 @@ static void HandleSaveRecordingBuffer(CrucibleContext &cc, OBSData &obj)
 	cc.SaveRecordingBuffer(obj);
 }
 
+static void HandleCreateBookmark(CrucibleContext &cc, OBSData &)
+{
+	cc.CreateBookmark();
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -984,6 +989,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{"query_mics", HandleQueryMicsCommand},
 		{"update_settings", HandleUpdateSettingsCommand},
 		{"save_recording_buffer", HandleSaveRecordingBuffer},
+		{"create_bookmark", HandleCreateBookmark},
 	};
 	if (!data)
 		return;
