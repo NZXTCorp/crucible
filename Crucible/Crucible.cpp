@@ -178,12 +178,21 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
-	void SendRecordingStop(const char *filename, int total_frames)
+	void SendRecordingStop(const char *filename, int total_frames, const vector<double> &bookmarks)
 	{
 		auto event = EventCreate("stopped_recording");
 
 		obs_data_set_string(event, "filename", filename);
 		obs_data_set_int(event, "total_frames", total_frames);
+
+		auto array = OBSDataArrayCreate();
+		obs_data_set_array(event, "bookmarks", array);
+
+		for (auto bookmark : bookmarks) {
+			auto tmp = OBSDataCreate();
+			obs_data_set_double(tmp, "val", bookmark);
+			obs_data_array_push_back(array, tmp);
+		}
 
 		SendEvent(event);
 	}
@@ -519,7 +528,7 @@ struct CrucibleContext {
 		{
 			auto data = OBSTransferOwned(obs_output_get_settings(output));
 			ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
-				obs_output_get_total_frames(output));
+				obs_output_get_total_frames(output), BookmarkTimes(bookmarks));
 			AnvilCommands::ShowIdle();
 			StopVideo(); // leak here!!!
 
