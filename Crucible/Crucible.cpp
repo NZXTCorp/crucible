@@ -213,13 +213,9 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
-	void SendBufferReady(const char *filename)
+	void SendBufferReady(const char *filename, int total_frames, const vector<double> &bookmarks)
 	{
-		auto event = EventCreate("buffer_ready");
-
-		obs_data_set_string(event, "filename", filename);
-
-		SendEvent(event);
+		SendFileCompleteEvent(EventCreate("buffer_ready"), filename, total_frames, bookmarks);
 	}
 }
 
@@ -573,7 +569,8 @@ struct CrucibleContext {
 			.SetFunc([=](calldata_t *data)
 		{
 			auto filename = calldata_string(data, "filename");
-			ForgeEvents::SendBufferReady(filename);
+			ForgeEvents::SendBufferReady(filename, calldata_int(data, "frames"),
+				BookmarkTimes(bufferBookmarks, calldata_int(data, "start_pts")));
 		});
 
 		bufferSentTrackedFrame
