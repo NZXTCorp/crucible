@@ -163,6 +163,23 @@ namespace ForgeEvents {
 		queuedEvents.erase(begin(queuedEvents), i);
 	}
 
+	static void SendFileCompleteEvent(obs_data_t *event, const char *filename, int total_frames, const vector<double> &bookmarks)
+	{
+		obs_data_set_string(event, "filename", filename);
+		obs_data_set_int(event, "total_frames", total_frames);
+
+		auto array = OBSDataArrayCreate();
+		obs_data_set_array(event, "bookmarks", array);
+
+		for (auto bookmark : bookmarks) {
+			auto tmp = OBSDataCreate();
+			obs_data_set_double(tmp, "val", bookmark);
+			obs_data_array_push_back(array, tmp);
+		}
+
+		SendEvent(event);
+	}
+
 	OBSData EventCreate(const char * name)
 	{
 		auto event = OBSDataCreate();
@@ -184,21 +201,7 @@ namespace ForgeEvents {
 
 	void SendRecordingStop(const char *filename, int total_frames, const vector<double> &bookmarks)
 	{
-		auto event = EventCreate("stopped_recording");
-
-		obs_data_set_string(event, "filename", filename);
-		obs_data_set_int(event, "total_frames", total_frames);
-
-		auto array = OBSDataArrayCreate();
-		obs_data_set_array(event, "bookmarks", array);
-
-		for (auto bookmark : bookmarks) {
-			auto tmp = OBSDataCreate();
-			obs_data_set_double(tmp, "val", bookmark);
-			obs_data_array_push_back(array, tmp);
-		}
-
-		SendEvent(event);
+		SendFileCompleteEvent(EventCreate("stopped_recording"), filename, total_frames, bookmarks);
 	}
 
 	void SendQueryMicsResponse(obs_data_array_t *devices)
