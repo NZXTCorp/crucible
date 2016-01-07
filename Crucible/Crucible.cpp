@@ -230,9 +230,10 @@ namespace AnvilCommands {
 
 	string forge_overlay_channel;
 	OBSData bookmark_key;
+	OBSData highlight_key;
 
 	void SendForgeInfo(const char *info=nullptr);
-	void SendSettings(obs_data_t *bookmark_key_=nullptr);
+	void SendSettings(obs_data_t *bookmark_key_=nullptr, obs_data_t *highlight_key_=nullptr);
 
 	void Connect(DWORD pid)
 	{
@@ -326,7 +327,7 @@ namespace AnvilCommands {
 		SendCommand(cmd);
 	}
 
-	void SendSettings(obs_data_t *bookmark_key_)
+	void SendSettings(obs_data_t *bookmark_key_, obs_data_t *highlight_key_)
 	{
 		auto cmd = CommandCreate("update_settings");
 
@@ -334,9 +335,13 @@ namespace AnvilCommands {
 
 		if (bookmark_key_)
 			bookmark_key = bookmark_key_;
+		if (highlight_key_)
+			highlight_key = highlight_key_;
 
 		if (bookmark_key)
 			obs_data_set_obj(cmd, "bookmark_key", bookmark_key);
+		if (highlight_key)
+			obs_data_set_obj(cmd, "highlight_key", highlight_key);
 
 		SendCommand(cmd);
 	}
@@ -768,7 +773,8 @@ struct CrucibleContext {
 		if (!settings)
 			return;
 
-		AnvilCommands::SendSettings(OBSDataGetObj(settings, "bookmark_key"));
+		AnvilCommands::SendSettings(OBSDataGetObj(settings, "bookmark_key"),
+			OBSDataGetObj(settings, "highlight_key"));
 
 		auto ptt_key = OBSDataGetObj(settings, "ptt_key");
 		auto microphone = OBSDataGetObj(settings, "microphone");

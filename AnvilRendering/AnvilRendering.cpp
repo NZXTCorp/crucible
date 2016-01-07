@@ -171,7 +171,7 @@ static void HandleUpdateSettings(Object &obj)
 		LOCK(hotkeys_mutex);
 		//UpdateHotkey(HOTKEY_Screenshot, "...?");
 		UpdateHotkey(HOTKEY_Bookmark, "bookmark_key");
-		//UpdateHotkey(HOTKEY_Overlay, "...?");
+		UpdateHotkey(HOTKEY_Overlay, "highlight_key");
 	}
 }
 
