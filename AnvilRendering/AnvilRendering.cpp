@@ -228,8 +228,6 @@ bool g_bBrowserShowing = false;
 
 WORD GetHotKey(HOTKEY_TYPE t)
 {
-	if (t == HOTKEY_Overlay)
-		return 0x100 | VK_SPACE;
 	if (t >= 0 && t < HOTKEY_QTY)
 	{
 		LOCK(hotkeys_mutex);
