@@ -11,6 +11,7 @@
 
 // keyboard state from GetKeyboardState
 static bool s_keys[256];
+static bool s_pre_overlay_keys[256];
 
 std::vector<KeyEvent> g_keyevents;
 CRITICAL_SECTION g_keyeventlock;
@@ -170,6 +171,11 @@ SHORT UpdateSingleKeyState( int key, SHORT state )
 
 		s_keys[key] = false;
 	}
+
+	if (!g_bBrowserShowing)
+		s_pre_overlay_keys[key] = s_keys[key];
+	else
+		return s_pre_overlay_keys[key] ? 0x8000 : 0;
 
 	return state;
 }
