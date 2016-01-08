@@ -263,7 +263,7 @@ void overlay_d3d10_free();
 void overlay_d3d9_free();
 void overlay_gl_free();
 
-C_EXPORT void overlay_free()
+C_EXPORT void overlay_reset()
 {
 	StopInputHook();
 
@@ -271,6 +271,11 @@ C_EXPORT void overlay_free()
 	overlay_d3d10_free();
 	overlay_d3d9_free();
 	overlay_gl_free();
+}
+
+C_EXPORT void overlay_free()
+{
+	overlay_reset();
 
 	if (gdi_token)
 		Gdiplus::GdiplusShutdown(gdi_token);
