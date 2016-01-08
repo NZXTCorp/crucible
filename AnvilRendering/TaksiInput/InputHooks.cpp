@@ -58,12 +58,20 @@ static GETRAWINPUTDATA s_GetRawInputData = NULL;
 typedef UINT (WINAPI *GETRAWINPUTBUFFER)(PRAWINPUT, PUINT, UINT);
 static GETRAWINPUTBUFFER s_GetRawInputBuffer = NULL;
 
+typedef UINT (WINAPI *GETREGISTEREDRAWINPUTDEVICES)(PRAWINPUTDEVICE, PUINT, UINT);
+static GETREGISTEREDRAWINPUTDEVICES s_GetRegisteredRawInputDevices = nullptr;
+
+typedef BOOL (WINAPI *REGISTERRAWINPUTDEVICES)(PCRAWINPUTDEVICE, UINT, UINT);
+static REGISTERRAWINPUTDEVICES s_RegisterRawInputDevices = nullptr;
+
 static CHookJump s_HookGetKeyboardState;
 static CHookJump s_HookGetAsyncKeyState;
 static CHookJump s_HookGetCursorPos;
 static CHookJump s_HookSetCursorPos;
 static CHookJump s_HookGetRawInputData;
 static CHookJump s_HookGetRawInputBuffer;
+static CHookJump s_HookGetRegisteredRawInputDevices;
+static CHookJump s_HookRegisterRawInputDevices;
 
 #ifdef USE_DIRECTI
 
@@ -243,6 +251,33 @@ UINT WINAPI Hook_GetRawInputBuffer( PRAWINPUT pData, PUINT pcbSize, UINT cbSizeH
 	return res;
 }
 
+UINT WINAPI Hook_GetRegisteredRawInputDevices(PRAWINPUTDEVICE pRawInputDevices, PUINT puiNumDevices, UINT cbSize)
+{
+	s_HookGetRegisteredRawInputDevices.SwapOld(s_GetRegisteredRawInputDevices);
+	auto res = s_GetRegisteredRawInputDevices(pRawInputDevices, puiNumDevices, cbSize);
+	s_HookGetRegisteredRawInputDevices.SwapReset(s_GetRegisteredRawInputDevices);
+	return res;
+}
+
+BOOL WINAPI Hook_RegisterRawInputDevices(PCRAWINPUTDEVICE pRawInputDevices, UINT uiNumDevices, UINT cbSize)
+{
+	s_HookRegisterRawInputDevices.SwapOld(s_RegisterRawInputDevices);
+	auto res = s_RegisterRawInputDevices(pRawInputDevices, uiNumDevices, cbSize);
+	s_HookRegisterRawInputDevices.SwapReset(s_RegisterRawInputDevices);
+	return res;
+}
+
+template <typename T>
+static bool InitHook(HMODULE dll, T *&orig, T* new_, const char *name, CHookJump &hook)
+{
+	orig = (T*)GetProcAddress(dll, name);
+	if (hook.InstallHook(orig, new_))
+		return true;
+
+	hlog("HookInput: unable to hook function %s", name);
+	return false;
+}
+
 bool HookInput( void )
 {
 	HMODULE dll = GetModuleHandle( L"user32.dll" );
@@ -287,6 +322,13 @@ bool HookInput( void )
 		LOG_MSG( "HookInput: unable to hook function GetRawInputBuffer" LOG_CR );
 		return false;
 	}
+
+	if (!InitHook(dll, s_GetRegisteredRawInputDevices, Hook_GetRegisteredRawInputDevices, "GetRegisteredRawInputDevices", s_HookGetRegisteredRawInputDevices))
+		return false;
+
+	if (!InitHook(dll, s_RegisterRawInputDevices, Hook_RegisterRawInputDevices, "RegisterRawInputDevices", s_HookRegisterRawInputDevices))
+		return false;
+
 	return true;
 }
 
@@ -298,6 +340,8 @@ void UnhookInput( void )
 	s_HookSetCursorPos.RemoveHook( s_SetCursorPos );
 	s_HookGetRawInputData.RemoveHook( s_GetRawInputData );
 	s_HookGetRawInputBuffer.RemoveHook( s_GetRawInputBuffer );
+	s_HookGetRegisteredRawInputDevices.RemoveHook(s_GetRegisteredRawInputDevices);
+	s_HookRegisterRawInputDevices.RemoveHook(s_RegisterRawInputDevices);
 }
 
 // handle any input events sent to game's window. return true if we're eating them (ie: showing overlay)
