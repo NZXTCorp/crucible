@@ -385,8 +385,17 @@ static OpenGLRenderer render;
 static bool initialized = false;
 static HGLRC render_context = nullptr;
 
+static GLuint browser_tex = 0;
+static bool has_content = false;
+
 void overlay_gl_free()
 {
+	if (browser_tex) {
+		s_glDeleteTextures(1, &browser_tex);
+		browser_tex = 0;
+		has_content = false;
+	}
+
 	render.FreeRenderer();
 
 	if (render_context) {
@@ -396,9 +405,6 @@ void overlay_gl_free()
 
 	initialized = false;
 }
-
-static GLuint browser_tex = 0;
-static bool has_content = false;
 
 static bool show_browser_tex_()
 {
