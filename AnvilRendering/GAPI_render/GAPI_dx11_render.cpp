@@ -844,8 +844,8 @@ static DX11Renderer *get_renderer(IDXGISwapChain *swap)
 {
 	if (!renderer)
 	{
-		ID3D11Device *dev = nullptr;
-		auto hr = swap->GetDevice(__uuidof(ID3D11Device), (void**)&dev);
+		IRefPtr<ID3D11Device> dev;
+		auto hr = swap->GetDevice(__uuidof(ID3D11Device), (void**)IREF_GETPPTR(dev, ID3D11Device));
 		if (FAILED(hr) || !dev)
 			return nullptr;
 

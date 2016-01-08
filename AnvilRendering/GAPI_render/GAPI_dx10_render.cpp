@@ -628,8 +628,8 @@ static DX10Renderer *get_renderer(IDXGISwapChain *swap)
 {
 	if (!renderer)
 	{
-		ID3D10Device *dev = nullptr;
-		auto hr = swap->GetDevice(__uuidof(ID3D10Device), (void**)&dev);
+		IRefPtr<ID3D10Device> dev;
+		auto hr = swap->GetDevice(__uuidof(ID3D10Device), (void**)IREF_GETPPTR(dev, ID3D10Device));
 		if (FAILED(hr) || !dev)
 			return nullptr;
 
