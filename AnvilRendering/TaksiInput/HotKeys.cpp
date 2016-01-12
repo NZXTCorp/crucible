@@ -159,7 +159,7 @@ void CTaksiDI::ProcessDirectInput()
 	}
 
 	// for each frame: acquire, get state, unacquire
-	LOG_MSG( "ProcessDirectInput: checking keys" LOG_CR );
+	//LOG_MSG( "ProcessDirectInput: checking keys" LOG_CR );
 
 	hRes = s_lpDIDevice->Acquire( );
 	if ( FAILED(hRes) )
