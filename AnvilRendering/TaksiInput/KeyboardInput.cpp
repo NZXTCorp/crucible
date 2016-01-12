@@ -4,10 +4,13 @@
 #include "stdafx.h"
 
 #include "TaksiInput.h"
+#include "HotKeys.h"
 
 #include "KeyboardInput.h"
 
 #include <vector>
+
+#include <commctrl.h>	// HOTKEYF_ALT
 
 // keyboard state from GetKeyboardState
 static bool s_keys[256];
@@ -123,9 +126,50 @@ void MoveKeyEventsToMessageQueue( MessageQueue &queue )
 	LeaveCriticalSection( &g_keyeventlock );
 }
 
+static bool Pressed(PBYTE keys, BYTE key)
+{
+	return (keys[key] & 0x80) == 0x80;
+}
+
+static bool Pressed(bool *keys, BYTE key)
+{
+	return keys[key];
+}
+
+template <typename T>
+static int Modifiers(T keys)
+{
+		return ((Pressed(keys, VK_CONTROL) || Pressed(keys, VK_LCONTROL) ? HOTKEYF_CONTROL : 0) |
+			(Pressed(keys, VK_MENU) || Pressed(keys, VK_LMENU) || Pressed(keys, VK_RMENU) ? HOTKEYF_ALT : 0) |
+			(Pressed(keys, VK_SHIFT) || Pressed(keys, VK_LSHIFT) || Pressed(keys, VK_RSHIFT) ? HOTKEYF_SHIFT : 0)) << 8;
+}
+
+template <typename T, typename U>
+static void HandleHotkeys(T s_keys, U keys)
+{
+	auto mods = Modifiers(keys);
+	auto prev_mods = Modifiers(s_keys);
+	for (int i = 0; i < HOTKEY_QTY; i++)
+	{
+		WORD wHotKey = GetHotKey((HOTKEY_TYPE)i);
+
+		auto vk = LOBYTE(wHotKey);
+		auto k_mods = HIBYTE(wHotKey);
+		bool pressed = Pressed(keys, vk) && (!k_mods || (mods & k_mods) != 0);
+		bool was_pressed = Pressed(s_keys, vk) && (!k_mods || (prev_mods & k_mods) != 0);
+
+		if (pressed && !was_pressed && !(g_HotKeys.DoHotKey((HOTKEY_TYPE)i)))
+			g_HotKeys.AddEvent((HOTKEY_TYPE)i, HKEVENT_PRESS);
+		else if (!pressed && was_pressed)
+			g_HotKeys.AddEvent((HOTKEY_TYPE)i, HKEVENT_RELEASE);
+	}
+}
+
 // compare keyboard provided state to last known state. 
 void UpdateKeyboardState( PBYTE keys )
 {
+	HandleHotkeys(s_keys, keys);
+
 	for ( int i = 0; i < 256; i++ )
 	{
 		bool key = (keys[i] & 0x80) == 0x80;
