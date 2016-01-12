@@ -230,8 +230,12 @@ void UpdateRawKeyState( PRAWKEYBOARD event )
 	//LOG_MSG( "UpdateRawKeyState: key event for %u, flags 0x%x"LOG_CR, event->VKey, event->Flags );
 }
 
+static bool s_keys_prev[256];
+
 bool UpdateWMKeyState( int key, KeyEventType type )
 {
+	memcpy(s_keys_prev, s_keys, sizeof(s_keys_prev));
+
 	// wParam is virtual key code. lParam is a bunch of flags that msdn explains (that don't matter to us). key_down tells us if it was a key down or up message so we can update saved state.
 	switch ( type )
 	{
@@ -239,11 +243,13 @@ bool UpdateWMKeyState( int key, KeyEventType type )
 			//if ( !s_keys[key] )
 				//LOG_MSG( "UpdateWMKeyState: key %u down"LOG_CR, key );
 			s_keys[key] = true;
+			HandleHotkeys(s_keys_prev, s_keys);
 		break;
 		case KEY_UP:
 			//if ( s_keys[key] )
 				//LOG_MSG( "UpdateWMKeyState: key %u up"LOG_CR, key );
 			s_keys[key] = false;
+			HandleHotkeys(s_keys_prev, s_keys);
 		break;
 		case KEY_CHAR:
 			//LOG_MSG( "UpdateWMKeyState: key %u pressed (char)"LOG_CR, key );
