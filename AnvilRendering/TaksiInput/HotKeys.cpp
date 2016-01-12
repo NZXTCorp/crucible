@@ -380,8 +380,7 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey )
 	switch(eHotKey)
 	{
 	case HOTKEY_Overlay:
-		if (g_UserKeyboard.m_bKeysPressed[eHotKey])
-			ToggleOverlay();
+		ToggleOverlay();
 		return true;
 	case HOTKEY_Screenshot:
 	case HOTKEY_Bookmark:
