@@ -199,12 +199,14 @@ static void ProcessHotKeys()
 	g_HotKeys.m_events.clear();
 }
 
+void HookWndProc();
 void HandleInputHook(HWND window)
 {
 	if (!win)
 	{
 		g_Proc.m_Stats.m_hWndCap = window;
 		win = window;
+		HookWndProc();
 	}
 
 	if (!g_HotKeys.HotkeysAttached())

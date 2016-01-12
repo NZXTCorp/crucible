@@ -410,6 +410,32 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 	return false;
 }
 
+static WNDPROC prev_proc = nullptr;
+LRESULT CALLBACK HookedWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	// call input handler
+	if (InputWndProc(hWnd, uMsg, wParam, lParam))
+		return 0;
+
+	return ::CallWindowProc(prev_proc, hWnd, uMsg, wParam, lParam);
+}
+
+void HookWndProc()
+{
+	WNDPROC current = (WNDPROC)GetWindowLongPtr(g_Proc.m_Stats.m_hWndCap, GWLP_WNDPROC);
+	// save the current handler if we don't know about it yet
+	if (!prev_proc)
+		prev_proc = current;
+
+	// don't mess with shit unless it's the original wndproc. we don't want to get mixed up with anything else hooking it or end up recursively calling ourselves
+	if (current == HookedWndProc || current != prev_proc)
+		return;
+
+	prev_proc = (WNDPROC)SetWindowLongPtr(g_Proc.m_Stats.m_hWndCap, GWLP_WNDPROC, (LONG_PTR)HookedWndProc);
+	if (!prev_proc)
+		LOG_MSG("HookWndProc: SetWindowLongPtr failed, wndproc hook disabled"LOG_CR);
+}
+
 void DisableRawInput()
 {
 	UINT num = 0;
