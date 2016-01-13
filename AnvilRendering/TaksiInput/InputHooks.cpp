@@ -209,10 +209,33 @@ SHORT WINAPI Hook_GetAsyncKeyState( int vKey )
 	return res;
 }
 
+static POINT saved_mouse_pos;
+static bool mouse_pos_saved = false;
+
 BOOL WINAPI Hook_GetCursorPos( LPPOINT lpPoint )
 {
 	s_HookGetCursorPos.SwapOld( s_GetCursorPos );
 	BOOL res = s_GetCursorPos( lpPoint );
+
+	if (g_bBrowserShowing)
+	{
+		if (!mouse_pos_saved && lpPoint)
+			saved_mouse_pos = *lpPoint;
+
+		if (mouse_pos_saved && lpPoint)
+			*lpPoint = saved_mouse_pos;
+	}
+	else
+	{
+		if (mouse_pos_saved)
+		{
+			SetCursorPos(saved_mouse_pos.x, saved_mouse_pos.y);
+			if (lpPoint)
+				*lpPoint = saved_mouse_pos;
+		}
+		mouse_pos_saved = false;
+	}
+
 	// mess with it here
 	//LOG_MSG( "Hook_GetCursorPos: current pos is [%u, %u]"LOG_CR, lpPoint->x, lpPoint->y );
 	s_HookGetCursorPos.SwapReset( s_GetCursorPos );
@@ -222,7 +245,17 @@ BOOL WINAPI Hook_GetCursorPos( LPPOINT lpPoint )
 BOOL WINAPI Hook_SetCursorPos( INT x, INT y )
 {
 	s_HookSetCursorPos.SwapOld( s_SetCursorPos );
-	BOOL res = s_SetCursorPos( x, y );
+
+	BOOL res = true;
+	if (g_bBrowserShowing)
+	{
+		saved_mouse_pos.x = x;
+		saved_mouse_pos.y = y;
+		mouse_pos_saved = true;
+	}
+	else
+		res = s_SetCursorPos(x, y);
+
 	// mess with it here
 	//LOG_MSG( "Hook_SetCursorPos: setting pos to [%u, %u]"LOG_CR, x, y );
 	s_HookSetCursorPos.SwapReset( s_SetCursorPos );
