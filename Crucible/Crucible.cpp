@@ -478,11 +478,6 @@ struct CrucibleContext {
 		InitRef(tunes, "Couldn't create audio input source", obs_source_release,
 				obs_source_create(OBS_SOURCE_TYPE_INPUT, "wasapi_output_capture", "wasapi loopback", nullptr, nullptr));
 
-		// create game capture video source
-		InitRef(gameCapture, "Couldn't create game capture source", obs_source_release,
-				obs_source_create(OBS_SOURCE_TYPE_INPUT, "game_capture", "game capture", nullptr, nullptr));
-
-		obs_set_output_source(0, gameCapture);
 		obs_set_output_source(1, tunes);
 	}
 
@@ -643,6 +638,7 @@ struct CrucibleContext {
 
 		stopCapture
 			.Disconnect()
+			.SetOwner(gameCapture)
 			.SetFunc([=](calldata_t*)
 		{
 			auto ref = OBSGetStrongRef(weakOutput);
@@ -656,6 +652,7 @@ struct CrucibleContext {
 
 		startCapture
 			.Disconnect()
+			.SetOwner(gameCapture)
 			.SetFunc([=](calldata_t *data)
 		{
 			AnvilCommands::Connect(game_pid);
@@ -758,14 +755,26 @@ struct CrucibleContext {
 		proc_handler_call(proc, "output_precise_buffer", &param);
 	}
 
-	void UpdateGameCapture(obs_data_t *settings)
+	void CreateGameCapture(obs_data_t *settings)
 	{
 		if (!settings)
 			return;
 
 		LOCK(updateMutex);
 		game_pid = static_cast<DWORD>(obs_data_get_int(settings, "process_id"));
-		obs_source_update(gameCapture, settings);
+
+		auto path = GetModulePath(nullptr);
+		DStr path64;
+		dstr_printf(path64, "%sAnvilRendering64.dll", path->array);
+		dstr_cat(path, "AnvilRendering.dll");
+
+		obs_data_set_string(settings, "overlay_dll", path);
+		obs_data_set_string(settings, "overlay_dll64", path64);
+
+		InitRef(gameCapture, "Couldn't create game capture source", obs_source_release,
+			obs_source_create(OBS_SOURCE_TYPE_INPUT, "game_capture", "game capture", settings, nullptr));
+
+		obs_set_output_source(0, gameCapture);
 	}
 
 	void UpdateSettings(obs_data_t *settings)
@@ -963,7 +972,7 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 
 	last_session = ProfileSnapshotCreate();
 
-	cc.UpdateGameCapture(OBSDataGetObj(obj, "game_capture"));
+	cc.CreateGameCapture(OBSDataGetObj(obj, "game_capture"));
 	cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
 	cc.UpdateFilename(obs_data_get_string(obj, "filename"));
 	cc.UpdateMuxerSettings(obs_data_get_string(obj, "muxer_settings"));
@@ -1082,13 +1091,13 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 		dstr_cat(path, "AnvilRendering.dll");
 
 		// update source settings - tell game_capture to try and capture hl2: lost coast
-		auto csettings = OBSDataCreate();
+		/*auto csettings = OBSDataCreate();
 		obs_data_set_bool(csettings, "capture_any_fullscreen", false);
 		obs_data_set_bool(csettings, "capture_cursor", true);
 		obs_data_set_string(csettings, "overlay_dll", path);
 		obs_data_set_string(csettings, "overlay_dll64", path64);
 		obs_data_set_string(csettings, "window", "Half-Life 2#3A Lost Coast:Valve001:hl2.exe");
-		crucibleContext.UpdateGameCapture(csettings);
+		crucibleContext.UpdateGameCapture(csettings);*/
 
 		auto handleCommand = [&](const uint8_t *data, size_t size)
 		{
