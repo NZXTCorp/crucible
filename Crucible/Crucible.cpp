@@ -234,6 +234,7 @@ namespace AnvilCommands {
 
 	void SendForgeInfo(const char *info=nullptr);
 	void SendSettings(obs_data_t *bookmark_key_=nullptr, obs_data_t *highlight_key_=nullptr);
+	void SendIndicator();
 
 	void Connect(DWORD pid)
 	{
@@ -243,6 +244,7 @@ namespace AnvilCommands {
 
 		SendForgeInfo();
 		SendSettings();
+		SendIndicator();
 	}
 
 	void SendCommand(obs_data_t *cmd)
