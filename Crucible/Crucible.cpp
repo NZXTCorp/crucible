@@ -888,8 +888,11 @@ struct CrucibleContext {
 		stopping = true;
 		if (obs_output_active(output))
 			obs_output_stop(output);
+		if (obs_output_active(buffer))
+			obs_output_stop(buffer);
 
 		output = nullptr;
+		buffer = nullptr;
 
 		ovi.fps_den = 0;
 		ResetVideo();
