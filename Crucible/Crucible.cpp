@@ -871,6 +871,7 @@ struct CrucibleContext {
 			StartVideo();
 
 			obs_output_start(this->output);
+			obs_output_start(buffer);
 		}};
 
 		return true;
