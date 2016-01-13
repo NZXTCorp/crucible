@@ -229,6 +229,7 @@ BOOL WINAPI Hook_SetCursorPos( INT x, INT y )
 	return res;
 }
 
+void UpdateRawMouse(RAWMOUSE &event);
 UINT WINAPI Hook_GetRawInputData( HRAWINPUT hRawInput, UINT uiCommand, LPVOID pData, PUINT pcbSize, UINT cbSizeHeader )
 {
 	s_HookGetRawInputData.SwapOld( s_GetRawInputData );
@@ -239,6 +240,8 @@ UINT WINAPI Hook_GetRawInputData( HRAWINPUT hRawInput, UINT uiCommand, LPVOID pD
 		RAWINPUT* raw = (RAWINPUT*)pData;
 		if ( raw->header.dwType == RIM_TYPEKEYBOARD )
 			UpdateRawKeyState( &(raw->data.keyboard) );
+		else if (raw->header.dwType == RIM_TYPEMOUSE)
+			UpdateRawMouse(raw->data.mouse);
 	}
 	s_HookGetRawInputData.SwapReset( s_GetRawInputData );
 	return res;

@@ -65,6 +65,14 @@ static void HookMouse()
 		hlog("hooked mouse events");
 }
 
+void UpdateRawMouse(RAWMOUSE &event)
+{
+	if (!g_bBrowserShowing)
+		return;
+
+	ZeroMemory(&event, sizeof(event));
+}
+
 #define CONCAT2(x, y) x ## y
 #define CONCAT(x, y) CONCAT2(x, y)
 #define LOCK(x) lock_guard<decltype(x)> CONCAT(lockGuard, __LINE__){x}
