@@ -726,6 +726,9 @@ struct CrucibleContext {
 
 	void CreateBookmark()
 	{
+		if (!output || !obs_output_active(output))
+			return;
+
 		LOCK(bookmarkMutex);
 		estimatedBookmarks.emplace_back();
 		auto &bookmark = estimatedBookmarks.back();
