@@ -242,6 +242,10 @@ static void ProcessHotKeys()
 void HookWndProc();
 void HandleInputHook(HWND window)
 {
+#ifndef ANVIL_HOTKEYS
+	return;
+#endif
+
 	if (!win)
 	{
 		g_Proc.m_Stats.m_hWndCap = window;
