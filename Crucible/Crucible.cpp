@@ -492,13 +492,14 @@ struct CrucibleContext {
 	void InitEncoders()
 	{
 		auto vsettings = OBSDataCreate();
-		obs_data_set_int(vsettings, "bitrate", 2500);
-		obs_data_set_int(vsettings, "buffer_size", 0);
+		obs_data_set_int(vsettings, "bitrate", 0);
+		obs_data_set_int(vsettings, "buffer_size", 7000);
 		obs_data_set_int(vsettings, "crf", 23);
 		obs_data_set_bool(vsettings, "use_bufsize", true);
 		obs_data_set_bool(vsettings, "cbr", false);
 		obs_data_set_string(vsettings, "profile", "high");
 		obs_data_set_string(vsettings, "preset", "veryfast");
+		obs_data_set_string(vsettings, "x264opts", "keyint=30 vbv-maxrate=3500");
 
 		InitRef(h264, "Couldn't create video encoder", obs_encoder_release,
 				obs_video_encoder_create("obs_x264", "x264 video", vsettings, nullptr));
