@@ -30,6 +30,8 @@ using namespace std;
 // window class borrowed from forge, remove once we've got headless mode working
 #include "TestWindow.h"
 
+//#define TEST_WINDOW
+
 extern "C" {
 	_declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 }
@@ -1099,6 +1101,7 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 			crucibleContext.StopVideo();
 		}
 
+#ifdef TEST_WINDOW
 		// TODO: remove once we're done debugging
 		gs_init_data dinfo = {};
 		dinfo.cx = 800;
@@ -1112,6 +1115,7 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 			throw "Couldn't create display";
 
 		obs_display_add_draw_callback(display, RenderWindow, nullptr);
+#endif
 
 		auto path = GetModulePath(nullptr);
 		DStr path64;
@@ -1246,12 +1250,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		TestWindow window(hInstance);
 
+#ifdef TEST_WINDOW
 		TestWindow::RegisterWindowClass(hInstance);
 
 		if (!window.Create(800, 480, "libobs test"))
 			throw "Couldn't create test window";
 
 		window.Show();
+#endif
 
 		TestVideoRecording(window, forge, start_event);
 	}
