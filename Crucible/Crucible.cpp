@@ -576,7 +576,7 @@ struct CrucibleContext {
 			.SetFunc([=](calldata_t *data)
 		{
 			auto filename = calldata_string(data, "filename");
-			ForgeEvents::SendBufferReady(filename, calldata_int(data, "frames"),
+			ForgeEvents::SendBufferReady(filename, static_cast<uint32_t>(calldata_int(data, "frames")),
 				BookmarkTimes(bufferBookmarks, calldata_int(data, "start_pts")),
 				ovi.base_width, ovi.base_height);
 		});
