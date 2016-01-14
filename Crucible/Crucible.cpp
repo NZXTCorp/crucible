@@ -1044,6 +1044,11 @@ static void HandleCreateBookmark(CrucibleContext &cc, OBSData &)
 	cc.CreateBookmark();
 }
 
+static void HandleStopRecording(CrucibleContext &cc, OBSData &)
+{
+	cc.StopVideo();
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -1053,6 +1058,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{"update_settings", HandleUpdateSettingsCommand},
 		{"save_recording_buffer", HandleSaveRecordingBuffer},
 		{"create_bookmark", HandleCreateBookmark},
+		{"stop_recording", HandleStopRecording},
 	};
 	if (!data)
 		return;
