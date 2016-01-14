@@ -14,17 +14,6 @@
 
 using namespace Gdiplus;
 
-IndicatorEvent IndicatorForWelcomeStep[WELCOME_FINISHED] =
-{
-	INDICATE_WELCOME1, // fade-in
-	INDICATE_WELCOME1, // show
-	INDICATE_WELCOME1, // fade-out
-	INDICATE_WELCOME2, // fade-in
-	INDICATE_WELCOME2, // show
-	INDICATE_WELCOME2, // fade-out
-	INDICATE_REMINDER
-};
-
 // D3DCOLOR format is high to low, Alpha, Blue, Green, Red
 const DWORD sm_IndColors[TAKSI_INDICATE_QTY] =
 {
@@ -39,17 +28,8 @@ const DWORD sm_IndColors[TAKSI_INDICATE_QTY] =
 static int s_image_res[INDICATE_NONE] = 
 {  
 	IDB_CAPTURING,
-	IDB_CONNECTING,
-	IDB_DISCONNECTED,
 	IDB_ENABLED,
-	IDB_RECONNECTING,
 	IDB_SCREENSHOT,
-	IDB_BOOKMARK,
-	IDB_PAUSED,
-	IDB_RESUMED,
-	IDB_WELCOME1,
-	IDB_WELCOME2,
-	IDB_REMINDER,
 	IDB_MIC_IDLE,
 	IDB_MIC_ACTIVE,
 	IDB_MIC_MUTE

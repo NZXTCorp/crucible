@@ -335,13 +335,6 @@ void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color 
 	int x = g_Proc.m_Stats.m_SizeWnd.cx - desc.Width;
 	int y = 0;
 
-	// unless they're the big 'welcome' dialogs, which are centred
-	if ( eIndicatorEvent == INDICATE_WELCOME1 || eIndicatorEvent == INDICATE_WELCOME2 )
-	{
-		x = (g_Proc.m_Stats.m_SizeWnd.cx / 2) - (desc.Width / 2);
-		y = (g_Proc.m_Stats.m_SizeWnd.cy / 2) - (desc.Height / 2);
-	}
-	
 	UpdateVB( m_pVBNotification, x, y, desc.Width, desc.Height, color );
 	
 	// setup renderstate
