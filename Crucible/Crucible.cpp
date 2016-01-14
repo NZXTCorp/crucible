@@ -499,6 +499,7 @@ struct CrucibleContext {
 		obs_data_set_bool(vsettings, "cbr", false);
 		obs_data_set_string(vsettings, "profile", "high");
 		obs_data_set_string(vsettings, "preset", "veryfast");
+		obs_data_set_string(vsettings, "x264opts", "keyint=30");
 
 		InitRef(h264, "Couldn't create video encoder", obs_encoder_release,
 				obs_video_encoder_create("obs_x264", "x264 video", vsettings, nullptr));
