@@ -399,6 +399,8 @@ struct CrucibleContext {
 	obs_hotkey_id mute_hotkey_id = OBS_INVALID_HOTKEY_ID;
 	obs_hotkey_id unmute_hotkey_id = OBS_INVALID_HOTKEY_ID;
 
+	obs_hotkey_id bookmark_hotkey_id = OBS_INVALID_HOTKEY_ID;
+
 	struct RestartThread {
 		thread t;
 		~RestartThread()
@@ -787,9 +789,24 @@ struct CrucibleContext {
 		if (!settings)
 			return;
 
+		DStr str;
+
 		AnvilCommands::SendSettings(OBSDataGetObj(settings, "bookmark_key"),
 			OBSDataGetObj(settings, "highlight_key"));
 
+		auto bookmark_key = OBSDataGetObj(settings, "bookmark_key");
+		obs_key_combination bookmark_combo = {
+			(obs_data_get_bool(bookmark_key, "shift") ? INTERACT_SHIFT_KEY : 0) |
+			(obs_data_get_bool(bookmark_key, "meta") ? INTERACT_COMMAND_KEY : 0) |
+			(obs_data_get_bool(bookmark_key, "ctrl") ? INTERACT_CONTROL_KEY : 0) |
+			(obs_data_get_bool(bookmark_key, "alt") ? INTERACT_ALT_KEY : 0),
+			obs_key_from_virtual_key(static_cast<int>(obs_data_get_int(bookmark_key, "keycode")))
+		};
+
+		obs_key_combination_to_str(bookmark_combo, str);
+		blog(LOG_INFO, "bookmark hotkey uses '%s'", str->array);
+
+		//obs_hotkey_load_bindings(bookmark_hotkey_id, &bookmark_combo, 1);
 		auto ptt_key = OBSDataGetObj(settings, "ptt_key");
 		auto microphone = OBSDataGetObj(settings, "microphone");
 		if (!microphone) {
@@ -812,7 +829,6 @@ struct CrucibleContext {
 			obs_key_from_virtual_key(static_cast<int>(obs_data_get_int(ptt_key, "keycode")))
 		};
 
-		DStr str;
 		obs_key_combination_to_str(combo, str);
 		blog(LOG_INFO, "mic hotkey uses '%s'", str->array);
 
@@ -1103,6 +1119,12 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 		obs_data_set_string(csettings, "overlay_dll64", path64);
 		obs_data_set_string(csettings, "window", "Half-Life 2#3A Lost Coast:Valve001:hl2.exe");
 		crucibleContext.UpdateGameCapture(csettings);*/
+
+		crucibleContext.bookmark_hotkey_id = obs_hotkey_register_frontend("bookmark hotkey", "bookmark hotkey",
+			[](void *data, obs_hotkey_id id, obs_hotkey_t *hotkey, bool pressed)
+		{
+			static_cast<CrucibleContext*>(data)->CreateBookmark();
+		}, &crucibleContext);
 
 		auto handleCommand = [&](const uint8_t *data, size_t size)
 		{
