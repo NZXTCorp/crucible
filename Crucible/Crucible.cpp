@@ -163,10 +163,12 @@ namespace ForgeEvents {
 		queuedEvents.erase(begin(queuedEvents), i);
 	}
 
-	static void SendFileCompleteEvent(obs_data_t *event, const char *filename, int total_frames, const vector<double> &bookmarks)
+	static void SendFileCompleteEvent(obs_data_t *event, const char *filename, int total_frames, const vector<double> &bookmarks, uint32_t width, uint32_t height)
 	{
 		obs_data_set_string(event, "filename", filename);
 		obs_data_set_int(event, "total_frames", total_frames);
+		obs_data_set_int(event, "width", width);
+		obs_data_set_int(event, "height", height);
 
 		auto array = OBSDataArrayCreate();
 		obs_data_set_array(event, "bookmarks", array);
@@ -199,9 +201,9 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
-	void SendRecordingStop(const char *filename, int total_frames, const vector<double> &bookmarks)
+	void SendRecordingStop(const char *filename, int total_frames, const vector<double> &bookmarks, uint32_t width, uint32_t height)
 	{
-		SendFileCompleteEvent(EventCreate("stopped_recording"), filename, total_frames, bookmarks);
+		SendFileCompleteEvent(EventCreate("stopped_recording"), filename, total_frames, bookmarks, width, height);
 	}
 
 	void SendQueryMicsResponse(obs_data_array_t *devices)
@@ -213,9 +215,9 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
-	void SendBufferReady(const char *filename, int total_frames, const vector<double> &bookmarks)
+	void SendBufferReady(const char *filename, int total_frames, const vector<double> &bookmarks, uint32_t width, uint32_t height)
 	{
-		SendFileCompleteEvent(EventCreate("buffer_ready"), filename, total_frames, bookmarks);
+		SendFileCompleteEvent(EventCreate("buffer_ready"), filename, total_frames, bookmarks, width, height);
 	}
 }
 
@@ -535,7 +537,8 @@ struct CrucibleContext {
 		{
 			auto data = OBSTransferOwned(obs_output_get_settings(output));
 			ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
-				obs_output_get_total_frames(output), BookmarkTimes(bookmarks));
+				obs_output_get_total_frames(output), BookmarkTimes(bookmarks),
+				ovi.base_width, ovi.base_height);
 			AnvilCommands::ShowIdle();
 			StopVideo(); // leak here!!!
 
@@ -574,7 +577,8 @@ struct CrucibleContext {
 		{
 			auto filename = calldata_string(data, "filename");
 			ForgeEvents::SendBufferReady(filename, calldata_int(data, "frames"),
-				BookmarkTimes(bufferBookmarks, calldata_int(data, "start_pts")));
+				BookmarkTimes(bufferBookmarks, calldata_int(data, "start_pts")),
+				ovi.base_width, ovi.base_height);
 		});
 
 		bufferSentTrackedFrame
