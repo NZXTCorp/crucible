@@ -1240,7 +1240,8 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 		crucibleContext.bookmark_hotkey_id = obs_hotkey_register_frontend("bookmark hotkey", "bookmark hotkey",
 			[](void *data, obs_hotkey_id id, obs_hotkey_t *hotkey, bool pressed)
 		{
-			static_cast<CrucibleContext*>(data)->CreateBookmark();
+			if (pressed)
+				static_cast<CrucibleContext*>(data)->CreateBookmark();
 		}, &crucibleContext);
 
 		auto handleCommand = [&](const uint8_t *data, size_t size)
