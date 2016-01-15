@@ -1,6 +1,7 @@
 // [crucible.cpp 2015-10-22 abright]
 // libobs-based game capture (currently an experimental thing based on the libobs sample app)
 
+#include <ShlObj.h>
 #include <stdio.h>
 #include <windows.h>
 
@@ -1290,6 +1291,21 @@ static ProcessHandle HandleCLIArgs(HANDLE &start_event)
 	return ProcessHandle{OpenProcess(SYNCHRONIZE, false, pid), FreeProcessHandle};
 }
 
+static DStr GetConfigDirectory(const char *subdir)
+{
+	wchar_t *fpath;
+
+	SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, NULL, &fpath);
+	DStr path;
+	dstr_from_wcs(path, fpath);
+
+	CoTaskMemFree(fpath);
+
+	dstr_catf(path, "/Forge/%s", subdir);
+
+	return path;
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmd)
 {
 	base_set_log_handler(do_log, nullptr);
@@ -1314,7 +1330,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	try
 	{
-		if (!obs_startup("en-US", "module-config", profiler_names.get()))
+		if (!obs_startup("en-US", GetConfigDirectory("obs-module-config"), profiler_names.get()))
 			throw "Couldn't init OBS";
 
 		TestWindow window(hInstance);
