@@ -125,7 +125,7 @@ static void HandleIndicatorCommand(Object &obj)
 
 	auto elem = indicators.find(indicator);
 	if (elem == end(indicators))
-		return hlog("Got invalid indicator '%s'", indicator);
+		return hlog("Got invalid indicator '%s'", indicator.c_str());
 
 	currentIndicator = elem->second;
 }
