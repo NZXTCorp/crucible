@@ -119,6 +119,8 @@ static void HandleIndicatorCommand(Object &obj)
 		{"mic_idle",   INDICATE_MIC_IDLE},
 		{"mic_active", INDICATE_MIC_ACTIVE},
 		{"mic_muted",  INDICATE_MIC_MUTED},
+		{"enabled",    INDICATE_ENABLED},
+		{"enabled_hotkey", INDICATE_ENABLED_HOTKEY},
 	};
 
 	auto indicator = static_cast<String>(obj["indicator"]).Value();
