@@ -223,6 +223,26 @@ namespace ForgeEvents {
 	}
 }
 
+struct JoiningThread {
+	thread t;
+	function<void()> make_joinable;
+	~JoiningThread()
+	{
+		Join();
+	}
+
+	void Join()
+	{
+		if (make_joinable) {
+			make_joinable();
+			make_joinable = nullptr;
+		}
+
+		if (t.joinable())
+			t.join();
+	}
+};
+
 namespace AnvilCommands {
 	IPCClient anvil_client;
 	recursive_mutex commandMutex;
@@ -231,6 +251,10 @@ namespace AnvilCommands {
 	atomic<bool> using_mic = false;
 	atomic<bool> using_ptt = false;
 	atomic<bool> mic_muted = false;
+	atomic<bool> display_enabled_hotkey = false;
+	atomic<uint64_t> enabled_timeout = 0;
+
+	JoiningThread update_enabled_indicator;
 
 	string forge_overlay_channel;
 	OBSData bookmark_key;
@@ -245,6 +269,30 @@ namespace AnvilCommands {
 		LOCK(commandMutex);
 
 		anvil_client.Open("AnvilRenderer" + to_string(pid));
+
+		const uint64_t enabled_timeout_seconds = 10;
+
+		uint64_t timeout = enabled_timeout = os_gettime_ns() + enabled_timeout_seconds * 1000 * 1000 * 1000;
+
+		update_enabled_indicator.Join();
+
+		auto ev = CreateEvent(nullptr, true, false, nullptr);
+		update_enabled_indicator.make_joinable = [=]{ SetEvent(ev); };
+
+		update_enabled_indicator.t = thread([&, ev, timeout, enabled_timeout_seconds]
+		{
+			auto res = WaitForSingleObject(ev, static_cast<DWORD>(enabled_timeout_seconds * 1000));
+			if (res == WAIT_OBJECT_0)
+				return;
+
+			while (timeout > os_gettime_ns()) {
+				res = WaitForSingleObject(ev, 1000);
+				if (res == WAIT_OBJECT_0)
+					return;
+			}
+
+			SendIndicator();
+		});
 
 		SendForgeInfo();
 		SendSettings();
@@ -282,6 +330,9 @@ namespace AnvilCommands {
 		if (recording && using_mic)
 			indicator = mic_muted ? (using_ptt ? "mic_idle" : "mic_muted") : "mic_active";
 
+		if (enabled_timeout >= os_gettime_ns())
+			indicator = display_enabled_hotkey ? "enabled_hotkey" : "enabled";
+
 		obs_data_set_string(cmd, "indicator", indicator);
 
 		SendCommand(cmd);
@@ -301,6 +352,15 @@ namespace AnvilCommands {
 			return;
 
 		SendIndicator();
+	}
+
+	void HotkeyMatches(bool matches)
+	{
+		bool changed = display_enabled_hotkey != matches;
+		display_enabled_hotkey = matches;
+
+		if (changed)
+			SendIndicator();
 	}
 
 	void MicUpdated(boost::tribool muted, boost::tribool active=boost::indeterminate, boost::tribool ptt=boost::indeterminate)
@@ -815,6 +875,8 @@ struct CrucibleContext {
 		blog(LOG_INFO, "bookmark hotkey uses '%s'", str->array);
 
 		obs_hotkey_load_bindings(bookmark_hotkey_id, &bookmark_combo, 1);
+
+		AnvilCommands::HotkeyMatches(bookmark_combo.key == OBS_KEY_F5 && !bookmark_combo.modifiers);
 #endif
 
 		auto ptt_key = OBSDataGetObj(settings, "ptt_key");
