@@ -254,8 +254,10 @@ namespace AnvilCommands {
 	atomic<bool> mic_muted = false;
 	atomic<bool> display_enabled_hotkey = false;
 	atomic<uint64_t> enabled_timeout = 0;
+	atomic<uint64_t> bookmark_timeout = 0;
 
 	JoiningThread update_enabled_indicator;
+	JoiningThread update_bookmark_indicator;
 
 	string forge_overlay_channel;
 	OBSData bookmark_key;
@@ -334,6 +336,9 @@ namespace AnvilCommands {
 		if (enabled_timeout >= os_gettime_ns())
 			indicator = display_enabled_hotkey ? "enabled_hotkey" : "enabled";
 
+		if (bookmark_timeout >= os_gettime_ns())
+			indicator = "bookmark";
+
 		obs_data_set_string(cmd, "indicator", indicator);
 
 		SendCommand(cmd);
@@ -351,6 +356,35 @@ namespace AnvilCommands {
 	{
 		if (!recording.exchange(false))
 			return;
+
+		SendIndicator();
+	}
+
+	void ShowBookmark()
+	{
+		const uint64_t timeout_seconds = 3;
+
+		uint64_t timeout = bookmark_timeout = os_gettime_ns() + timeout_seconds * 1000 * 1000 * 1000;
+
+		update_bookmark_indicator.Join();
+
+		auto ev = CreateEvent(nullptr, true, false, nullptr);
+		update_bookmark_indicator.make_joinable = [=]{ SetEvent(ev); };
+
+		update_bookmark_indicator.t = thread([&, ev, timeout, timeout_seconds]
+		{
+			auto res = WaitForSingleObject(ev, static_cast<DWORD>(timeout_seconds * 1000));
+			if (res == WAIT_OBJECT_0)
+				return;
+
+			while (timeout > os_gettime_ns()) {
+				res = WaitForSingleObject(ev, 1000);
+				if (res == WAIT_OBJECT_0)
+					return;
+			}
+
+			SendIndicator();
+		});
 
 		SendIndicator();
 	}
@@ -813,6 +847,8 @@ struct CrucibleContext {
 		bookmark.tracked_id = bufferBookmark.tracked_id = tracked_id;
 
 		blog(LOG_INFO, "Created bookmark at offset %g s (estimated, tracking frame %lld)", bookmark.time, tracked_id);
+
+		AnvilCommands::ShowBookmark();
 	}
 
 	recursive_mutex updateMutex;
