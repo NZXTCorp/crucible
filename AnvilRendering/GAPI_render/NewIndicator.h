@@ -11,6 +11,7 @@ enum IndicatorEvent
 {
 	INDICATE_CAPTURING = 0,  // streaming active, everything is ok
 	INDICATE_ENABLED,        // forge enabled - crucible knows about us and is ready to stream
+	INDICATE_ENABLED_HOTKEY, // forge enabled and hotkeys match defaults
 	INDICATE_BOOKMARK,       // bookmark set, show for a bit then return to previous state
 	INDICATE_MIC_IDLE,       // mic capture ready/idle - we're recording but not mixing it in to the output stream
 	INDICATE_MIC_ACTIVE,     // mic capture active - PTT pressed or it's in continuous mode so we're recording and mixing into output stream

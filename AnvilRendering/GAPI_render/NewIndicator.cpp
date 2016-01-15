@@ -29,6 +29,7 @@ static int s_image_res[INDICATE_NONE] =
 {  
 	IDB_CAPTURING,
 	IDB_ENABLED,
+	IDB_ENABLED_HOTKEYS,
 	IDB_MIC_IDLE,
 	IDB_MIC_ACTIVE,
 	IDB_MIC_MUTE
@@ -105,7 +106,7 @@ bool IndicatorManager::LoadImages( void )
 		}
 	}
 
-	m_image_enabled_hotkeys = LoadBitmapFromResource( MAKEINTRESOURCE(IDB_ENABLED_HOTKEYS) );
+	//m_image_enabled_hotkeys = LoadBitmapFromResource( MAKEINTRESOURCE(IDB_ENABLED_HOTKEYS) );
 
 	return true;
 }
