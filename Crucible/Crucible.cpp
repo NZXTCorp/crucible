@@ -476,6 +476,7 @@ struct CrucibleContext {
 
 	uint64_t recordingStartTime = 0;
 	bool recordingStartSent = false;
+	bool sendRecordingStop = true;
 
 	obs_video_info ovi;
 	uint32_t fps_den;
@@ -634,11 +635,16 @@ struct CrucibleContext {
 			.SetSignal("stop")
 			.SetFunc([=](calldata*)
 		{
-			auto data = OBSTransferOwned(obs_output_get_settings(output));
-			ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
-				obs_output_get_total_frames(output), BookmarkTimes(bookmarks),
-				ovi.base_width, ovi.base_height);
-			AnvilCommands::ShowIdle();
+			{
+				LOCK(updateMutex);
+				if (sendRecordingStop) {
+					auto data = OBSTransferOwned(obs_output_get_settings(output));
+					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
+						obs_output_get_total_frames(output), BookmarkTimes(bookmarks),
+						ovi.base_width, ovi.base_height);
+					AnvilCommands::ShowIdle();
+				}
+			}
 			StopVideo(); // leak here!!!
 
 			ClearBookmarks();
@@ -1013,11 +1019,21 @@ struct CrucibleContext {
 
 		restartThread.t = thread{[=]()
 		{
+			{
+				LOCK(updateMutex);
+				sendRecordingStop = false;
+			}
+
 			StopVideo();
 			StartVideo();
 
 			obs_output_start(this->output);
 			obs_output_start(buffer);
+
+			{
+				LOCK(updateMutex);
+				sendRecordingStop = true;
+			}
 		}};
 
 		return true;
@@ -1068,6 +1084,7 @@ struct CrucibleContext {
 	{
 		LOCK(updateMutex);
 		recordingStartSent = false;
+		sendRecordingStop = true;
 
 		StartVideo();
 	}
