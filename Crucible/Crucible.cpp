@@ -475,6 +475,7 @@ struct CrucibleContext {
 	vector<Bookmark> bufferBookmarks;
 
 	uint64_t recordingStartTime = 0;
+	bool recordingStartSent = false;
 
 	obs_video_info ovi;
 	uint32_t fps_den;
@@ -657,7 +658,13 @@ struct CrucibleContext {
 		{
 			auto data = OBSTransferOwned(obs_output_get_settings(output));
 			recordingStartTime = os_gettime_ns();
-			ForgeEvents::SendRecordingStart(obs_data_get_string(data, "path"));
+			{
+				LOCK(updateMutex);
+				if (!recordingStartSent) {
+					ForgeEvents::SendRecordingStart(obs_data_get_string(data, "path"));
+					recordingStartSent = true;
+				}
+			}
 			AnvilCommands::ShowRecording();
 		});
 
@@ -1057,6 +1064,13 @@ struct CrucibleContext {
 		CreateOutput();
 	}
 
+	void StartVideoCapture()
+	{
+		LOCK(updateMutex);
+		recordingStartSent = false;
+
+		StartVideo();
+	}
 };
 
 static void HandleConnectCommand(CrucibleContext &cc, OBSData &obj)
@@ -1107,7 +1121,7 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 	cc.UpdateFilename(obs_data_get_string(obj, "filename"));
 	cc.UpdateMuxerSettings(obs_data_get_string(obj, "muxer_settings"));
 	blog(LOG_INFO, "Starting new capture");
-	cc.StartVideo();
+	cc.StartVideoCapture();
 }
 
 static void HandleQueryMicsCommand(CrucibleContext&, OBSData&)
