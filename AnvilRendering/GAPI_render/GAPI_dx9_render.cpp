@@ -495,7 +495,7 @@ static bool get_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy, HWND &win)
 	return true;
 }
 
-static DX9Renderer renderer;
+static DX9Renderer *renderer;
 static bool initialized = false;
 static HWND window = nullptr;
 
@@ -504,14 +504,14 @@ void overlay_d3d9_free()
 	if (!initialized)
 		return;
 
-	renderer.FreeRenderer();
+	renderer->FreeRenderer();
 	initialized = false;
 }
 
 static bool show_browser_tex()
 {
-	renderer.UpdateOverlay();
-	return renderer.DrawOverlay();
+	renderer->UpdateOverlay();
+	return renderer->DrawOverlay();
 }
 
 C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
@@ -521,7 +521,10 @@ C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 		if (!(get_size(dev, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, window)))
 			return;
 
-		if (!renderer.InitRenderer(dev, indicatorManager))
+		if (!renderer && !(renderer = new DX9Renderer{}))
+			return;
+
+		if (!renderer->InitRenderer(dev, indicatorManager))
 			return;
 
 		initialized = true;
@@ -532,6 +535,6 @@ C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 	if (!g_bBrowserShowing || !show_browser_tex())
 	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)
 	{
-		renderer.DrawNewIndicator(indicator, D3DCOLOR_ARGB(alpha, 255, 255, 255));
+		renderer->DrawNewIndicator(indicator, D3DCOLOR_ARGB(alpha, 255, 255, 255));
 	});
 }
