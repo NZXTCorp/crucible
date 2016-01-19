@@ -278,7 +278,7 @@ C_EXPORT void overlay_reset()
 
 C_EXPORT void overlay_free()
 {
-	overlay_reset();
+	StopInputHook();
 
 	if (gdi_token)
 		Gdiplus::GdiplusShutdown(gdi_token);
