@@ -15,6 +15,8 @@
 //#include "GAPI_dx9.h"
 #include "GAPI_dx9_render.h"
 
+#include <mutex>
+
 struct NEWVERTEX 
 { 
 #define D3DFVF_NEWVERTEX (D3DFVF_XYZRHW|D3DFVF_DIFFUSE|D3DFVF_TEX1)
@@ -498,12 +500,20 @@ static bool get_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy, HWND &win)
 	return true;
 }
 
+using namespace std;
+
 static DX9Renderer *renderer;
 static bool initialized = false;
 static HWND window = nullptr;
+static mutex render_mutex;
+
+#define CONCAT2(x, y) x ## y
+#define CONCAT(x, y) CONCAT2(x, y)
+#define LOCK(x) lock_guard<decltype(x)> CONCAT(lockGuard, __LINE__){x};
 
 void overlay_d3d9_free()
 {
+	LOCK(render_mutex);
 	if (!initialized)
 		return;
 
@@ -519,7 +529,7 @@ static bool show_browser_tex()
 
 C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 {
-
+	LOCK(render_mutex);
 	if (!initialized) {
 		if (!(get_size(dev, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, window)))
 			return;
