@@ -328,6 +328,9 @@ void DX9Renderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 
 void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color )
 {
+	if (eIndicatorEvent >= INDICATE_NONE)
+		return;
+
 	D3DSURFACE_DESC desc;
 	m_pIndicatorTexture[eIndicatorEvent]->GetLevelDesc( 0, &desc );
 	
