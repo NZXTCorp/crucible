@@ -517,7 +517,9 @@ void overlay_d3d9_free()
 	if (!initialized)
 		return;
 
-	renderer->FreeRenderer();
+	delete renderer;
+	renderer = nullptr;
+
 	initialized = false;
 }
 
@@ -537,8 +539,11 @@ C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 		if (!renderer && !(renderer = new DX9Renderer{}))
 			return;
 
-		if (!renderer->InitRenderer(dev, indicatorManager))
+		if (!renderer->InitRenderer(dev, indicatorManager)) {
+			delete renderer;
+			renderer = nullptr;
 			return;
+		}
 
 		initialized = true;
 	}
