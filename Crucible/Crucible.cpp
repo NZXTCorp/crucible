@@ -26,6 +26,8 @@ using namespace std;
 
 #include <boost/logic/tribool.hpp>
 
+#include "../AnvilRendering/AnvilRendering.h"
+
 #include "IPC.hpp"
 
 // window class borrowed from forge, remove once we've got headless mode working

@@ -4,6 +4,8 @@
 #include <functional>
 #include <vector>
 
+//#define ANVIL_HOTKEYS
+
 #define C_EXPORT extern "C" __declspec(dllexport)
 
 extern void (*hlog)(const char *fmt, ...);
