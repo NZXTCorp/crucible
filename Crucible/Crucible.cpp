@@ -910,10 +910,6 @@ struct CrucibleContext {
 
 		DStr str;
 
-#ifdef ANVIL_HOTKEYS
-		AnvilCommands::SendSettings(OBSDataGetObj(settings, "bookmark_key"),
-			OBSDataGetObj(settings, "highlight_key"));
-#else
 		auto bookmark_key = OBSDataGetObj(settings, "bookmark_key");
 		obs_key_combination bookmark_combo = {
 			(obs_data_get_bool(bookmark_key, "shift") ? INTERACT_SHIFT_KEY : 0) |
@@ -923,12 +919,16 @@ struct CrucibleContext {
 			obs_key_from_virtual_key(static_cast<int>(obs_data_get_int(bookmark_key, "keycode")))
 		};
 
+		AnvilCommands::HotkeyMatches(bookmark_combo.key == OBS_KEY_F5 && !bookmark_combo.modifiers);
+
+#ifdef ANVIL_HOTKEYS
+		AnvilCommands::SendSettings(bookmark_key,
+			OBSDataGetObj(settings, "highlight_key"));
+#else
 		obs_key_combination_to_str(bookmark_combo, str);
 		blog(LOG_INFO, "bookmark hotkey uses '%s'", str->array);
 
 		obs_hotkey_load_bindings(bookmark_hotkey_id, &bookmark_combo, 1);
-
-		AnvilCommands::HotkeyMatches(bookmark_combo.key == OBS_KEY_F5 && !bookmark_combo.modifiers);
 #endif
 
 		auto ptt_key = OBSDataGetObj(settings, "ptt_key");
