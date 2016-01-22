@@ -224,6 +224,11 @@ namespace ForgeEvents {
 	{
 		SendFileCompleteEvent(EventCreate("buffer_ready"), filename, total_frames, bookmarks, width, height);
 	}
+
+	void SendInjectFailed()
+	{
+		SendEvent(EventCreate("inject_failed"));
+	}
 }
 
 struct JoiningThread {
@@ -484,7 +489,7 @@ struct CrucibleContext {
 	uint32_t fps_den;
 	OBSSource tunes, mic, gameCapture;
 	OBSSourceSignal micMuted, pttActive;
-	OBSSourceSignal stopCapture, startCapture;
+	OBSSourceSignal stopCapture, startCapture, injectFailed;
 	OBSEncoder h264, aac;
 	string filename = "";
 	string muxerSettings = "";
@@ -709,6 +714,14 @@ struct CrucibleContext {
 		startCapture
 			.SetOwner(gameCapture)
 			.SetSignal("start_capture");
+
+		injectFailed
+			.SetOwner(gameCapture)
+			.SetSignal("inject_failed")
+			.SetFunc([=](calldata_t *data)
+		{
+			ForgeEvents::SendInjectFailed();
+		});
 	}
 
 	void CreateOutput()
