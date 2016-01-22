@@ -717,11 +717,7 @@ struct CrucibleContext {
 
 		injectFailed
 			.SetOwner(gameCapture)
-			.SetSignal("inject_failed")
-			.SetFunc([=](calldata_t *data)
-		{
-			ForgeEvents::SendInjectFailed();
-		});
+			.SetSignal("inject_failed");
 	}
 
 	void CreateOutput()
@@ -802,6 +798,14 @@ struct CrucibleContext {
 			ref = OBSGetStrongRef(weakBuffer);
 			if (ref)
 				obs_output_start(ref);
+		}).Connect();
+
+		injectFailed
+			.Disconnect()
+			.SetOwner(gameCapture)
+			.SetFunc([=](calldata_t *data)
+		{
+			ForgeEvents::SendInjectFailed();
 		}).Connect();
 	}
 
