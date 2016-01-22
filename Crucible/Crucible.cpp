@@ -4,6 +4,7 @@
 #include <ShlObj.h>
 #include <stdio.h>
 #include <windows.h>
+#include <DbgHelp.h>
 
 #include <util/base.h>
 #include <util/dstr.hpp>
@@ -15,6 +16,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <iomanip>
 #include <iostream>
 #include <map>
 #include <mutex>
@@ -1393,6 +1395,7 @@ static DStr GetConfigDirectory(const char *subdir)
 	return path;
 }
 
+LONG WINAPI SaveCrashDump(__in struct _EXCEPTION_POINTERS *ExceptionInfo);
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmd)
 {
 	base_set_log_handler(do_log, nullptr);
@@ -1414,6 +1417,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	if (forge)
 		store_startup_log = true;
+
+	SetUnhandledExceptionFilter(SaveCrashDump);
 
 	try
 	{
@@ -1455,4 +1460,45 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	UNUSED_PARAMETER(nCmd);
 
 	return 0;
+}
+
+LONG WINAPI SaveCrashDump(__in struct _EXCEPTION_POINTERS *ExceptionInfo)
+{
+	auto t = time(nullptr);
+	auto utc = *gmtime(&t);
+	ostringstream dump_name;
+	dump_name << "crucible-crash-" << put_time(&utc, "%Y%m%dT%H%M%SZ") << "-" << GetCurrentProcessId() << ".dmp";
+	auto dump_path = GetConfigDirectory("crashdumps");
+	
+	auto dump_path_w = dstr_to_wcs(dump_path);
+	SHCreateDirectoryExW(nullptr, dump_path_w, nullptr);
+
+	dstr_catf(dump_path, "/%s", dump_name.str().c_str());
+	dump_path_w = dstr_to_wcs(dump_path);
+
+	auto file = CreateFileW(dump_path_w, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+	if (file && (file != INVALID_HANDLE_VALUE))
+	{
+		MINIDUMP_EXCEPTION_INFORMATION mdei;
+
+		mdei.ThreadId = GetCurrentThreadId();
+		mdei.ExceptionPointers = ExceptionInfo;
+		mdei.ClientPointers = FALSE;
+
+		MINIDUMP_TYPE mdt = (MINIDUMP_TYPE)(MiniDumpWithIndirectlyReferencedMemory | MiniDumpWithUnloadedModules | MiniDumpWithProcessThreadData | MiniDumpWithHandleData);
+
+		auto rv = MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), file, mdt, (ExceptionInfo != nullptr) ? &mdei : nullptr, nullptr, nullptr);
+
+		if (!rv)
+			blog(LOG_WARNING, "MiniDumpWriteDump failed. Error: %#08x\n", GetLastError());
+		else
+			blog(LOG_INFO, "Minidump created.\n");
+
+		CloseHandle(file);
+	}
+	else
+		blog(LOG_INFO, "Unable to create Minidump: CreateFile failed. Error: %#08x\n", GetLastError());
+
+	return EXCEPTION_EXECUTE_HANDLER;
 }
