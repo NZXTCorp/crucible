@@ -892,12 +892,17 @@ struct CrucibleContext {
 		if (!settings)
 			return;
 
-		LOCK(updateMutex);
-		auto proc = obs_output_get_proc_handler(buffer);
 		calldata_t param{};
 		calldata_init(&param);
 		calldata_set_string(&param, "filename", obs_data_get_string(settings, "filename"));
-		proc_handler_call(proc, "output_precise_buffer", &param);
+
+		{
+			LOCK(updateMutex);
+			auto proc = obs_output_get_proc_handler(buffer);
+			proc_handler_call(proc, "output_precise_buffer", &param);
+		}
+
+		calldata_free(&param);
 	}
 
 	void CreateGameCapture(obs_data_t *settings)
