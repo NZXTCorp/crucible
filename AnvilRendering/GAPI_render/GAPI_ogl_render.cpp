@@ -388,8 +388,14 @@ static HGLRC render_context = nullptr;
 static GLuint browser_tex = 0;
 static bool has_content = false;
 
+static bool in_free = false;
 void overlay_gl_free()
 {
+	if (in_free)
+		return;
+
+	in_free = true;
+
 	if (browser_tex) {
 		s_glDeleteTextures(1, &browser_tex);
 		browser_tex = 0;
@@ -404,6 +410,7 @@ void overlay_gl_free()
 	}
 
 	initialized = false;
+	in_free = false;
 }
 
 static bool show_browser_tex_()
