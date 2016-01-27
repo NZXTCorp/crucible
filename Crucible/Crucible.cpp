@@ -231,6 +231,17 @@ namespace ForgeEvents {
 	{
 		SendEvent(EventCreate("inject_failed"));
 	}
+
+	void SendInjectRequest(bool process_is_64bit, bool anti_cheat, DWORD process_thread_id)
+	{
+		auto event = EventCreate("inject_request");
+
+		obs_data_set_bool(event, "64bit", process_is_64bit);
+		obs_data_set_bool(event, "anti_cheat", anti_cheat);
+		obs_data_set_int(event, "id", process_thread_id);
+
+		SendEvent(event);
+	}
 }
 
 struct JoiningThread {
@@ -491,7 +502,7 @@ struct CrucibleContext {
 	uint32_t fps_den;
 	OBSSource tunes, mic, gameCapture;
 	OBSSourceSignal micMuted, pttActive;
-	OBSSourceSignal stopCapture, startCapture, injectFailed;
+	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest;
 	OBSEncoder h264, aac;
 	string filename = "";
 	string muxerSettings = "";
@@ -720,6 +731,15 @@ struct CrucibleContext {
 		injectFailed
 			.SetOwner(gameCapture)
 			.SetSignal("inject_failed");
+
+		injectRequest
+			.SetOwner(gameCapture)
+			.SetSignal("inject_request")
+			.SetFunc([](calldata_t *data)
+		{
+			ForgeEvents::SendInjectRequest(calldata_bool(data, "process_is_64bit"), calldata_bool(data, "anti_cheat"),
+				static_cast<DWORD>(calldata_int(data, "process_thread_id")));
+		});
 	}
 
 	void CreateOutput()
@@ -809,6 +829,11 @@ struct CrucibleContext {
 		{
 			ForgeEvents::SendInjectFailed();
 		}).Connect();
+
+		injectRequest
+			.Disconnect()
+			.SetOwner(gameCapture)
+			.Connect();
 	}
 
 	void ClearBookmarks()
@@ -905,6 +930,26 @@ struct CrucibleContext {
 		calldata_free(&param);
 	}
 
+	void ForwardInjectorResult(obs_data_t *res)
+	{
+		if (!res)
+			return;
+
+		DWORD code = obs_data_has_user_value(res, "code") ? static_cast<DWORD>(obs_data_get_int(res, "code")) : -1;
+
+		calldata_t param{};
+		calldata_init(&param);
+		calldata_set_int(&param, "code", code);
+
+		{
+			LOCK(updateMutex);
+			auto proc = obs_source_get_proc_handler(gameCapture);
+			proc_handler_call(proc, "injector_result", &param);
+		}
+
+		calldata_free(&param);
+	}
+
 	void CreateGameCapture(obs_data_t *settings)
 	{
 		if (!settings)
@@ -920,6 +965,7 @@ struct CrucibleContext {
 
 		obs_data_set_string(settings, "overlay_dll", path);
 		obs_data_set_string(settings, "overlay_dll64", path64);
+		//obs_data_set_bool(settings, "allow_ipc_injector", true);
 
 		InitRef(gameCapture, "Couldn't create game capture source", obs_source_release,
 			obs_source_create(OBS_SOURCE_TYPE_INPUT, "game_capture", "game capture", settings, nullptr));
@@ -1205,6 +1251,11 @@ static void HandleStopRecording(CrucibleContext &cc, OBSData &)
 	cc.StopVideo();
 }
 
+static void HandleInjectorResult(CrucibleContext &cc, OBSData &data)
+{
+	cc.ForwardInjectorResult(data);
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -1215,6 +1266,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{"save_recording_buffer", HandleSaveRecordingBuffer},
 		{"create_bookmark", HandleCreateBookmark},
 		{"stop_recording", HandleStopRecording},
+		{"injector_result", HandleInjectorResult},
 	};
 	if (!data)
 		return;
