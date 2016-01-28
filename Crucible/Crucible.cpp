@@ -821,19 +821,6 @@ struct CrucibleContext {
 			if (ref)
 				obs_output_start(ref);
 		}).Connect();
-
-		injectFailed
-			.Disconnect()
-			.SetOwner(gameCapture)
-			.SetFunc([=](calldata_t *data)
-		{
-			ForgeEvents::SendInjectFailed();
-		}).Connect();
-
-		injectRequest
-			.Disconnect()
-			.SetOwner(gameCapture)
-			.Connect();
 	}
 
 	void ClearBookmarks()
@@ -969,6 +956,19 @@ struct CrucibleContext {
 
 		InitRef(gameCapture, "Couldn't create game capture source", obs_source_release,
 			obs_source_create(OBS_SOURCE_TYPE_INPUT, "game_capture", "game capture", settings, nullptr));
+
+		injectFailed
+			.Disconnect()
+			.SetOwner(gameCapture)
+			.SetFunc([=](calldata_t *data)
+		{
+			ForgeEvents::SendInjectFailed();
+		}).Connect();
+
+		injectRequest
+			.Disconnect()
+			.SetOwner(gameCapture)
+			.Connect();
 
 		obs_set_output_source(0, gameCapture);
 	}
