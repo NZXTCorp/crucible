@@ -242,6 +242,15 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendMonitorProcess(DWORD process_id)
+	{
+		auto event = EventCreate("monitor_process");
+
+		obs_data_set_int(event, "process_id", process_id);
+
+		SendEvent(event);
+	}
 }
 
 struct JoiningThread {
@@ -502,7 +511,7 @@ struct CrucibleContext {
 	uint32_t fps_den;
 	OBSSource tunes, mic, gameCapture;
 	OBSSourceSignal micMuted, pttActive;
-	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest;
+	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess;
 	OBSEncoder h264, aac;
 	string filename = "";
 	string muxerSettings = "";
@@ -740,6 +749,13 @@ struct CrucibleContext {
 			ForgeEvents::SendInjectRequest(calldata_bool(data, "process_is_64bit"), calldata_bool(data, "anti_cheat"),
 				static_cast<DWORD>(calldata_int(data, "process_thread_id")));
 		});
+
+		monitorProcess
+			.SetSignal("monitor_process")
+			.SetFunc([](calldata_t *data)
+		{
+			ForgeEvents::SendMonitorProcess(static_cast<DWORD>(calldata_int(data, "process_id")));
+		});
 	}
 
 	void CreateOutput()
@@ -937,6 +953,36 @@ struct CrucibleContext {
 		calldata_free(&param);
 	}
 
+	void ForwardMonitoredProcessExit(obs_data_t *res)
+	{
+		if (!res)
+			return;
+
+		auto pid = static_cast<DWORD>(obs_data_get_int(res, "process_id"));
+		auto code = static_cast<DWORD>(obs_data_has_user_value(res, "code") ? obs_data_get_int(res, "process_id") : -1);
+
+		calldata_t param{};
+		calldata_init(&param);
+		calldata_set_int(&param, "process_id", pid);
+		calldata_set_int(&param, "code", code);
+
+		{
+			LOCK(updateMutex);
+			auto proc = obs_source_get_proc_handler(gameCapture);
+			proc_handler_call(proc, "monitored_process_exit", &param);
+		}
+
+		calldata_free(&param);
+	}
+
+	void DeleteGameCapture()
+	{
+		LOCK(updateMutex);
+		obs_set_output_source(0, nullptr);
+
+		gameCapture = nullptr;
+	}
+
 	void CreateGameCapture(obs_data_t *settings)
 	{
 		if (!settings)
@@ -966,6 +1012,11 @@ struct CrucibleContext {
 		}).Connect();
 
 		injectRequest
+			.Disconnect()
+			.SetOwner(gameCapture)
+			.Connect();
+
+		monitorProcess
 			.Disconnect()
 			.SetOwner(gameCapture)
 			.Connect();
@@ -1256,6 +1307,11 @@ static void HandleInjectorResult(CrucibleContext &cc, OBSData &data)
 	cc.ForwardInjectorResult(data);
 }
 
+static void HandleMonitoredProcessExit(CrucibleContext &cc, OBSData &data)
+{
+	cc.ForwardMonitoredProcessExit(data);
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -1267,6 +1323,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{"create_bookmark", HandleCreateBookmark},
 		{"stop_recording", HandleStopRecording},
 		{"injector_result", HandleInjectorResult},
+		{"monitored_process_exit", HandleMonitoredProcessExit},
 	};
 	if (!data)
 		return;
