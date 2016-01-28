@@ -524,7 +524,8 @@ void DX10Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, BYTE alpha 
 	m_pDevice->IASetPrimitiveTopology( old_topology );
 	m_pDevice->IASetInputLayout( pOldInputLayout.get_RefObj() );	
 
-	m_pDevice->OMSetRenderTargets( 1, pRenderTargetView.get_Array(), pDepthStencilView );
+	auto targetView = pRenderTargetView.get_RefObj();
+	m_pDevice->OMSetRenderTargets(1, &targetView, pDepthStencilView);
 
 	m_pDevice->RSSetViewports( 1, &originalVP );				// restore the old viewport
 	m_pDevice->RSSetState( pSavedRSState );					// restore the old state
