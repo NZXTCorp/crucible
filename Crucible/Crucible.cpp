@@ -514,6 +514,7 @@ struct CrucibleContext {
 	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess;
 	OBSEncoder h264, aac;
 	string filename = "";
+	string profiler_filename = "";
 	string muxerSettings = "";
 	OBSOutput output, buffer;
 	OBSOutputSignal startRecording, stopRecording;
@@ -664,9 +665,11 @@ struct CrucibleContext {
 			.SetSignal("stop")
 			.SetFunc([=](calldata*)
 		{
+			string profiler_path;
 			{
 				LOCK(updateMutex);
 				if (sendRecordingStop) {
+					profiler_path = profiler_filename;
 					auto data = OBSTransferOwned(obs_output_get_settings(output));
 					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
 						obs_output_get_total_frames(output), BookmarkTimes(bookmarks),
@@ -683,6 +686,11 @@ struct CrucibleContext {
 
 			profiler_print(diff.get());
 			profiler_print_time_between_calls(diff.get());
+
+			if (!profiler_path.empty() && !profiler_snapshot_dump_csv_gz(diff.get(), profiler_path.c_str())) {
+				blog(LOG_INFO, "Failed to dump profiler data to '%s'", profiler_path.c_str());
+				profiler_path = "";
+			}
 
 			last_session = move(snap);
 		});
@@ -1095,13 +1103,14 @@ struct CrucibleContext {
 		obs_encoder_update(h264, settings);
 	}
 
-	void UpdateFilename(const char *path)
+	void UpdateFilenames(const char *path, const char *profiler_path)
 	{
 		if (!path)
 			return;
 
 		LOCK(updateMutex);
 		filename = path;
+		profiler_filename = profiler_path;
 	}
 
 	void UpdateMuxerSettings(const char *settings)
@@ -1258,7 +1267,7 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 
 	cc.CreateGameCapture(OBSDataGetObj(obj, "game_capture"));
 	cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
-	cc.UpdateFilename(obs_data_get_string(obj, "filename"));
+	cc.UpdateFilenames(obs_data_get_string(obj, "filename"), obs_data_get_string(obj, "profiler_data"));
 	cc.UpdateMuxerSettings(obs_data_get_string(obj, "muxer_settings"));
 	blog(LOG_INFO, "Starting new capture");
 	cc.StartVideoCapture();
