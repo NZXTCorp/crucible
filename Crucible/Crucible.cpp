@@ -251,6 +251,16 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendCleanupComplete(const string *profiler_data)
+	{
+		auto event = EventCreate("cleanup_complete");
+
+		if (profiler_data)
+			obs_data_set_string(event, "profiler_data", profiler_data->c_str());
+
+		SendEvent(event);
+	}
 }
 
 struct JoiningThread {
@@ -693,6 +703,8 @@ struct CrucibleContext {
 			}
 
 			last_session = move(snap);
+
+			ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path);
 		});
 
 		startRecording
