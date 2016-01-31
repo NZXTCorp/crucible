@@ -798,11 +798,11 @@ struct CrucibleContext {
 		obs_output_set_video_encoder(output, h264);
 		obs_output_set_audio_encoder(output, aac, 0);
 
-		/*InitRef(buffer, "Couldn't create buffer output", obs_output_release,
+		InitRef(buffer, "Couldn't create buffer output", obs_output_release,
 				obs_output_create("ffmpeg_recordingbuffer", "ffmpeg recordingbuffer", nullptr, nullptr));
 
 		obs_output_set_video_encoder(buffer, h264);
-		obs_output_set_audio_encoder(buffer, aac, 0);*/
+		obs_output_set_audio_encoder(buffer, aac, 0);
 
 		stopRecording
 			.Disconnect()
