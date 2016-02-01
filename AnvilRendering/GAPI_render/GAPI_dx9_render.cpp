@@ -413,7 +413,8 @@ bool DX9Renderer::DrawOverlay( void )
 	// restore the modified renderstates and texture
 	m_pCurrentRenderState->Apply( );
 	m_pDevice->SetTexture( 0, pTexture );
-	pTexture->Release( );
+	if (pTexture)
+		pTexture->Release();
 
 	return true;
 }
