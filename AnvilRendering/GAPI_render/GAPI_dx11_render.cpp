@@ -791,7 +791,8 @@ bool DX11Renderer::DrawOverlay(IDXGISwapChain *pSwapChain)
 	pContext->IASetPrimitiveTopology(old_topology);
 	pContext->IASetInputLayout(pOldInputLayout.get_RefObj());
 
-	pContext->OMSetRenderTargets(1, pOldRenderTargetView.get_Array(), pDepthStencilView);
+	auto targetView = pOldRenderTargetView.get_RefObj();
+	pContext->OMSetRenderTargets(1, &targetView, pDepthStencilView);
 
 	pContext->RSSetViewports(1, &originalVP);				// restore the old viewport
 	pContext->RSSetState(pSavedRSState);					// restore the old state
