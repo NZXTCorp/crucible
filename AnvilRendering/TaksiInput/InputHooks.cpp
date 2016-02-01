@@ -10,6 +10,8 @@
 
 #include <vector>
 
+//#define HOOK_REGISTER_RAW_DEVICES
+
 #ifdef USE_DIRECTI
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
@@ -406,11 +408,13 @@ bool HookInput( void )
 		return false;
 	}
 
+#ifdef HOOK_REGISTER_RAW_DEVICES
 	if (!InitHook(dll, s_GetRegisteredRawInputDevices, Hook_GetRegisteredRawInputDevices, "GetRegisteredRawInputDevices", s_HookGetRegisteredRawInputDevices))
 		return false;
 
 	if (!InitHook(dll, s_RegisterRawInputDevices, Hook_RegisterRawInputDevices, "RegisterRawInputDevices", s_HookRegisterRawInputDevices))
 		return false;
+#endif
 
 	return true;
 }
@@ -423,8 +427,11 @@ void UnhookInput( void )
 	s_HookSetCursorPos.RemoveHook( s_SetCursorPos );
 	s_HookGetRawInputData.RemoveHook( s_GetRawInputData );
 	s_HookGetRawInputBuffer.RemoveHook( s_GetRawInputBuffer );
+
+#ifdef HOOK_REGISTER_RAW_DEVICES
 	s_HookGetRegisteredRawInputDevices.RemoveHook(s_GetRegisteredRawInputDevices);
 	s_HookRegisterRawInputDevices.RemoveHook(s_RegisterRawInputDevices);
+#endif
 }
 
 // handle any input events sent to game's window. return true if we're eating them (ie: showing overlay)
@@ -474,14 +481,18 @@ void HookWndProc()
 
 void DisableRawInput()
 {
+#ifdef HOOK_REGISTER_RAW_DEVICES
 	UINT num = 0;
 	s_GetRegisteredRawInputDevices(nullptr, &num, sizeof(RAWINPUTDEVICE));
 
 	RegisterRawInputDevices(nullptr, 0, sizeof(RAWINPUTDEVICE));
+#endif
 }
 
 void RestoreRawInput()
 {
+#ifdef HOOK_REGISTER_RAW_DEVICES
 	UINT num = 0;
 	s_GetRegisteredRawInputDevices(nullptr, &num, sizeof(RAWINPUTDEVICE));
+#endif
 }
