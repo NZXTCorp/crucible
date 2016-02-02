@@ -4,6 +4,7 @@
 #pragma once 
 
 #include "TaksiInput.h"
+#include "../funchook.h"
 
 #ifndef ASSERT
 #define ASSERT(x)
@@ -11,42 +12,44 @@
 
 struct TAKSI_LINK CHookJump
 {
-	// Create a relative jump to hook an existing api call.
-	// is this 5 bytes in 64 bit mode as well?
-	// NOTE: NOT for use in hooking an interface or a vtable. that doesnt require a jump.
-#define CHookJump_LEN 5 
 public:
-	CHookJump()
-		: m_dwOldProtection(0)
-	{
-		m_Jump[0] = 0;
-	}
+	CHookJump() = default;
 
 	bool IsHookInstalled() const
 	{
-		return( m_Jump[0] != 0 );
+		return hook.hooked;
 	}
 	bool InstallHook( LPVOID pFunc, LPVOID pFuncNew );
 	void RemoveHook( LPVOID pFunc );
-	bool VerifyHook( const LPVOID pFunc ) const;
 	
-	void SwapOld( LPVOID pFunc )
+	void SwapOld(LPVOID)
 	{
-		// put back saved code fragment
-		ASSERT(pFunc);
-		memcpy(pFunc, m_OldCode, sizeof(m_OldCode));
+		if (!IsHookInstalled())
+			return;
+
+		unhook(&hook);
 	}
-	void SwapReset( LPVOID pFunc )
+	void SwapReset(LPVOID)
 	{
 		// put back JMP instruction again
 		if ( ! IsHookInstalled())	// hook has since been destroyed!
 			return;
-		ASSERT(pFunc);
-		memcpy(pFunc, m_Jump, sizeof(m_Jump));
+
+		rehook(&hook);
 	}
+	template <typename Res, typename ... Args, typename ... CallArgs>
+	Res Call(Res(*func)(Args ... args), CallArgs ... args)
+	{
+		return ((decltype(func))hook.call_addr)(std::forward<CallArgs>(args)...);
+	}
+#ifndef _WIN64
+	template <typename Res, typename ... Args, typename ... CallArgs>
+	Res Call(Res(__stdcall *func)(Args ... args), CallArgs ... args)
+	{
+		return ((decltype(func))hook.call_addr)(std::forward<CallArgs>(args)...);
+	}
+#endif
 public:
-	DWORD m_dwOldProtection;			// used by VirtualProtect()
-	BYTE m_OldCode[CHookJump_LEN];	// what was there previous.
-	BYTE m_Jump[CHookJump_LEN];		// what do i want to replace it with.
+	func_hook hook{};
 };
 

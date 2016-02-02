@@ -137,7 +137,7 @@ HRESULT WINAPI DI8_GetDeviceState( IDirectInputDevice8 *pDevice, DWORD dwSize, L
 	// do our preliminary shit here - store device pointer, etc
 	//LOG_MSG( "DI8_GetDeviceState: called for device 0x%08x"LOG_CR, pDevice );
 
-	HRESULT hRes = s_DI8_GetDeviceState( pDevice, dwSize, lpState );
+	HRESULT hRes = s_HookDeviceState.Call(s_DI8_GetDeviceState, pDevice, dwSize, lpState );
 
 	// do our shit here, eyeballing and messing with the input
 
@@ -153,7 +153,7 @@ HRESULT WINAPI DI8_GetDeviceData( IDirectInputDevice8 *pDevice, DWORD cbObjectDa
 	// do our preliminary shit here - store device pointer, etc
 	//LOG_MSG( "DI8_GetDeviceData: called for device 0x%08x"LOG_CR, pDevice );
 
-	HRESULT hRes = s_DI8_GetDeviceData( pDevice, cbObjectData, rgdod, pdwInOut, dwFlags );
+	HRESULT hRes = s_HookDeviceData.Call(s_DI8_GetDeviceData, pDevice, cbObjectData, rgdod, pdwInOut, dwFlags );
 
 	// do our shit here, eyeballing and messing with the input
 
@@ -196,7 +196,7 @@ BOOL WINAPI Hook_GetKeyboardState( PBYTE lpKeyState )
 {
 	s_HookGetKeyboardState.SwapOld( s_GetKeyboardState );
 	//LOG_MSG( "Hook_GetKeyboardState: called"LOG_CR );
-	BOOL res = s_GetKeyboardState( lpKeyState );
+	BOOL res = s_HookGetKeyboardState.Call(s_GetKeyboardState, lpKeyState );
 	// update our saved key states to generate events. can also modify the provided state if we're showing overlay (to hide input from the game)
 	UpdateKeyboardState( lpKeyState );
 	s_HookGetKeyboardState.SwapReset( s_GetKeyboardState );
@@ -207,7 +207,7 @@ SHORT WINAPI Hook_GetAsyncKeyState( int vKey )
 {
 	s_HookGetAsyncKeyState.SwapOld( s_GetAsyncKeyState );
 	//LOG_MSG( "Hook_GetAsyncKeyState: called for key %u"LOG_CR, vKey );
-	SHORT res = s_GetAsyncKeyState( vKey );
+	SHORT res = s_HookGetAsyncKeyState.Call(s_GetAsyncKeyState, vKey );
 	res = UpdateSingleKeyState( vKey, res );
 	// mess with input here if we're in overlay mode
 	s_HookGetAsyncKeyState.SwapReset( s_GetAsyncKeyState );
@@ -220,7 +220,7 @@ static bool mouse_pos_saved = false;
 BOOL WINAPI Hook_GetCursorPos( LPPOINT lpPoint )
 {
 	s_HookGetCursorPos.SwapOld( s_GetCursorPos );
-	BOOL res = s_GetCursorPos( lpPoint );
+	BOOL res = s_HookGetCursorPos.Call(s_GetCursorPos, lpPoint );
 
 	if (g_bBrowserShowing)
 	{
@@ -259,7 +259,7 @@ BOOL WINAPI Hook_SetCursorPos( INT x, INT y )
 		mouse_pos_saved = true;
 	}
 	else
-		res = s_SetCursorPos(x, y);
+		res = s_HookSetCursorPos.Call(s_SetCursorPos, x, y);
 
 	// mess with it here
 	//LOG_MSG( "Hook_SetCursorPos: setting pos to [%u, %u]"LOG_CR, x, y );
@@ -271,7 +271,7 @@ void UpdateRawMouse(RAWMOUSE &event);
 UINT WINAPI Hook_GetRawInputData( HRAWINPUT hRawInput, UINT uiCommand, LPVOID pData, PUINT pcbSize, UINT cbSizeHeader )
 {
 	s_HookGetRawInputData.SwapOld( s_GetRawInputData );
-	UINT res = s_GetRawInputData( hRawInput, uiCommand, pData, pcbSize, cbSizeHeader );
+	UINT res = s_HookGetRawInputData.Call(s_GetRawInputData, hRawInput, uiCommand, pData, pcbSize, cbSizeHeader );
 	//LOG_MSG( "Hook_GetRawInputData: called with command %u"LOG_CR, uiCommand );
 	if ( pData ) // called with pData == NULL means they're just asking for a size to allocate
 	{
@@ -288,7 +288,7 @@ UINT WINAPI Hook_GetRawInputData( HRAWINPUT hRawInput, UINT uiCommand, LPVOID pD
 UINT WINAPI Hook_GetRawInputBuffer( PRAWINPUT pData, PUINT pcbSize, UINT cbSizeHeader )
 {
 	s_HookGetRawInputBuffer.SwapOld( s_GetRawInputBuffer );
-	UINT res = s_GetRawInputBuffer( pData, pcbSize, cbSizeHeader );
+	UINT res = s_HookGetRawInputBuffer.Call(s_GetRawInputBuffer, pData, pcbSize, cbSizeHeader );
 	//LOG_MSG( "Hook_GetRawInputBuffer: called"LOG_CR );
 	s_HookGetRawInputBuffer.SwapReset( s_GetRawInputBuffer );
 	return res;
@@ -306,7 +306,7 @@ UINT WINAPI Hook_GetRegisteredRawInputDevices(PRAWINPUTDEVICE pRawInputDevices, 
 			s_HookGetRegisteredRawInputDevices.SwapOld(s_GetRegisteredRawInputDevices);
 			prev_devices.resize(0);
 			UINT num = 0;
-			auto res = s_GetRegisteredRawInputDevices(nullptr, &num, sizeof(RAWINPUTDEVICE));
+			auto res = s_HookGetRegisteredRawInputDevices.Call(s_GetRegisteredRawInputDevices, nullptr, &num, sizeof(RAWINPUTDEVICE));
 			if (res < 0)
 			{
 				prev_devices.resize(num);
@@ -350,7 +350,7 @@ orig:
 BOOL WINAPI Hook_RegisterRawInputDevices(PCRAWINPUTDEVICE pRawInputDevices, UINT uiNumDevices, UINT cbSize)
 {
 	s_HookRegisterRawInputDevices.SwapOld(s_RegisterRawInputDevices);
-	auto res = s_RegisterRawInputDevices(pRawInputDevices, uiNumDevices, cbSize);
+	auto res = s_HookRegisterRawInputDevices.Call(s_RegisterRawInputDevices, pRawInputDevices, uiNumDevices, cbSize);
 	s_HookRegisterRawInputDevices.SwapReset(s_RegisterRawInputDevices);
 	return res;
 }
