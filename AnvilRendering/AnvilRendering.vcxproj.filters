@@ -19,6 +19,9 @@
     <Filter Include="TaksiInput">
       <UniqueIdentifier>{1658c872-8145-4850-a270-5ce306aed8b2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="libobs hook">
+      <UniqueIdentifier>{8b8f2533-77ca-420e-b472-8bb427d3fc5a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -84,6 +87,9 @@
     <ClInclude Include="TaksiInput\MouseInput.h">
       <Filter>TaksiInput</Filter>
     </ClInclude>
+    <ClInclude Include="funchook.h">
+      <Filter>libobs hook</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -127,6 +133,9 @@
     </ClCompile>
     <ClCompile Include="TaksiInput\MouseInput.cpp">
       <Filter>TaksiInput</Filter>
+    </ClCompile>
+    <ClCompile Include="funchook.c">
+      <Filter>libobs hook</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
