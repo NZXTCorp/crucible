@@ -365,6 +365,21 @@ BOOL WINAPI Hook_RegisterRawInputDevices(PCRAWINPUTDEVICE pRawInputDevices, UINT
 	return res;
 }
 
+static HCURSOR old_cursor = nullptr;
+void ShowCursor()
+{
+	s_HookSetCursor.SwapOld(s_SetCursor);
+	old_cursor = s_HookSetCursor.Call(s_SetCursor, LoadCursorW(NULL, IDC_ARROW));
+	s_HookSetCursor.SwapReset(s_SetCursor);
+}
+
+void RestoreCursor()
+{
+	s_HookSetCursor.SwapOld(s_SetCursor);
+	s_HookSetCursor.Call(s_SetCursor, old_cursor);
+	s_HookSetCursor.SwapReset(s_SetCursor);
+}
+
 HCURSOR WINAPI Hook_SetCursor(HCURSOR hCursor)
 {
 	if (g_bBrowserShowing)
