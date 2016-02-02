@@ -71,14 +71,24 @@ static GETREGISTEREDRAWINPUTDEVICES s_GetRegisteredRawInputDevices = nullptr;
 typedef BOOL (WINAPI *REGISTERRAWINPUTDEVICES)(PCRAWINPUTDEVICE, UINT, UINT);
 static REGISTERRAWINPUTDEVICES s_RegisterRawInputDevices = nullptr;
 
+typedef WINUSERAPI HCURSOR (WINAPI *SETCURSOR)(HCURSOR hCursor);
+static SETCURSOR s_SetCursor = nullptr;
+
+typedef WINUSERAPI HCURSOR (WINAPI *GETCURSOR)(VOID);
+static GETCURSOR s_GetCursor = nullptr;
+
 static CHookJump s_HookGetKeyboardState;
 static CHookJump s_HookGetAsyncKeyState;
 static CHookJump s_HookGetCursorPos;
 static CHookJump s_HookSetCursorPos;
 static CHookJump s_HookGetRawInputData;
 static CHookJump s_HookGetRawInputBuffer;
+
 static CHookJump s_HookGetRegisteredRawInputDevices;
 static CHookJump s_HookRegisterRawInputDevices;
+
+static CHookJump s_HookSetCursor;
+static CHookJump s_HookGetCursor;
 
 #ifdef USE_DIRECTI
 
@@ -355,6 +365,32 @@ BOOL WINAPI Hook_RegisterRawInputDevices(PCRAWINPUTDEVICE pRawInputDevices, UINT
 	return res;
 }
 
+HCURSOR WINAPI Hook_SetCursor(HCURSOR hCursor)
+{
+	if (g_bBrowserShowing)
+	{
+		auto res = old_cursor;
+		old_cursor = hCursor;
+		return res;
+	}
+
+	s_HookSetCursor.SwapOld(s_SetCursor);
+	auto res = s_HookSetCursor.Call(s_SetCursor, hCursor);
+	s_HookSetCursor.SwapReset(s_SetCursor);
+	return res;
+}
+
+HCURSOR WINAPI Hook_GetCursor(VOID)
+{
+	if (g_bBrowserShowing)
+		return old_cursor;
+
+	s_HookGetCursor.SwapOld(s_GetCursor);
+	auto res = s_HookGetCursor.Call(s_GetCursor);
+	s_HookGetCursor.SwapReset(s_GetCursor);
+	return res;
+}
+
 template <typename T>
 static bool InitHook(HMODULE dll, T *&orig, T* new_, const char *name, CHookJump &hook)
 {
@@ -419,6 +455,12 @@ bool HookInput( void )
 		return false;
 #endif
 
+	if (!InitHook(dll, s_SetCursor, Hook_SetCursor, "SetCursor", s_HookSetCursor))
+		return false;
+
+	if (!InitHook(dll, s_GetCursor, Hook_GetCursor, "SetGursor", s_HookGetCursor))
+		return false;
+
 	return true;
 }
 
@@ -435,6 +477,9 @@ void UnhookInput( void )
 	s_HookGetRegisteredRawInputDevices.RemoveHook(s_GetRegisteredRawInputDevices);
 	s_HookRegisterRawInputDevices.RemoveHook(s_RegisterRawInputDevices);
 #endif
+
+	s_HookSetCursor.RemoveHook(s_SetCursor);
+	s_HookGetCursor.RemoveHook(s_GetCursor);
 }
 
 // handle any input events sent to game's window. return true if we're eating them (ie: showing overlay)
