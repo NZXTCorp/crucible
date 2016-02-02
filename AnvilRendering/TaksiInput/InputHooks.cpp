@@ -7,8 +7,11 @@
 
 #include "InputHooks.h"
 #include "KeyboardInput.h"
+#include "MouseInput.h"
 
 #include <vector>
+
+#include <Windowsx.h>
 
 //#define HOOK_REGISTER_RAW_DEVICES
 
@@ -440,6 +443,21 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
 	switch ( uMsg )
 	{
+		case WM_MOUSEMOVE:
+		case WM_LBUTTONDOWN:
+		case WM_LBUTTONUP:
+		case WM_LBUTTONDBLCLK:
+		case WM_RBUTTONDOWN:
+		case WM_RBUTTONUP:
+		case WM_RBUTTONDBLCLK:
+		case WM_MBUTTONDOWN:
+		case WM_MBUTTONUP:
+		case WM_MBUTTONDBLCLK:
+		case WM_MOUSEWHEEL:
+		case WM_XBUTTONDOWN:
+		case WM_XBUTTONUP:
+		case WM_XBUTTONDBLCLK:
+			return UpdateMouseState(uMsg, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
 		case WM_KEYDOWN:
 		case WM_SYSKEYDOWN:
 			return UpdateWMKeyState( wParam, KEY_DOWN );
