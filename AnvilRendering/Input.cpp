@@ -18,6 +18,7 @@ static HHOOK mouse_hook = nullptr;
 
 static void HookMouse()
 {
+	return;
 	if (mouse_hook)
 		return;
 
@@ -76,6 +77,7 @@ void UpdateRawMouse(RAWMOUSE &event)
 	if (!g_bBrowserShowing)
 		return;
 
+#if 0
 	if (event.usFlags & MOUSE_MOVE_ABSOLUTE)
 	{
 		mouse_position.x = event.lLastX;
@@ -99,6 +101,7 @@ void UpdateRawMouse(RAWMOUSE &event)
 	SendMouse(RI_MOUSE_RIGHT_BUTTON_UP, WM_RBUTTONUP);
 	SendMouse(RI_MOUSE_MIDDLE_BUTTON_DOWN, WM_MBUTTONDOWN);
 	SendMouse(RI_MOUSE_MIDDLE_BUTTON_UP, WM_MBUTTONUP);
+#endif
 
 	ZeroMemory(&event, sizeof(event));
 }
