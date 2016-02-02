@@ -171,6 +171,7 @@
     <ClInclude Include="GAPI_render\IRefPtr.h" />
     <ClInclude Include="GAPI_render\NewIndicator.h" />
     <ClInclude Include="GAPI_render\resource.h" />
+    <ClInclude Include="TaksiInput\MouseInput.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="TaksiInput\CHookJump.h" />
     <ClInclude Include="TaksiInput\HotKeys.h" />
@@ -211,6 +212,7 @@
     <ClCompile Include="TaksiInput\HotKeys.cpp" />
     <ClCompile Include="TaksiInput\InputHooks.cpp" />
     <ClCompile Include="TaksiInput\KeyboardInput.cpp" />
+    <ClCompile Include="TaksiInput\MouseInput.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="GAPI_render\Anvil.rc" />

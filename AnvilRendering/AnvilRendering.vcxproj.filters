@@ -81,6 +81,9 @@
     <ClInclude Include="TaksiInput\CHookJump.h">
       <Filter>TaksiInput</Filter>
     </ClInclude>
+    <ClInclude Include="TaksiInput\MouseInput.h">
+      <Filter>TaksiInput</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -120,6 +123,9 @@
       <Filter>TaksiInput</Filter>
     </ClCompile>
     <ClCompile Include="TaksiInput\CHookJump.cpp">
+      <Filter>TaksiInput</Filter>
+    </ClCompile>
+    <ClCompile Include="TaksiInput\MouseInput.cpp">
       <Filter>TaksiInput</Filter>
     </ClCompile>
   </ItemGroup>
