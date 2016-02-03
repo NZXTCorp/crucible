@@ -155,10 +155,6 @@ static struct ForgeFramebufferServer {
 				swap(incoming_data, shared_data);
 				new_data = true;
 			}
-
-			if (g_Proc.m_Stats.m_hWndCap)
-				SetWindowPos(g_Proc.m_Stats.m_hWndCap, 0, 0, 0, 0, 0,
-					SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER);
 		}, expected > 1024 ? expected : -1);
 	}
 
