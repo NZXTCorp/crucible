@@ -13,6 +13,8 @@
 CTaksiHotKeys g_HotKeys;		// what does the user want to do?
 CTaksiKeyboard g_UserKeyboard;		// keyboard hook handle. if i cant hook DI. Just for this process.
 
+//#define USE_KEYBOARD_HOOK
+
 #ifdef USE_DIRECTI
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
@@ -245,6 +247,9 @@ void CTaksiDI::CloseDirectInput()
 
 bool CTaksiKeyboard::InstallHookKeys( bool bDummy )
 {
+#ifndef USE_KEYBOARD_HOOK
+	return true;
+#endif
 	// install keyboard hooks to all threads of this process.
 	// ARGS:
 	//  bDummy = a null hook just to keep us (this dll) loaded in process space.
@@ -467,7 +472,11 @@ bool  CTaksiHotKeys::HotkeysAttached( void )
 	hooked = g_UserDI.IsHooked( );
 #endif
 	// check keyboard hook
+#ifndef USE_KEYBOARD_HOOK
+	hooked = m_bAttachedHotKeys;
+#else
 	hooked = (hooked || g_UserKeyboard.IsHooked( ));
+#endif
 
 	return hooked;
 }
