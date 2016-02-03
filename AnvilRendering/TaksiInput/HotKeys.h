@@ -90,7 +90,7 @@ public:
 
 	bool HotkeysAttached( void );
 
-	bool DoHotKey( HOTKEY_TYPE eHotKey );
+	bool DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt);
 
 	void AddEvent( HOTKEY_TYPE eHotKey, HOTKEY_EVENT eEvent );
 public:

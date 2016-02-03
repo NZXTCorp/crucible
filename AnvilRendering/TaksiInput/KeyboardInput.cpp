@@ -158,7 +158,7 @@ static void HandleHotkeys(T s_keys, U keys)
 		bool pressed = Pressed(keys, vk) && (!k_mods || (mods & k_mods) != 0);
 		bool was_pressed = Pressed(s_keys, vk) && (!k_mods || (prev_mods & k_mods) != 0);
 
-		if (pressed && !was_pressed && !(g_HotKeys.DoHotKey((HOTKEY_TYPE)i)))
+		if (pressed && !was_pressed && !(g_HotKeys.DoHotKey((HOTKEY_TYPE)i, HKEVENT_PRESS)))
 			g_HotKeys.AddEvent((HOTKEY_TYPE)i, HKEVENT_PRESS);
 		else if (!pressed && was_pressed)
 			g_HotKeys.AddEvent((HOTKEY_TYPE)i, HKEVENT_RELEASE);

@@ -312,7 +312,7 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 				if (bHotMask != HIBYTE(wHotKey))
 					continue;
 				g_UserKeyboard.m_bKeysPressed[i] = false; // clear the 'pressed' state
-				if (!(eat_key = g_HotKeys.DoHotKey( (HOTKEY_TYPE)i )))
+				if (!(eat_key = g_HotKeys.DoHotKey( (HOTKEY_TYPE)i, HKEVENT_RELEASE)))
 					g_HotKeys.AddEvent( (HOTKEY_TYPE)i, HKEVENT_RELEASE );
 			}
 
@@ -357,7 +357,7 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 				if ( !g_UserKeyboard.m_bKeysPressed[i] )
 				{
 					g_UserKeyboard.m_bKeysPressed[i] = true;
-					if (!(eat_key = g_HotKeys.DoHotKey((HOTKEY_TYPE)i)))
+					if (!(eat_key = g_HotKeys.DoHotKey((HOTKEY_TYPE)i, HKEVENT_PRESS)))
 						g_HotKeys.AddEvent( (HOTKEY_TYPE)i, HKEVENT_PRESS );
 				}
 			}
@@ -372,7 +372,7 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 
 //********************************************************
 
-bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey )
+bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt)
 {
 	// Do the action now or schedule it for later.
 	LOG_MSG( "CTaksiHotKeys::DoHotKey: VKEY_* (%d) pressed." LOG_CR, eHotKey );
@@ -380,12 +380,14 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey )
 	switch(eHotKey)
 	{
 	case HOTKEY_Overlay:
-		ToggleOverlay();
+		if (evt == HKEVENT_PRESS)
+			ToggleOverlay();
 		return true;
 	case HOTKEY_Screenshot:
 	case HOTKEY_Bookmark:
 		// schedule to be in the PresentFrameBegin() call.
-		ScheduleHotKey(eHotKey);
+		if (evt == HKEVENT_PRESS)
+			ScheduleHotKey(eHotKey);
 		return false;
 	}
 	// shouldnt get here!
