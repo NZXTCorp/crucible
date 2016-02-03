@@ -377,21 +377,26 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 
 //********************************************************
 
+static bool hotkeys_pressed[HOTKEY_QTY] = { false };
+
 bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt)
 {
 	// Do the action now or schedule it for later.
 	LOG_MSG( "CTaksiHotKeys::DoHotKey: VKEY_* (%d) pressed." LOG_CR, eHotKey );
 
+	bool activated = !hotkeys_pressed[eHotKey] && evt == HKEVENT_PRESS;
+	hotkeys_pressed[eHotKey] = evt == HKEVENT_PRESS;
+
 	switch(eHotKey)
 	{
 	case HOTKEY_Overlay:
-		if (evt == HKEVENT_PRESS)
+		if (activated)
 			ToggleOverlay();
 		return true;
 	case HOTKEY_Screenshot:
 	case HOTKEY_Bookmark:
 		// schedule to be in the PresentFrameBegin() call.
-		if (evt == HKEVENT_PRESS)
+		if (activated)
 			ScheduleHotKey(eHotKey);
 		return false;
 	}
