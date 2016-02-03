@@ -90,4 +90,3 @@ namespace ForgeEvent
 
 std::vector<uint8_t> *ReadNewFramebuffer();
 
-void ShowCursor();

@@ -188,7 +188,7 @@ vector<uint8_t> *ReadNewFramebuffer()
 	return &forgeFramebufferServer.read_data;
 }
 
-extern void ShowCursor();
+extern void ShowOverlayCursor();
 extern void RestoreCursor();
 
 void DisableRawInput();
@@ -207,7 +207,7 @@ void ToggleOverlay()
 
 		g_bBrowserShowing = true;
 
-		ShowCursor();
+		ShowOverlayCursor();
 
 		DisableRawInput();
 		mouse_position.x = g_Proc.m_Stats.m_SizeWnd.cx / 2;

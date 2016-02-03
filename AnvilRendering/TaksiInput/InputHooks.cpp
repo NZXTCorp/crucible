@@ -366,7 +366,7 @@ BOOL WINAPI Hook_RegisterRawInputDevices(PCRAWINPUTDEVICE pRawInputDevices, UINT
 }
 
 static HCURSOR old_cursor = nullptr;
-void ShowCursor()
+void ShowOverlayCursor()
 {
 	s_HookSetCursor.SwapOld(s_SetCursor);
 	old_cursor = s_HookSetCursor.Call(s_SetCursor, LoadCursorW(NULL, IDC_ARROW));
