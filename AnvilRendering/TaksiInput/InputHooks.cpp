@@ -380,6 +380,16 @@ void RestoreCursor()
 	s_HookSetCursor.SwapReset(s_SetCursor);
 }
 
+void ResetOverlayCursor()
+{
+	if (!g_bBrowserShowing)
+		return;
+
+	s_HookSetCursor.SwapOld(s_SetCursor);
+	s_HookSetCursor.Call(s_SetCursor, LoadCursorW(NULL, IDC_ARROW));
+	s_HookSetCursor.SwapReset(s_SetCursor);
+}
+
 HCURSOR WINAPI Hook_SetCursor(HCURSOR hCursor)
 {
 	if (g_bBrowserShowing)

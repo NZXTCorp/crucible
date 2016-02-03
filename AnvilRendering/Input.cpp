@@ -190,6 +190,7 @@ vector<uint8_t> *ReadNewFramebuffer()
 
 extern void ShowOverlayCursor();
 extern void RestoreCursor();
+extern void ResetOverlayCursor();
 
 void DisableRawInput();
 void RestoreRawInput();
@@ -274,6 +275,8 @@ void HandleInputHook(HWND window)
 	HookMouse();
 
 	ProcessHotKeys();
+
+	ResetOverlayCursor();
 }
 
 void StopInputHook()
