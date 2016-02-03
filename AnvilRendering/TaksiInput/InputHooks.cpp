@@ -473,7 +473,7 @@ bool HookInput( void )
 	if (!InitHook(dll, s_SetCursor, Hook_SetCursor, "SetCursor", s_HookSetCursor))
 		return false;
 
-	if (!InitHook(dll, s_GetCursor, Hook_GetCursor, "SetGursor", s_HookGetCursor))
+	if (!InitHook(dll, s_GetCursor, Hook_GetCursor, "GetCursor", s_HookGetCursor))
 		return false;
 
 	return true;
