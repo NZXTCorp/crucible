@@ -160,7 +160,7 @@ static void HandleHotkeys(T s_keys, U keys)
 
 		if (pressed && !was_pressed && !(g_HotKeys.DoHotKey((HOTKEY_TYPE)i, HKEVENT_PRESS)))
 			g_HotKeys.AddEvent((HOTKEY_TYPE)i, HKEVENT_PRESS);
-		else if (!pressed && was_pressed)
+		else if (!pressed && was_pressed && !(g_HotKeys.DoHotKey((HOTKEY_TYPE)i, HKEVENT_RELEASE)))
 			g_HotKeys.AddEvent((HOTKEY_TYPE)i, HKEVENT_RELEASE);
 	}
 }
