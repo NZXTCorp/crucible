@@ -150,9 +150,15 @@ static struct ForgeFramebufferServer {
 
 			incoming_data.assign(data, data + size);
 
-			LOCK(share_mutex);
-			swap(incoming_data, shared_data);
-			new_data = true;
+			{
+				LOCK(share_mutex);
+				swap(incoming_data, shared_data);
+				new_data = true;
+			}
+
+			if (g_Proc.m_Stats.m_hWndCap)
+				SetWindowPos(g_Proc.m_Stats.m_hWndCap, 0, 0, 0, 0, 0,
+					SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER);
 		}, expected > 1024 ? expected : -1);
 	}
 
@@ -216,6 +222,10 @@ void ToggleOverlay()
 		RestoreCursor();
 
 		RestoreRawInput();
+
+		if (g_Proc.m_Stats.m_hWndCap)
+			SetWindowPos(g_Proc.m_Stats.m_hWndCap, 0, 0, 0, 0, 0,
+				SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER);
 	}
 }
 
