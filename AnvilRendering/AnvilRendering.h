@@ -82,6 +82,7 @@ extern bool g_bBrowserShowing;
 
 namespace ForgeEvent
 {
+	bool KeyEvent(UINT msg, WPARAM wParam, LPARAM lParam);
 	bool MouseEvent(int x, int y, int wParam);
 	bool ShowBrowser(const std::string &name, LONG width, LONG height);
 	bool HideBrowser();

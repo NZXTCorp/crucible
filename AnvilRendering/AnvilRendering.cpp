@@ -57,6 +57,14 @@ namespace ForgeEvent
 		return Object().Set("event", String(name));
 	}
 
+	bool KeyEvent(UINT msg, WPARAM wParam, LPARAM lParam)
+	{
+		return SendEvent(EventCreate("key_event")
+			.Set("msg", msg)
+			.Set("wParam", wParam)
+			.Set("lParam", lParam));
+	}
+
 	bool MouseEvent(int x, int y, int wParam)
 	{
 		return SendEvent(EventCreate("mouse_event")
