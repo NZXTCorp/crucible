@@ -8,7 +8,7 @@
 
 extern bool g_bBrowserShowing;
 
-bool UpdateMouseState(unsigned msg, int x, int y, int action)
+bool UpdateMouseState(UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	if (!g_bBrowserShowing)
 		return false;
@@ -29,7 +29,7 @@ bool UpdateMouseState(unsigned msg, int x, int y, int action)
 	case WM_XBUTTONDOWN:
 	case WM_XBUTTONUP:
 	case WM_XBUTTONDBLCLK:
-		ForgeEvent::MouseEvent(x, y, msg);
+		ForgeEvent::MouseEvent(msg, wParam, lParam);
 		return true;
 	}
 

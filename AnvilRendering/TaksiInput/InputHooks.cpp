@@ -11,8 +11,6 @@
 
 #include <vector>
 
-#include <Windowsx.h>
-
 //#define HOOK_REGISTER_RAW_DEVICES
 
 #ifdef USE_DIRECTI
@@ -511,6 +509,14 @@ void UnhookInput( void )
 // we should try to keep this code simple and pass messages off to appropriate handler functions.
 bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
+	auto handleKey = [&](KeyEventType type)
+	{
+		auto res = UpdateWMKeyState(wParam, type);
+		if (g_bBrowserShowing)
+			ForgeEvent::KeyEvent(uMsg, wParam, lParam);
+		return res;
+	};
+
 	switch ( uMsg )
 	{
 		case WM_MOUSEMOVE:
@@ -527,15 +533,15 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 		case WM_XBUTTONDOWN:
 		case WM_XBUTTONUP:
 		case WM_XBUTTONDBLCLK:
-			return UpdateMouseState(uMsg, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
+			return UpdateMouseState(uMsg, wParam, lParam);
 		case WM_KEYDOWN:
 		case WM_SYSKEYDOWN:
-			return UpdateWMKeyState( wParam, KEY_DOWN );
+			return handleKey(KEY_DOWN);
 		case WM_KEYUP:
 		case WM_SYSKEYUP:
-			return UpdateWMKeyState( wParam, KEY_UP );
+			return handleKey(KEY_UP);
 		case WM_CHAR:
-			return UpdateWMKeyState( wParam, KEY_CHAR );
+			return handleKey(KEY_CHAR);
 	}
 
 	return false;

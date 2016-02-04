@@ -1,4 +1,4 @@
 #pragma once
 
 
-bool UpdateMouseState(unsigned msg, int x, int y, int action);
+bool UpdateMouseState(UINT msg, WPARAM wParam, LPARAM lParam);

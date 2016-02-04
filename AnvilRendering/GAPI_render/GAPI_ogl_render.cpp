@@ -430,9 +430,9 @@ static bool show_browser_tex_()
 	}
 
 	auto vec = ReadNewFramebuffer();
-	if (vec)
+	/*if (vec)
 		hlog("Got vec %p: %d vs %dx%dx4 = %d", vec, vec->size(), g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy,
-			g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4);
+			g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;
 	if (vec && vec->size() == g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4) {
 		s_glBindTexture(GL_TEXTURE_2D, browser_tex);
 		s_glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
