@@ -537,6 +537,10 @@ struct CrucibleContext {
 
 	uint32_t target_width = 1280;
 	uint32_t target_height = 720;
+	uint32_t target_bitrate = 3500;
+
+	uint32_t game_width = 0;
+	uint32_t game_height = 0;
 
 	DWORD game_pid = -1;
 
@@ -634,13 +638,16 @@ struct CrucibleContext {
 	{
 		auto vsettings = OBSDataCreate();
 		obs_data_set_int(vsettings, "bitrate", 0);
-		obs_data_set_int(vsettings, "buffer_size", 7000);
+		obs_data_set_int(vsettings, "buffer_size", 2 * target_bitrate);
 		obs_data_set_int(vsettings, "crf", 23);
 		obs_data_set_bool(vsettings, "use_bufsize", true);
 		obs_data_set_bool(vsettings, "cbr", false);
 		obs_data_set_string(vsettings, "profile", "high");
 		obs_data_set_string(vsettings, "preset", "veryfast");
-		obs_data_set_string(vsettings, "x264opts", "keyint=30 vbv-maxrate=3500");
+
+		ostringstream os;
+		os << "keyint=30 vbv-maxrate=" << target_bitrate;
+		obs_data_set_string(vsettings, "x264opts", os.str().c_str());
 
 		InitRef(h264, "Couldn't create video encoder", obs_encoder_release,
 				obs_video_encoder_create("obs_x264", "x264 video", vsettings, nullptr));
@@ -1146,18 +1153,20 @@ struct CrucibleContext {
 	{
 		LOCK(updateMutex);
 
-		if (width == ovi.base_width && height == ovi.base_height)
+		game_width = width;
+		game_height = height;
+
+		auto scale = width / static_cast<float>(target_width);
+		auto new_height = height / scale;
+
+		if (width <= target_width && width == ovi.base_width && height == ovi.base_height && target_width == ovi.output_width && new_height == ovi.output_height)
 			return false;
 
 		if (width > target_width) {
-			auto scale = width / static_cast<float>(target_width);
-			auto new_height = height / scale;
-
 			ovi.base_width = width;
 			ovi.base_height = height;
 			ovi.output_width = target_width;
 			ovi.output_height = static_cast<uint32_t>(new_height);
-
 		} else {
 			ovi.base_width = width;
 			ovi.base_height = height;
@@ -1191,6 +1200,44 @@ struct CrucibleContext {
 		return true;
 	}
 
+	void UpdateVideoSettings(obs_data_t *settings)
+	{
+		if (!settings)
+			return;
+
+		uint32_t new_width = static_cast<uint32_t>(obs_data_get_int(settings, "width"));
+		uint32_t max_rate = static_cast<uint32_t>(obs_data_get_int(settings, "max_rate"));
+
+		LOCK(updateMutex);
+		if (max_rate) {
+			target_bitrate = max_rate;
+
+			if (h264) {
+				auto vsettings = OBSDataCreate();
+				obs_data_set_int(vsettings, "bitrate", 0);
+				obs_data_set_int(vsettings, "buffer_size", 2 * max_rate);
+				obs_data_set_int(vsettings, "crf", 23);
+				obs_data_set_bool(vsettings, "use_bufsize", true);
+				obs_data_set_bool(vsettings, "cbr", false);
+				obs_data_set_string(vsettings, "profile", "high");
+				obs_data_set_string(vsettings, "preset", "veryfast");
+
+				ostringstream os;
+				os << "keyint=30 vbv-maxrate=" << max_rate;
+				obs_data_set_string(vsettings, "x264opts", os.str().c_str());
+
+				obs_encoder_update(h264, vsettings);
+			}
+		}
+
+		if (new_width) {
+			target_width = new_width;
+
+			if (obs_output_active(output))
+				UpdateSize(game_width, game_height);
+		}
+	}
+
 	bool stopping = false;
 	void StopVideo()
 	{
@@ -1208,6 +1255,9 @@ struct CrucibleContext {
 
 		output = nullptr;
 		buffer = nullptr;
+
+		game_width = 0;
+		game_height = 0;
 
 		ovi.fps_den = 0;
 		ResetVideo();
@@ -1341,18 +1391,24 @@ static void HandleMonitoredProcessExit(CrucibleContext &cc, OBSData &data)
 	cc.ForwardMonitoredProcessExit(data);
 }
 
+static void HandleUpdateVideoSettingsCommand(CrucibleContext &cc, OBSData &obj)
+{
+	cc.UpdateVideoSettings(OBSDataGetObj(obj, "settings"));
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
-		{"connect", HandleConnectCommand},
-		{"capture_new_process", HandleCaptureCommand},
-		{"query_mics", HandleQueryMicsCommand},
-		{"update_settings", HandleUpdateSettingsCommand},
-		{"save_recording_buffer", HandleSaveRecordingBuffer},
-		{"create_bookmark", HandleCreateBookmark},
-		{"stop_recording", HandleStopRecording},
-		{"injector_result", HandleInjectorResult},
-		{"monitored_process_exit", HandleMonitoredProcessExit},
+		{ "connect", HandleConnectCommand },
+		{ "capture_new_process", HandleCaptureCommand },
+		{ "query_mics", HandleQueryMicsCommand },
+		{ "update_settings", HandleUpdateSettingsCommand },
+		{ "save_recording_buffer", HandleSaveRecordingBuffer },
+		{ "create_bookmark", HandleCreateBookmark },
+		{ "stop_recording", HandleStopRecording },
+		{ "injector_result", HandleInjectorResult },
+		{ "monitored_process_exit", HandleMonitoredProcessExit },
+		{ "update_video_settings", HandleUpdateVideoSettingsCommand }
 	};
 	if (!data)
 		return;
