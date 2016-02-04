@@ -191,6 +191,26 @@ extern void ResetOverlayCursor();
 void DisableRawInput();
 void RestoreRawInput();
 
+void DismissOverlay(bool from_remote)
+{
+	if (!g_bBrowserShowing)
+		return;
+
+	ForgeEvent::HideBrowser();
+	hlog("Hiding browser");
+	forgeFramebufferServer.Stop();
+
+	g_bBrowserShowing = false;
+
+	RestoreCursor();
+
+	RestoreRawInput();
+
+	if (g_Proc.m_Stats.m_hWndCap && !from_remote)
+		SetWindowPos(g_Proc.m_Stats.m_hWndCap, 0, 0, 0, 0, 0,
+			SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER);
+}
+
 void ToggleOverlay()
 {
 	if (g_bBrowserShowing && forgeFramebufferServer.died)
@@ -210,19 +230,7 @@ void ToggleOverlay()
 		mouse_position.x = g_Proc.m_Stats.m_SizeWnd.cx / 2;
 		mouse_position.y = g_Proc.m_Stats.m_SizeWnd.cy / 2;
 	} else {
-		ForgeEvent::HideBrowser();
-		hlog("Hiding browser");
-		forgeFramebufferServer.Stop();
-
-		g_bBrowserShowing = false;
-
-		RestoreCursor();
-
-		RestoreRawInput();
-
-		if (g_Proc.m_Stats.m_hWndCap)
-			SetWindowPos(g_Proc.m_Stats.m_hWndCap, 0, 0, 0, 0, 0,
-				SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER);
+		DismissOverlay(false);
 	}
 }
 
