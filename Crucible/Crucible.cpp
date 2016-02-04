@@ -170,10 +170,12 @@ namespace ForgeEvents {
 		queuedEvents.erase(begin(queuedEvents), i);
 	}
 
-	static void SendFileCompleteEvent(obs_data_t *event, const char *filename, int total_frames, const vector<double> &bookmarks, uint32_t width, uint32_t height, DWORD *pid=nullptr)
+	static void SendFileCompleteEvent(obs_data_t *event, const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
+		uint32_t width, uint32_t height, DWORD *pid=nullptr)
 	{
 		obs_data_set_string(event, "filename", filename);
 		obs_data_set_int(event, "total_frames", total_frames);
+		obs_data_set_double(event, "duration", duration);
 		obs_data_set_int(event, "width", width);
 		obs_data_set_int(event, "height", height);
 		if (pid)
@@ -210,9 +212,10 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
-	void SendRecordingStop(const char *filename, int total_frames, const vector<double> &bookmarks, uint32_t width, uint32_t height, DWORD pid)
+	void SendRecordingStop(const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
+		uint32_t width, uint32_t height, DWORD pid)
 	{
-		SendFileCompleteEvent(EventCreate("stopped_recording"), filename, total_frames, bookmarks, width, height, &pid);
+		SendFileCompleteEvent(EventCreate("stopped_recording"), filename, total_frames, duration, bookmarks, width, height, &pid);
 	}
 
 	void SendQueryMicsResponse(obs_data_array_t *devices)
@@ -224,9 +227,10 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
-	void SendBufferReady(const char *filename, int total_frames, const vector<double> &bookmarks, uint32_t width, uint32_t height)
+	void SendBufferReady(const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
+		uint32_t width, uint32_t height)
 	{
-		SendFileCompleteEvent(EventCreate("buffer_ready"), filename, total_frames, bookmarks, width, height);
+		SendFileCompleteEvent(EventCreate("buffer_ready"), filename, total_frames, duration, bookmarks, width, height);
 	}
 
 	void SendInjectFailed()
@@ -697,8 +701,9 @@ struct CrucibleContext {
 					profiler_path = profiler_filename;
 					auto data = OBSTransferOwned(obs_output_get_settings(output));
 					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
-						obs_output_get_total_frames(output), BookmarkTimes(bookmarks),
-						ovi.base_width, ovi.base_height, pid);
+						obs_output_get_total_frames(output),
+						obs_output_get_output_duration(output),
+						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, pid);
 					AnvilCommands::ShowIdle();
 				}
 			}
@@ -752,7 +757,7 @@ struct CrucibleContext {
 		{
 			auto filename = calldata_string(data, "filename");
 			ForgeEvents::SendBufferReady(filename, static_cast<uint32_t>(calldata_int(data, "frames")),
-				BookmarkTimes(bufferBookmarks, calldata_int(data, "start_pts")),
+				calldata_float(data, "duration"), BookmarkTimes(bufferBookmarks, calldata_int(data, "start_pts")),
 				ovi.base_width, ovi.base_height);
 		});
 
