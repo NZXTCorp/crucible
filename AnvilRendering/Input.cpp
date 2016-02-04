@@ -146,7 +146,7 @@ static struct ForgeFramebufferServer {
 				return;
 			}
 
-			hlog("AnvilFramebufferServer: got size %d", size);
+			//hlog("AnvilFramebufferServer: got size %d", size);
 
 			incoming_data.assign(data, data + size);
 
