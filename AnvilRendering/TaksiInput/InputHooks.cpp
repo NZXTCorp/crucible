@@ -11,8 +11,6 @@
 
 #include <vector>
 
-#include <Windowsx.h>
-
 //#define HOOK_REGISTER_RAW_DEVICES
 
 #ifdef USE_DIRECTI
@@ -535,7 +533,7 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 		case WM_XBUTTONDOWN:
 		case WM_XBUTTONUP:
 		case WM_XBUTTONDBLCLK:
-			return UpdateMouseState(uMsg, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
+			return UpdateMouseState(uMsg, wParam, lParam);
 		case WM_KEYDOWN:
 		case WM_SYSKEYDOWN:
 			return handleKey(KEY_DOWN);

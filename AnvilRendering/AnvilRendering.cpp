@@ -65,12 +65,12 @@ namespace ForgeEvent
 			.Set("lParam", lParam));
 	}
 
-	bool MouseEvent(int x, int y, int wParam)
+	bool MouseEvent(UINT msg, WPARAM wParam, LPARAM lParam)
 	{
 		return SendEvent(EventCreate("mouse_event")
-			.Set("x", Number(x))
-			.Set("y", Number(y))
-			.Set("wParam", Number(wParam)));
+			.Set("msg", msg)
+			.Set("wParam", Number(wParam))
+			.Set("lParam", lParam));
 	}
 
 	bool ShowBrowser(const std::string &name, LONG width, LONG height)
