@@ -493,6 +493,15 @@ namespace AnvilCommands {
 
 		SendCommand(cmd);
 	}
+
+	void DismissOverlay()
+	{
+		auto cmd = CommandCreate("dismiss_overlay");
+
+		LOCK(commandMutex);
+
+		SendCommand(cmd);
+	}
 }
 
 template <typename T, typename U>
@@ -1413,7 +1422,8 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "stop_recording", HandleStopRecording },
 		{ "injector_result", HandleInjectorResult },
 		{ "monitored_process_exit", HandleMonitoredProcessExit },
-		{ "update_video_settings", HandleUpdateVideoSettingsCommand }
+		{ "update_video_settings", HandleUpdateVideoSettingsCommand },
+		{ "dismiss_overlay", [](CrucibleContext&, OBSData&) { AnvilCommands::DismissOverlay(); } },
 	};
 	if (!data)
 		return;

@@ -115,6 +115,8 @@ void ShowCurrentIndicator(const std::function<void(IndicatorEvent, BYTE /*alpha*
 mutex hotkeys_mutex;
 static WORD hotkeys[HOTKEY_QTY] = { 0 };
 
+extern void DismissOverlay(bool);
+
 namespace CrucibleCommand {
 
 using namespace json;
@@ -192,6 +194,7 @@ static void HandleCommands(uint8_t *data, size_t size)
 		{"indicator", HandleIndicatorCommand},
 		{"forge_info", HandleForgeInfo},
 		{"update_settings", HandleUpdateSettings},
+		{"dismiss_overlay", [](Object&) { DismissOverlay(true); }}
 	};
 
 	if (!data)
