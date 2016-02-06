@@ -150,10 +150,10 @@ void DX9Renderer::UpdateVB( IDirect3DVertexBuffer9 *pVB, int x, int y, int w, in
 {
 	const NEWVERTEX pVertSrc[] = 
 	{
-		{x, y, 0.0f, 1.0f, color, 0.0f, 0.0f }, // x, y, z, rhw, color, tu, tv
-	    {x, y+h, 0.0f, 1.0f, color, 0.0f, 1.0f },
-	    {x+w, y, 0.0f, 1.0f, color, 1.0f, 0.0f },
-	    {x+w, y+h, 0.0f, 1.0f, color, 1.0f, 1.0f },
+		{x-.5, y-.5, 0.0f, 1.0f, color, 0.0f, 0.0f }, // x, y, z, rhw, color, tu, tv
+	    {x-.5, y+h-.5, 0.0f, 1.0f, color, 0.0f, 1.0f },
+	    {x+w-.5, y-.5, 0.0f, 1.0f, color, 1.0f, 0.0f },
+	    {x+w-.5, y+h-.5, 0.0f, 1.0f, color, 1.0f, 1.0f },
 	};
 	int iSizeSrc = sizeof(pVertSrc);
 
