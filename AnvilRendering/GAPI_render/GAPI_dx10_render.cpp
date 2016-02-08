@@ -168,6 +168,66 @@ void DX10Renderer::InitIndicatorTextures( IndicatorManager &manager )
 			break;
 		}
 	}
+
+	D3D10_TEXTURE2D_DESC desc;
+	SecureZeroMemory(&desc, sizeof(D3D10_TEXTURE2D_DESC));
+	desc.Width = g_Proc.m_Stats.m_SizeWnd.cx;
+	desc.Height = g_Proc.m_Stats.m_SizeWnd.cy;
+	desc.ArraySize = 1;
+	desc.MipLevels = 1;
+	desc.SampleDesc.Count = 1;
+	desc.BindFlags = D3D10_BIND_SHADER_RESOURCE;
+	desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	desc.Usage = D3D10_USAGE_DYNAMIC;
+	desc.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
+
+	overlay_textures.Apply([&](D3D10Texture &tex)
+	{
+		HRESULT hRes;
+		hRes = m_pDevice->CreateTexture2D(&desc, nullptr, IREF_GETPPTR(tex.tex, ID3D10Texture2D));
+		if (FAILED(hRes))
+		{
+			LOG_WARN("InitIndicatorTextures: couldn't create overlay texture! 0x%08x" LOG_CR, hRes);
+			return;
+		}
+
+		hRes = m_pDevice->CreateShaderResourceView(tex.tex, nullptr, IREF_GETPPTR(tex.res, ID3D10ShaderResourceView));
+		if (FAILED(hRes))
+			LOG_WARN("InitIndicatorTextures: couldn't create overlay shader resource view! 0x%08x" LOG_CR, hRes);
+	});
+}
+
+void DX10Renderer::UpdateOverlayVB(ID3D10Texture2D *tex)
+{
+	D3D10_TEXTURE2D_DESC desc;
+	tex->GetDesc(&desc);
+
+	UINT x, y, w, h;
+	w = desc.Width;
+	h = desc.Height;
+
+	x = g_Proc.m_Stats.m_SizeWnd.cx - w;
+	y = 0;
+
+	float a = 1.;
+
+	const TEXMAPVERTEX pVertSrc[] =
+	{
+		{ D3D10POS(x, y), D3D10COLOR(1.0, 1.0, 1.0, a), 0.0f, 0.0f }, // x, y, z, color, tu, tv
+		{ D3D10POS(x, y + h), D3D10COLOR(1.0, 1.0, 1.0, a), 0.0f, 1.0f },
+		{ D3D10POS(x + w, y), D3D10COLOR(1.0, 1.0, 1.0, a), 1.0f, 0.0f },
+		{ D3D10POS(x + w, y + h), D3D10COLOR(1.0, 1.0, 1.0, a), 1.0f, 1.0f },
+	};
+
+	DWORD dwSize = sizeof(pVertSrc);
+
+	void *data = nullptr;
+	HRESULT hRes = m_pVBOverlay->Map(D3D10_MAP_WRITE_DISCARD, 0, &data);
+	if (SUCCEEDED(hRes))
+	{
+		CopyMemory(data, pVertSrc, dwSize);
+		m_pVBOverlay->Unmap();
+	}
 }
 
 void DX10Renderer::UpdateNotificationVB( IndicatorEvent eIndicatorEvent, BYTE alpha )
@@ -361,6 +421,9 @@ bool DX10Renderer::InitRenderer( IDXGISwapChain *pSwapChain, IndicatorManager &m
 
 	hRes = CreateIndicatorVB( );
 	CHEK( hRes, "CreateIndicatorVB" );
+
+	hRes = m_pDevice->CreateBuffer(&BufferDescription, &InitialData, IREF_GETPPTR(m_pVBOverlay, ID3D10Buffer));
+	CHEK(hRes, "CreateOverlayBuffer");
 
 	IRefPtr<ID3DBlob> pVSBlob;
 	UINT dwBufferSize = (UINT)strlen(s_DX10TextureShader) + 1;
@@ -620,6 +683,127 @@ void DX10Renderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 	pOldInputLayout.ReleaseRefObj( );
 }
 
+bool DX10Renderer::DrawOverlay(IDXGISwapChain *pSwapChain)
+{
+	UpdateOverlay();
+
+	return overlay_textures.Draw([&](D3D10Texture &tex)
+	{
+		D3D10_VIEWPORT vp;
+		vp.TopLeftX = 0;
+		vp.TopLeftY = 0;
+		vp.Width = (UINT)(g_Proc.m_Stats.m_SizeWnd.cx);
+		vp.Height = (UINT)(g_Proc.m_Stats.m_SizeWnd.cy);
+		vp.MinDepth = 0.0f;
+		vp.MaxDepth = 1.0f;
+
+		// save current state
+		IRefPtr<ID3D10RasterizerState> pSavedRSState;
+		m_pDevice->RSGetState(IREF_GETPPTR(pSavedRSState, ID3D10RasterizerState));
+
+		IRefPtr<ID3D10DepthStencilState> pSavedDepthState;
+		UINT pStencilRef = 0;
+		m_pDevice->OMGetDepthStencilState(IREF_GETPPTR(pSavedDepthState, ID3D10DepthStencilState), &pStencilRef);
+
+		// will games with multiple viewports break here?
+		D3D10_VIEWPORT originalVP;
+		UINT numViewPorts = 1;
+		m_pDevice->RSGetViewports(&numViewPorts, &originalVP);
+
+		// save render/depth target so we can restore after
+		IRefPtr<ID3D10RenderTargetView> pOldRenderTargetView;
+		IRefPtr<ID3D10DepthStencilView> pDepthStencilView;
+		m_pDevice->OMGetRenderTargets(1, IREF_GETPPTR(pOldRenderTargetView, ID3D10RenderTargetView), IREF_GETPPTR(pDepthStencilView, ID3D10DepthStencilView));
+
+		IRefPtr<ID3D10BlendState> pBlendState;
+		float fBlendFactor[4];
+		UINT uSampleMask;
+		m_pDevice->OMGetBlendState(IREF_GETPPTR(pBlendState, ID3D10BlendState), fBlendFactor, &uSampleMask);
+
+		D3D10_PRIMITIVE_TOPOLOGY old_topology;
+		m_pDevice->IAGetPrimitiveTopology(&old_topology);
+
+		IRefPtr<ID3D10InputLayout> pOldInputLayout;
+		m_pDevice->IAGetInputLayout(IREF_GETPPTR(pOldInputLayout, ID3D10InputLayout));
+
+		// setup
+		m_pDevice->OMSetRenderTargets(1, m_pRenderTargetView.get_Array(), nullptr);
+		m_pDevice->RSSetViewports(1, &vp);						// Set the new viewport for the indicator
+		m_pDevice->RSSetState(m_pRasterState);					// Set the new state
+		m_pDevice->OMSetDepthStencilState(m_pDepthState, 1);		// Set depth-stencil state to temporarily disable z-buffer
+
+		float blend_factor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+		m_pDevice->OMSetBlendState(m_pBlendStateTextured, blend_factor, 0xffffffff);
+
+		m_pDevice->IASetInputLayout(m_pVertexLayout);
+
+		// todo: save current vertex/pixel shaders to restore after drawing
+		// see crysis 3 intro sequence for why (green screen where it tries to do shit using our shader?)
+
+		m_pDevice->VSSetShader(m_pVertexShader);
+		m_pDevice->PSSetShader(m_pPixelShader);
+
+		m_pDevice->PSSetShaderResources(0, 1, tex.res.get_Array());
+		m_pDevice->PSSetSamplers(0, 1, m_pSamplerState.get_Array());
+
+		UpdateOverlayVB(tex.tex);
+
+		// draw
+		UINT stride = sizeof(TEXMAPVERTEX);
+		UINT offset = 0;
+		m_pDevice->IASetVertexBuffers(0, 1, m_pVBOverlay.get_Array(), &stride, &offset);
+		m_pDevice->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+		m_pDevice->Draw(4, 0);
+
+		// restore state
+		m_pDevice->IASetPrimitiveTopology(old_topology);
+		m_pDevice->IASetInputLayout(pOldInputLayout.get_RefObj());
+
+		auto targetView = pOldRenderTargetView.get_RefObj();
+		m_pDevice->OMSetRenderTargets(1, &targetView, pDepthStencilView);
+
+		m_pDevice->RSSetViewports(1, &originalVP);				// restore the old viewport
+		m_pDevice->RSSetState(pSavedRSState);					// restore the old state
+		m_pDevice->OMSetDepthStencilState(pSavedDepthState, 1);	// restore the old depth state (re-enable zbuffer)
+
+		m_pDevice->OMSetBlendState(pBlendState, fBlendFactor, uSampleMask);
+
+		pOldRenderTargetView.ReleaseRefObj();
+		pOldInputLayout.ReleaseRefObj();
+		return true;
+	});
+}
+
+void DX10Renderer::UpdateOverlay()
+{
+	overlay_textures.Buffer([&](D3D10Texture &tex)
+	{
+		auto vec = ReadNewFramebuffer();
+		if (vec)
+			/*hlog("Got vec %p: %d vs %dx%dx4 = %d", vec, vec->size(), g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy,
+			g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;
+		else
+			return false;
+
+		D3D10_MAPPED_TEXTURE2D mt;
+		auto hr = tex.tex->Map(0, D3D10_MAP_WRITE_DISCARD, 0, &mt);
+		if (FAILED(hr))
+		{
+			LOG_MSG("UpdateOverlay: texture data lock failed!" LOG_CR);
+			return false;
+		}
+
+		// these probably won't match, gpus are fussy about even dimensions and stuff. we have to copy line by line to compensate
+		//LOG_MSG("InitIndicatorTextures: d3d surface pitch is %d, image stride is %d" LOG_CR, lr.Pitch, data.Stride);
+		for (UINT y = 0; y < g_Proc.m_Stats.m_SizeWnd.cy; y++)
+			memcpy((BYTE *)mt.pData + (y * mt.RowPitch), (BYTE *)vec->data() + (y * g_Proc.m_Stats.m_SizeWnd.cx * 4), g_Proc.m_Stats.m_SizeWnd.cx * 4);
+
+		tex.tex->Unmap(0);
+
+		return true;
+	});
+}
+
 
 using namespace std;
 static unique_ptr<DX10Renderer> renderer;
@@ -658,6 +842,11 @@ void overlay_d3d10_free()
 	renderer.reset();
 }
 
+static bool show_browser_tex(IDXGISwapChain *swap)
+{
+	return renderer->DrawOverlay(swap);
+}
+
 C_EXPORT void overlay_draw_d3d10(IDXGISwapChain *swap)
 {
 	auto renderer = get_renderer(swap);
@@ -666,6 +855,7 @@ C_EXPORT void overlay_draw_d3d10(IDXGISwapChain *swap)
 
 	HandleInputHook(window);
 
+	if (!g_bBrowserShowing || !show_browser_tex(swap))
 	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)
 	{
 		renderer->DrawNewIndicator(indicator, alpha);

@@ -6,6 +6,8 @@
 
 #include "IRefPtr.h"
 
+#include "TextureBufferingHelper.hpp"
+
 // Structs for DWORD color to floats and transform to screen coords
 struct D3D10COLOR
 {
@@ -58,6 +60,12 @@ struct D3D10TEX
 	float u, v;
 };
 
+struct D3D10Texture
+{
+	IRefPtr<ID3D10Texture2D> tex;
+	IRefPtr<ID3D10ShaderResourceView> res;
+};
+
 // helper to load the compile shader function we need
 bool D3D10_LoadFunctions( void );
 
@@ -71,10 +79,12 @@ private:
 
 	IRefPtr<ID3D10Texture2D> m_pIndicatorTexture[INDICATE_NONE]; // textures for new indicators
 
+	TextureBufferingHelper<D3D10Texture> overlay_textures;
+
 	IRefPtr<ID3D10Buffer> m_pVBSquareIndicator;
 	IRefPtr<ID3D10Buffer> m_pVBSquareBorder;
 	IRefPtr<ID3D10Buffer> m_pVBNotification;
-	//IRefPtr<ID3D10Buffer> m_pVBOverlay;
+	IRefPtr<ID3D10Buffer> m_pVBOverlay;
 	IRefPtr<ID3D10InputLayout> m_pVertexLayout;
 
 	IRefPtr<ID3D10VertexShader> m_pVertexShader;
@@ -82,7 +92,6 @@ private:
 	IRefPtr<ID3D10PixelShader> m_pPixelShaderSolid; // solid pixel shader
 	
 	IRefPtr<ID3D10ShaderResourceView> m_pResViewNotification[INDICATE_NONE]; // resource view for each indicator texture
-	//IRefPtr<ID3D10ShaderResourceView> m_pResViewOverlay;
 	IRefPtr<ID3D10SamplerState> m_pSamplerState;
 	IRefPtr<ID3D10RenderTargetView> m_pRenderTargetView; // render target view of backbuffer if we don't have one
 	IRefPtr<ID3D10BlendState> m_pBlendStateTextured; // blend state for texture drawing
@@ -90,6 +99,7 @@ private:
 	void InitIndicatorTextures( IndicatorManager &manager ); // helper to create indicator textures from the manager
 	void UpdateNotificationVB( IndicatorEvent eIndicatorEvent, BYTE alpha ); // helper to update the indicator vertex buffer
 	void UpdateSquareIndicatorVB( TAKSI_INDICATE_TYPE eIndicate ); // helper to update the indicator vertex buffer
+	void UpdateOverlayVB(ID3D10Texture2D *tex);
 	HRESULT CreateIndicatorVB( void );
 public:
 	DX10Renderer( ID3D10Device *pDevice );
@@ -102,6 +112,10 @@ public:
 	void DrawNewIndicator( IndicatorEvent eIndicatorEvent, BYTE alpha );
 	// draw the old indicator
 	void DrawIndicator( TAKSI_INDICATE_TYPE eIndicate );
+
+	// draw overlay
+	bool DrawOverlay(IDXGISwapChain *pSwapChain);
+	void UpdateOverlay();
 };
 
 #endif // GAPI_DX10_RENDER_NASTY
