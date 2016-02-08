@@ -90,6 +90,9 @@
     <ClInclude Include="funchook.h">
       <Filter>libobs hook</Filter>
     </ClInclude>
+    <ClInclude Include="GAPI_render\TextureBufferingHelper.hpp">
+      <Filter>GAPI_render</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
