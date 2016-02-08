@@ -109,6 +109,9 @@ static IndicatorEvent currentIndicator = INDICATE_NONE;
 
 void ShowCurrentIndicator(const std::function<void(IndicatorEvent, BYTE /*alpha*/)> &func)
 {
+	if (currentIndicator >= INDICATE_NONE)
+		return;
+
 	func(currentIndicator, 255);
 }
 
