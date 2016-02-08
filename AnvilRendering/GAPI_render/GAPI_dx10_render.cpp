@@ -356,7 +356,7 @@ bool DX10Renderer::InitRenderer( IDXGISwapChain *pSwapChain, IndicatorManager &m
 	D3D10_SUBRESOURCE_DATA InitialData;
 	InitialData.pSysMem = pVertSrc;
 	
-	hRes = m_pDevice->CreateBuffer(&BufferDescription, &InitialData, IREF_GETPPTR(m_pVBNotification, ID3D11Buffer));
+	hRes = m_pDevice->CreateBuffer(&BufferDescription, &InitialData, IREF_GETPPTR(m_pVBNotification, ID3D10Buffer));
 	CHEK( hRes, "CreateBuffer" );
 
 	hRes = CreateIndicatorVB( );
