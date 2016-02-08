@@ -50,7 +50,7 @@ bool DX9Renderer::InitRenderer( IDirect3DDevice9 *pDevice, IndicatorManager &man
 	}
 
 	// check if we've already been initialised
-	if ( m_pVBSquareIndicator.IsValidRefObj( ) && m_pCurrentRenderState.IsValidRefObj( ) && m_pOverlayTexture.IsValidRefObj( ) )
+	if ( m_pVBSquareIndicator.IsValidRefObj( ) && m_pCurrentRenderState.IsValidRefObj( ))
 	{
 		LOG_MSG( "InitRenderer: ignoring as we're already initialised!" LOG_CR );
 		return true;
@@ -80,7 +80,8 @@ bool DX9Renderer::InitRenderer( IDirect3DDevice9 *pDevice, IndicatorManager &man
 	SetupRenderState( IREF_GETPPTR(m_pTexturedRenderState, IDirect3DStateBlock9), width, height, true );
 
 	// create textures
-	m_pDevice->CreateTexture( g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, IREF_GETPPTR(m_pOverlayTexture, IDirect3DTexture9), NULL );
+	for (auto &tex : m_pOverlayTextures)
+		m_pDevice->CreateTexture(g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, IREF_GETPPTR(tex, IDirect3DTexture9), NULL);
 	InitIndicatorTextures( manager );
 
 	// fill buffers. most will be updated between frames anyway.
@@ -104,7 +105,9 @@ void DX9Renderer::FreeRenderer( void )
 	REK(m_pSolidRenderState);
 	REK(m_pTexturedRenderState);
 	
-	REK(m_pOverlayTexture);
+	for (auto &tex : m_pOverlayTextures)
+		REK(tex);
+
 	for ( int i = 0; i < INDICATE_NONE; i++ )
 	{
 		REK(m_pIndicatorTexture[i]);
@@ -381,7 +384,7 @@ void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color 
 
 bool DX9Renderer::DrawOverlay( void )
 {
-	if (!has_content)
+	if (!overlay_texture)
 		return false;
 
 	// NOTE: there will be a separate function to call to update the overlay texture and vertex buffer
@@ -404,7 +407,7 @@ bool DX9Renderer::DrawOverlay( void )
 	{
 		m_pDevice->SetStreamSource( 0, m_pVBOverlay, 0, sizeof(NEWVERTEX) );
 		m_pDevice->SetFVF( D3DFVF_NEWVERTEX );
-		m_pDevice->SetTexture( 0, m_pOverlayTexture );
+		m_pDevice->SetTexture( 0, overlay_texture );
 		m_pDevice->DrawPrimitive( D3DPT_TRIANGLESTRIP, 0, 2 );
 
 		m_pDevice->EndScene();
@@ -428,8 +431,11 @@ void DX9Renderer::UpdateOverlay()
 	else
 		return;
 
+	if (staging_texture == m_pOverlayTextures.end())
+		staging_texture = m_pOverlayTextures.begin();
+	
 	D3DLOCKED_RECT lr;
-	HRESULT hr = m_pOverlayTexture->LockRect(0, &lr, NULL, D3DLOCK_DISCARD);
+	HRESULT hr = (*staging_texture)->LockRect(0, &lr, NULL, D3DLOCK_DISCARD);
 	if (FAILED(hr))
 	{
 		LOG_MSG("InitIndicatorTextures: texture data lock failed!" LOG_CR);
@@ -442,9 +448,22 @@ void DX9Renderer::UpdateOverlay()
 		memcpy((BYTE *)lr.pBits + (y * lr.Pitch), (BYTE *)vec->data() + (y * g_Proc.m_Stats.m_SizeWnd.cx * 4), g_Proc.m_Stats.m_SizeWnd.cx * 4);
 
 
-	m_pOverlayTexture->UnlockRect(0);
+	(*staging_texture)->UnlockRect(0);
 
-	has_content = true;
+
+	if (have_staging)
+	{
+		if (draw_texture != m_pOverlayTextures.end())
+			draw_texture++;
+
+		if (draw_texture == m_pOverlayTextures.end())
+			draw_texture = m_pOverlayTextures.begin();
+
+		overlay_texture = *draw_texture;
+	}
+
+	have_staging = true;
+	staging_texture++;
 }
 
 static bool get_back_buffer_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
