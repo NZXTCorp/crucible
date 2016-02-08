@@ -16,6 +16,8 @@
 //#include "GAPI_ogl.h"
 #include "GAPI_ogl_render.h"
 
+#include "TextureBufferingHelper.hpp"
+
 #define GAPIOGLFUNC(a,b,c) \
 	typedef WINGDIAPI b (APIENTRY * PFN##a) c;\
 	PFN##a s_##a = nullptr;
@@ -385,8 +387,8 @@ static OpenGLRenderer render;
 static bool initialized = false;
 static HGLRC render_context = nullptr;
 
-static GLuint browser_tex = 0;
-static bool has_content = false;
+static TextureBufferingHelper<GLuint> overlay_textures;
+static bool overlay_tex_initialized = false;
 
 static bool in_free = false;
 void overlay_gl_free()
@@ -396,11 +398,16 @@ void overlay_gl_free()
 
 	in_free = true;
 
-	if (browser_tex) {
-		s_glDeleteTextures(1, &browser_tex);
-		browser_tex = 0;
-		has_content = false;
-	}
+	overlay_textures.Reset([&](GLuint &tex)
+	{
+		if (!tex)
+			return;
+
+		s_glDeleteTextures(1, &tex);
+		tex = 0;
+	});
+
+	overlay_tex_initialized = false;
 
 	render.FreeRenderer();
 
@@ -413,124 +420,142 @@ void overlay_gl_free()
 	in_free = false;
 }
 
-static bool show_browser_tex_()
+static bool update_overlay()
 {
+	if (!overlay_tex_initialized)
+	{
+		try {
+			overlay_textures.Apply([&](GLuint &tex)
+			{
+				s_glGenTextures(1, &tex);
 
-	if (!browser_tex) {
-		s_glGenTextures(1, &browser_tex);
-
-		s_glBindTexture(GL_TEXTURE_2D, browser_tex);
-		s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		int err = s_glGetError();
-		if (err) {
-			hlog("show_browser_tex: unable to update OpenGL texture (%d)" LOG_CR, err);
+				s_glBindTexture(GL_TEXTURE_2D, tex);
+				s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				auto err = s_glGetError();
+				if (err)
+					throw err;
+			});
+		}
+		catch (GLenum err)
+		{
+			hlog("update_overlay: unable to initialize OpenGL texture (%d)\n", err);
 			return false;
 		}
+
+		overlay_tex_initialized = true;
 	}
 
-	auto vec = ReadNewFramebuffer();
-	/*if (vec)
-		hlog("Got vec %p: %d vs %dx%dx4 = %d", vec, vec->size(), g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy,
-			g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;
-	if (vec && vec->size() == g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4) {
-		s_glBindTexture(GL_TEXTURE_2D, browser_tex);
+	overlay_textures.Buffer([&](GLuint &tex)
+	{
+		auto vec = ReadNewFramebuffer();
+		if (!vec || vec->size() != g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)
+			return false;
+
+		s_glBindTexture(GL_TEXTURE_2D, tex);
 		s_glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 		s_glPixelStorei(GL_UNPACK_ROW_LENGTH, g_Proc.m_Stats.m_SizeWnd.cx);
 		s_glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
 		s_glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
 		s_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_Proc.m_Stats.m_SizeWnd.cx,
 			g_Proc.m_Stats.m_SizeWnd.cy, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, vec->data());
-		int err = s_glGetError();
+		auto err = s_glGetError();
 		if (err) {
-			LOG_WARN("InitRenderer: unable to update OpenGL texture (%d)" LOG_CR, err);
+			LOG_WARN("update_overlay: unable to update OpenGL texture (%d)" LOG_CR, err);
 			return false;
 		}
 
-		has_content = true;
-	}
-
-	if (!has_content)
-		return false;
-
-
-	int err = 0;
-	// opengl positioning is still a fucking nightmare, these might not even work properly with all indicators yet
-	// the y coordinate has to be upside down because opengl's origin point is the bottom-left corner of the screen
-	// so we start from bottom left and wind around clockwise (top left, top right, bottom right) to draw our textured quad
-	int w = g_Proc.m_Stats.m_SizeWnd.cx;
-	int h = g_Proc.m_Stats.m_SizeWnd.cy; // taller images are meant to hang down from the top of the screen
-	int x = 0;
-	int y = 0;
-
-	s_glPushAttrib(GL_ALL_ATTRIB_BITS);
-
-	s_glMatrixMode(GL_PROJECTION);
-	s_glPushMatrix();
-	s_glLoadIdentity();
-	s_glViewport(0, 0, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
-	s_glOrtho(0, g_Proc.m_Stats.m_SizeWnd.cx, 0, g_Proc.m_Stats.m_SizeWnd.cy, -1.0, 1.0);
-	s_glMatrixMode(GL_MODELVIEW);
-	s_glPushMatrix();
-	s_glLoadIdentity();
-
-	s_glDisable(GL_LIGHTING);
-	s_glDisable(GL_TEXTURE_1D);
-	if (s_glActiveTextureARB)
-	{
-		for (int i = 1; i < s_iMaxTexUnits; i++) // leave unit 0 alone but disable others
-		{
-			s_glActiveTextureARB(s_TextureUnitNums[i]);
-			s_glDisable(GL_TEXTURE_2D);
-		}
-		s_glActiveTextureARB(GL_TEXTURE0_ARB);
-	}
-
-	s_glEnable(GL_TEXTURE_2D);
-
-	s_glDisable(GL_DEPTH_TEST);
-	s_glDisable(GL_CULL_FACE);
-	s_glShadeModel(GL_SMOOTH);
-
-	s_glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-
-	s_glBindTexture(GL_TEXTURE_2D, browser_tex);
-	err = s_glGetError();
-	if (err)
-		LOG_MSG("DrawNewIndicator: glBindTexture returned error: %d" LOG_CR, err);
-
-	//s_glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-	//s_glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-
-	s_glColor4ub(255, 255, 255, 255);
-
-	// draw things. fuck opengl and it's bottom-left origin (so vertical shit is all flipped)
-	s_glBegin(GL_QUADS);
-	s_glTexCoord2f(0.0, 0.0);
-	s_glVertex2i(x, h);
-
-	s_glTexCoord2f(0.0, 1.0);
-	s_glVertex2i(x, y);
-
-	s_glTexCoord2f(1.0, 1.0);
-	s_glVertex2i(x + w, y);
-
-	s_glTexCoord2f(1.0, 0.0);
-	s_glVertex2i(x + w, h);
-	s_glEnd();
-	err = s_glGetError();
-	if (err)
-		LOG_MSG("DrawNewIndicator: OpenGL draw returned error: %d" LOG_CR, err);
-
-	s_glMatrixMode(GL_MODELVIEW);
-	s_glPopMatrix();
-
-	s_glMatrixMode(GL_PROJECTION);
-	s_glPopMatrix();
-
-	s_glPopAttrib();
+		return true;
+	});
 
 	return true;
+}
+
+static bool show_browser_tex_()
+{
+	if (!update_overlay())
+		return false;
+
+	return overlay_textures.Draw([&](GLuint &tex)
+	{
+		int err = 0;
+		// opengl positioning is still a fucking nightmare, these might not even work properly with all indicators yet
+		// the y coordinate has to be upside down because opengl's origin point is the bottom-left corner of the screen
+		// so we start from bottom left and wind around clockwise (top left, top right, bottom right) to draw our textured quad
+		int w = g_Proc.m_Stats.m_SizeWnd.cx;
+		int h = g_Proc.m_Stats.m_SizeWnd.cy; // taller images are meant to hang down from the top of the screen
+		int x = 0;
+		int y = 0;
+
+		s_glPushAttrib(GL_ALL_ATTRIB_BITS);
+
+		s_glMatrixMode(GL_PROJECTION);
+		s_glPushMatrix();
+		s_glLoadIdentity();
+		s_glViewport(0, 0, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
+		s_glOrtho(0, g_Proc.m_Stats.m_SizeWnd.cx, 0, g_Proc.m_Stats.m_SizeWnd.cy, -1.0, 1.0);
+		s_glMatrixMode(GL_MODELVIEW);
+		s_glPushMatrix();
+		s_glLoadIdentity();
+
+		s_glDisable(GL_LIGHTING);
+		s_glDisable(GL_TEXTURE_1D);
+		if (s_glActiveTextureARB)
+		{
+			for (int i = 1; i < s_iMaxTexUnits; i++) // leave unit 0 alone but disable others
+			{
+				s_glActiveTextureARB(s_TextureUnitNums[i]);
+				s_glDisable(GL_TEXTURE_2D);
+			}
+			s_glActiveTextureARB(GL_TEXTURE0_ARB);
+		}
+
+		s_glEnable(GL_TEXTURE_2D);
+
+		s_glDisable(GL_DEPTH_TEST);
+		s_glDisable(GL_CULL_FACE);
+		s_glShadeModel(GL_SMOOTH);
+
+		s_glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+		s_glBindTexture(GL_TEXTURE_2D, tex);
+		err = s_glGetError();
+		if (err)
+			LOG_MSG("show_browser_tex_: glBindTexture returned error: %d" LOG_CR, err);
+
+		//s_glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+		//s_glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+
+		s_glColor4ub(255, 255, 255, 255);
+
+		// draw things. fuck opengl and it's bottom-left origin (so vertical shit is all flipped)
+		s_glBegin(GL_QUADS);
+		s_glTexCoord2f(0.0, 0.0);
+		s_glVertex2i(x, h);
+
+		s_glTexCoord2f(0.0, 1.0);
+		s_glVertex2i(x, y);
+
+		s_glTexCoord2f(1.0, 1.0);
+		s_glVertex2i(x + w, y);
+
+		s_glTexCoord2f(1.0, 0.0);
+		s_glVertex2i(x + w, h);
+		s_glEnd();
+		err = s_glGetError();
+		if (err)
+			LOG_MSG("show_browser_tex_: OpenGL draw returned error: %d" LOG_CR, err);
+
+		s_glMatrixMode(GL_MODELVIEW);
+		s_glPopMatrix();
+
+		s_glMatrixMode(GL_PROJECTION);
+		s_glPopMatrix();
+
+		s_glPopAttrib();
+
+		return true;
+	});
 }
 
 static bool show_browser_tex()
