@@ -269,6 +269,16 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendBrowserSizeHint(uint32_t width, uint32_t height)
+	{
+		auto event = EventCreate("browser_size_hint");
+
+		obs_data_set_int(event, "width", width);
+		obs_data_set_int(event, "height", height);
+
+		SendEvent(event);
+	}
 }
 
 struct JoiningThread {
@@ -1169,6 +1179,8 @@ struct CrucibleContext {
 
 		game_width = width;
 		game_height = height;
+
+		ForgeEvents::SendBrowserSizeHint(width, height);
 
 		auto scale = width / static_cast<float>(target_width);
 		auto new_height = height / scale;
