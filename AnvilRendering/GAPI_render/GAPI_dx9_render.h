@@ -6,7 +6,7 @@
 
 #include "IRefPtr.h"
 
-#include <array>
+#include "TextureBufferingHelper.hpp"
 
 class DX9Renderer
 {
@@ -23,12 +23,8 @@ private:
 	IRefPtr<IDirect3DStateBlock9> m_pTexturedRenderState; // our render state for textured drawing
 
 	IRefPtr<IDirect3DTexture9> m_pIndicatorTexture[INDICATE_NONE]; // indicator images
-	using Textures_t = std::array<IRefPtr<IDirect3DTexture9>, 3>;
-	Textures_t m_pOverlayTextures; // overlay texture
-	Textures_t::iterator staging_texture = m_pOverlayTextures.end();
-	Textures_t::iterator draw_texture = m_pOverlayTextures.end();
-	IDirect3DTexture9 *overlay_texture = nullptr;
-	bool have_staging = false;
+	using OverlayTexture_t = IRefPtr<IDirect3DTexture9>;
+	TextureBufferingHelper<OverlayTexture_t> overlay_textures;
 
 	void UpdateSquareBorderVB( IDirect3DVertexBuffer9 *pVB, int x, int y, int w, int h, DWORD color ); // update the square indicator border vertex buffer (it's bigger than the solid/textured quad ones)
 	void UpdateVB( IDirect3DVertexBuffer9 *pVB, int x, int y, int w, int h, DWORD color ); // update given vertex buffer position/size/color

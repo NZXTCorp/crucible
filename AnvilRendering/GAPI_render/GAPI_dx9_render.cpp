@@ -80,8 +80,10 @@ bool DX9Renderer::InitRenderer( IDirect3DDevice9 *pDevice, IndicatorManager &man
 	SetupRenderState( IREF_GETPPTR(m_pTexturedRenderState, IDirect3DStateBlock9), width, height, true );
 
 	// create textures
-	for (auto &tex : m_pOverlayTextures)
+	overlay_textures.Apply([&](OverlayTexture_t &tex)
+	{
 		m_pDevice->CreateTexture(g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, IREF_GETPPTR(tex, IDirect3DTexture9), NULL);
+	});
 	InitIndicatorTextures( manager );
 
 	// fill buffers. most will be updated between frames anyway.
@@ -104,9 +106,11 @@ void DX9Renderer::FreeRenderer( void )
 	REK(m_pCurrentRenderState);
 	REK(m_pSolidRenderState);
 	REK(m_pTexturedRenderState);
-	
-	for (auto &tex : m_pOverlayTextures)
+
+	overlay_textures.Apply([&](OverlayTexture_t &tex)
+	{
 		REK(tex);
+	});
 
 	for ( int i = 0; i < INDICATE_NONE; i++ )
 	{
@@ -384,86 +388,72 @@ void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color 
 
 bool DX9Renderer::DrawOverlay( void )
 {
-	if (!overlay_texture)
-		return false;
-
-	// NOTE: there will be a separate function to call to update the overlay texture and vertex buffer
-	HRESULT hRes = m_pCurrentRenderState->Capture( );
-	if ( FAILED(hRes) )
+	return overlay_textures.Draw([&](OverlayTexture_t &tex)
 	{
-		LOG_WARN( "DrawOverlay: capturing render state failed! 0x%x." LOG_CR, hRes );
-		return false;
-	}
+		// NOTE: there will be a separate function to call to update the overlay texture and vertex buffer
+		HRESULT hRes = m_pCurrentRenderState->Capture();
+		if (FAILED(hRes))
+		{
+			LOG_WARN("DrawOverlay: capturing render state failed! 0x%x." LOG_CR, hRes);
+			return false;
+		}
 
-	// save whatever the current texture is. not doing this will break video cutscenes and stuff
-	IDirect3DBaseTexture9 *pTexture;
-	m_pDevice->GetTexture( 0, &pTexture );
+		// save whatever the current texture is. not doing this will break video cutscenes and stuff
+		IDirect3DBaseTexture9 *pTexture;
+		m_pDevice->GetTexture(0, &pTexture);
 
-	hRes = m_pTexturedRenderState->Apply( );
+		hRes = m_pTexturedRenderState->Apply();
 
-	// render
-	hRes = m_pDevice->BeginScene();
-	if ( SUCCEEDED(hRes))
-	{
-		m_pDevice->SetStreamSource( 0, m_pVBOverlay, 0, sizeof(NEWVERTEX) );
-		m_pDevice->SetFVF( D3DFVF_NEWVERTEX );
-		m_pDevice->SetTexture( 0, overlay_texture );
-		m_pDevice->DrawPrimitive( D3DPT_TRIANGLESTRIP, 0, 2 );
+		// render
+		hRes = m_pDevice->BeginScene();
+		if (SUCCEEDED(hRes))
+		{
+			m_pDevice->SetStreamSource(0, m_pVBOverlay, 0, sizeof(NEWVERTEX));
+			m_pDevice->SetFVF(D3DFVF_NEWVERTEX);
+			m_pDevice->SetTexture(0, tex.get_RefObj());
+			m_pDevice->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
 
-		m_pDevice->EndScene();
-	}
+			m_pDevice->EndScene();
+		}
 
-	// restore the modified renderstates and texture
-	m_pCurrentRenderState->Apply( );
-	m_pDevice->SetTexture( 0, pTexture );
-	if (pTexture)
-		pTexture->Release();
+		// restore the modified renderstates and texture
+		m_pCurrentRenderState->Apply();
+		m_pDevice->SetTexture(0, pTexture);
+		if (pTexture)
+			pTexture->Release();
 
-	return true;
+		return true;
+	});
 }
 
 void DX9Renderer::UpdateOverlay()
 {
-	auto vec = ReadNewFramebuffer();
-	if (vec)
-		/*hlog("Got vec %p: %d vs %dx%dx4 = %d", vec, vec->size(), g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy,
-			g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;
-	else
-		return;
-
-	if (staging_texture == m_pOverlayTextures.end())
-		staging_texture = m_pOverlayTextures.begin();
-	
-	D3DLOCKED_RECT lr;
-	HRESULT hr = (*staging_texture)->LockRect(0, &lr, NULL, D3DLOCK_DISCARD);
-	if (FAILED(hr))
+	overlay_textures.Buffer([&](OverlayTexture_t &tex)
 	{
-		LOG_MSG("InitIndicatorTextures: texture data lock failed!" LOG_CR);
-		return;
-	}
+		auto vec = ReadNewFramebuffer();
+		if (vec)
+			/*hlog("Got vec %p: %d vs %dx%dx4 = %d", vec, vec->size(), g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy,
+				g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;
+		else
+			return false;
 
-	// these probably won't match, gpus are fussy about even dimensions and stuff. we have to copy line by line to compensate
-	//LOG_MSG("InitIndicatorTextures: d3d surface pitch is %d, image stride is %d" LOG_CR, lr.Pitch, data.Stride);
-	for (UINT y = 0; y < g_Proc.m_Stats.m_SizeWnd.cy; y++)
-		memcpy((BYTE *)lr.pBits + (y * lr.Pitch), (BYTE *)vec->data() + (y * g_Proc.m_Stats.m_SizeWnd.cx * 4), g_Proc.m_Stats.m_SizeWnd.cx * 4);
+		D3DLOCKED_RECT lr;
+		HRESULT hr = tex->LockRect(0, &lr, NULL, D3DLOCK_DISCARD);
+		if (FAILED(hr))
+		{
+			LOG_MSG("InitIndicatorTextures: texture data lock failed!" LOG_CR);
+			return false;
+		}
+
+		// these probably won't match, gpus are fussy about even dimensions and stuff. we have to copy line by line to compensate
+		//LOG_MSG("InitIndicatorTextures: d3d surface pitch is %d, image stride is %d" LOG_CR, lr.Pitch, data.Stride);
+		for (UINT y = 0; y < g_Proc.m_Stats.m_SizeWnd.cy; y++)
+			memcpy((BYTE *)lr.pBits + (y * lr.Pitch), (BYTE *)vec->data() + (y * g_Proc.m_Stats.m_SizeWnd.cx * 4), g_Proc.m_Stats.m_SizeWnd.cx * 4);
 
 
-	(*staging_texture)->UnlockRect(0);
-
-
-	if (have_staging)
-	{
-		if (draw_texture != m_pOverlayTextures.end())
-			draw_texture++;
-
-		if (draw_texture == m_pOverlayTextures.end())
-			draw_texture = m_pOverlayTextures.begin();
-
-		overlay_texture = *draw_texture;
-	}
-
-	have_staging = true;
-	staging_texture++;
+		tex->UnlockRect(0);
+		return true;
+	});
 }
 
 static bool get_back_buffer_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
