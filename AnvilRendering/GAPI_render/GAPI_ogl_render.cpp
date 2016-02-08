@@ -571,8 +571,5 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 		render.DrawNewIndicator(indicator, alpha);
 	});
 
-	if (!g_bBrowserShowing)
-		has_content = false;
-
 	s_wglMakeCurrent(hdc, current_context);
 }
