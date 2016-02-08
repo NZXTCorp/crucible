@@ -7,6 +7,8 @@
 
 #include "IRefPtr.h"
 
+#include "TextureBufferingHelper.hpp"
+
 // Structs for DWORD color to floats and transform to screen coords
 struct D3D11COLOR
 {
@@ -59,6 +61,12 @@ struct D3D11TEX
 	float u, v;
 };
 
+struct D3D11Texture
+{
+	IRefPtr<ID3D11Texture2D> tex;
+	IRefPtr<ID3D11ShaderResourceView> res;
+};
+
 class DX11Renderer
 {
 private:
@@ -68,8 +76,8 @@ private:
 	ID3D11DepthStencilState *m_pDepthState;
 
 	IRefPtr<ID3D11Texture2D> m_pIndicatorTexture[INDICATE_NONE]; // textures for new indicators
-	IRefPtr<ID3D11Texture2D> m_pOverlayTexture;
-	bool has_content = false;
+
+	TextureBufferingHelper<D3D11Texture> overlay_textures;
 
 	IRefPtr<ID3D11Buffer> m_pVBSquareIndicator;
 	IRefPtr<ID3D11Buffer> m_pVBSquareBorder;
@@ -82,7 +90,6 @@ private:
 	IRefPtr<ID3D11PixelShader> m_pPixelShaderSolid; // solid pixel shader
 	
 	IRefPtr<ID3D11ShaderResourceView> m_pResViewNotification[INDICATE_NONE]; // resource view for each indicator texture
-	IRefPtr<ID3D11ShaderResourceView> m_pResViewOverlay;
 	IRefPtr<ID3D11SamplerState> m_pSamplerState;
 	//IRefPtr<ID3D11RenderTargetView> m_pRenderTargetView; // render target view of backbuffer if we don't have one
 	IRefPtr<ID3D11BlendState> m_pBlendStateTextured; // blend state for texture drawing
@@ -90,7 +97,7 @@ private:
 	void InitIndicatorTextures( IndicatorManager &manager ); // helper to create indicator textures from the manager
 	void UpdateNotificationVB( IndicatorEvent eIndicatorEvent, BYTE alpha ); // helper to update the indicator vertex buffer
 	void UpdateSquareIndicatorVB( TAKSI_INDICATE_TYPE eIndicate ); // helper to update the indicator vertex buffer
-	void UpdateOverlayVB();
+	void UpdateOverlayVB(ID3D11Texture2D *tex);
 	HRESULT CreateIndicatorVB( void );
 public:
 	DX11Renderer( ID3D11Device *pDevice );

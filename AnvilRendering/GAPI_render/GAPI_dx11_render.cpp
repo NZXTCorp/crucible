@@ -144,26 +144,29 @@ void DX11Renderer::InitIndicatorTextures( IndicatorManager &manager )
 	desc.Usage = D3D11_USAGE_DYNAMIC;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-	HRESULT hRes;
-	hRes = m_pDevice->CreateTexture2D(&desc, nullptr, IREF_GETPPTR(m_pOverlayTexture, ID3D11Texture2D));
-	if (FAILED(hRes))
+	overlay_textures.Apply([&](D3D11Texture &tex)
 	{
-		LOG_WARN("InitIndicatorTextures: couldn't create overlay texture! 0x%08x" LOG_CR, hRes);
-		return;
-	}
+		HRESULT hRes;
+		hRes = m_pDevice->CreateTexture2D(&desc, nullptr, IREF_GETPPTR(tex.tex, ID3D11Texture2D));
+		if (FAILED(hRes))
+		{
+			LOG_WARN("InitIndicatorTextures: couldn't create overlay texture! 0x%08x" LOG_CR, hRes);
+			return;
+		}
 
-	hRes = m_pDevice->CreateShaderResourceView(m_pOverlayTexture, nullptr, IREF_GETPPTR(m_pResViewOverlay, ID3D11ShaderResourceView));
-	if (FAILED(hRes))
-		LOG_WARN("InitIndicatorTextures: couldn't create overlay shader resource view! 0x%08x" LOG_CR, hRes);
+		hRes = m_pDevice->CreateShaderResourceView(tex.tex, nullptr, IREF_GETPPTR(tex.res, ID3D11ShaderResourceView));
+		if (FAILED(hRes))
+			LOG_WARN("InitIndicatorTextures: couldn't create overlay shader resource view! 0x%08x" LOG_CR, hRes);
+	});
 }
 
-void DX11Renderer::UpdateOverlayVB()
+void DX11Renderer::UpdateOverlayVB(ID3D11Texture2D *tex)
 {
 	IRefPtr<ID3D11DeviceContext> pContext;
 	m_pDevice->GetImmediateContext(IREF_GETPPTR(pContext, ID3D11DeviceContext));
 
 	D3D11_TEXTURE2D_DESC desc;
-	m_pOverlayTexture->GetDesc(&desc);
+	tex->GetDesc(&desc);
 
 	UINT x, y, w, h;
 	w = desc.Width;
@@ -698,144 +701,148 @@ void DX11Renderer::DrawIndicator( IDXGISwapChain *pSwapChain, TAKSI_INDICATE_TYP
 bool DX11Renderer::DrawOverlay(IDXGISwapChain *pSwapChain)
 {
 	UpdateOverlay();
-	if (!has_content)
-		return false;
 
-	IRefPtr<ID3D11DeviceContext> pContext;
-	m_pDevice->GetImmediateContext(IREF_GETPPTR(pContext, ID3D11DeviceContext));
-
-	HRESULT hRes;
-	IRefPtr<ID3D11Texture2D> pBackBuffer;
-	hRes = pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), IREF_GETPPTRV(pBackBuffer, ID3D11Texture2D));
-	if (FAILED(hRes))
+	return overlay_textures.Draw([&](D3D11Texture &tex)
 	{
-		LOG_MSG("DrawOverlay: pSwapChain->GetBuffer failed with result 0x%08x" LOG_CR, hRes);
-		return false;
-	}
+		IRefPtr<ID3D11DeviceContext> pContext;
+		m_pDevice->GetImmediateContext(IREF_GETPPTR(pContext, ID3D11DeviceContext));
 
-	IRefPtr<ID3D11RenderTargetView> pRenderTargetView;
-	hRes = m_pDevice->CreateRenderTargetView(pBackBuffer, nullptr, IREF_GETPPTR(pRenderTargetView, ID3D11RenderTargetView));
-	if (FAILED(hRes))
-	{
-		LOG_MSG("DrawOverlay: pSwapChain->GetBuffer failed with result 0x%08x" LOG_CR, hRes);
-		return false;
-	}
+		HRESULT hRes;
+		IRefPtr<ID3D11Texture2D> pBackBuffer;
+		hRes = pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), IREF_GETPPTRV(pBackBuffer, ID3D11Texture2D));
+		if (FAILED(hRes))
+		{
+			LOG_MSG("DrawOverlay: pSwapChain->GetBuffer failed with result 0x%08x" LOG_CR, hRes);
+			return false;
+		}
 
-	D3D11_VIEWPORT vp;
-	vp.TopLeftX = 0;
-	vp.TopLeftY = 0;
-	vp.Width = (UINT)(g_Proc.m_Stats.m_SizeWnd.cx);
-	vp.Height = (UINT)(g_Proc.m_Stats.m_SizeWnd.cy);
-	vp.MinDepth = 0.0f;
-	vp.MaxDepth = 1.0f;
+		IRefPtr<ID3D11RenderTargetView> pRenderTargetView;
+		hRes = m_pDevice->CreateRenderTargetView(pBackBuffer, nullptr, IREF_GETPPTR(pRenderTargetView, ID3D11RenderTargetView));
+		if (FAILED(hRes))
+		{
+			LOG_MSG("DrawOverlay: pSwapChain->GetBuffer failed with result 0x%08x" LOG_CR, hRes);
+			return false;
+		}
 
-	// save current state
-	IRefPtr<ID3D11RasterizerState> pSavedRSState;
-	pContext->RSGetState(IREF_GETPPTR(pSavedRSState, ID3D11RasterizerState));
+		D3D11_VIEWPORT vp;
+		vp.TopLeftX = 0;
+		vp.TopLeftY = 0;
+		vp.Width = (UINT)(g_Proc.m_Stats.m_SizeWnd.cx);
+		vp.Height = (UINT)(g_Proc.m_Stats.m_SizeWnd.cy);
+		vp.MinDepth = 0.0f;
+		vp.MaxDepth = 1.0f;
 
-	IRefPtr<ID3D11DepthStencilState> pSavedDepthState;
-	UINT pStencilRef = 0;
-	pContext->OMGetDepthStencilState(IREF_GETPPTR(pSavedDepthState, ID3D11DepthStencilState), &pStencilRef);
+		// save current state
+		IRefPtr<ID3D11RasterizerState> pSavedRSState;
+		pContext->RSGetState(IREF_GETPPTR(pSavedRSState, ID3D11RasterizerState));
 
-	// will games with multiple viewports break here?
-	D3D11_VIEWPORT originalVP;
-	UINT numViewPorts = 1;
-	pContext->RSGetViewports(&numViewPorts, &originalVP);
+		IRefPtr<ID3D11DepthStencilState> pSavedDepthState;
+		UINT pStencilRef = 0;
+		pContext->OMGetDepthStencilState(IREF_GETPPTR(pSavedDepthState, ID3D11DepthStencilState), &pStencilRef);
 
-	// save render/depth target so we can restore after
-	IRefPtr<ID3D11RenderTargetView> pOldRenderTargetView;
-	IRefPtr<ID3D11DepthStencilView> pDepthStencilView;
-	pContext->OMGetRenderTargets(1, IREF_GETPPTR(pOldRenderTargetView, ID3D11RenderTargetView), IREF_GETPPTR(pDepthStencilView, ID3D11DepthStencilView));
+		// will games with multiple viewports break here?
+		D3D11_VIEWPORT originalVP;
+		UINT numViewPorts = 1;
+		pContext->RSGetViewports(&numViewPorts, &originalVP);
 
-	IRefPtr<ID3D11BlendState> pBlendState;
-	float fBlendFactor[4];
-	UINT uSampleMask;
-	pContext->OMGetBlendState(IREF_GETPPTR(pBlendState, ID3D11BlendState), fBlendFactor, &uSampleMask);
+		// save render/depth target so we can restore after
+		IRefPtr<ID3D11RenderTargetView> pOldRenderTargetView;
+		IRefPtr<ID3D11DepthStencilView> pDepthStencilView;
+		pContext->OMGetRenderTargets(1, IREF_GETPPTR(pOldRenderTargetView, ID3D11RenderTargetView), IREF_GETPPTR(pDepthStencilView, ID3D11DepthStencilView));
 
-	D3D11_PRIMITIVE_TOPOLOGY old_topology;
-	pContext->IAGetPrimitiveTopology(&old_topology);
+		IRefPtr<ID3D11BlendState> pBlendState;
+		float fBlendFactor[4];
+		UINT uSampleMask;
+		pContext->OMGetBlendState(IREF_GETPPTR(pBlendState, ID3D11BlendState), fBlendFactor, &uSampleMask);
 
-	IRefPtr<ID3D11InputLayout> pOldInputLayout;
-	pContext->IAGetInputLayout(IREF_GETPPTR(pOldInputLayout, ID3D11InputLayout));
+		D3D11_PRIMITIVE_TOPOLOGY old_topology;
+		pContext->IAGetPrimitiveTopology(&old_topology);
 
-	// setup
-	pContext->OMSetRenderTargets(1, pRenderTargetView.get_Array(), nullptr);
-	pContext->RSSetViewports(1, &vp);						// Set the new viewport for the indicator
-	pContext->RSSetState(m_pRasterState);					// Set the new state
-	pContext->OMSetDepthStencilState(m_pDepthState, 1);		// Set depth-stencil state to temporarily disable z-buffer
+		IRefPtr<ID3D11InputLayout> pOldInputLayout;
+		pContext->IAGetInputLayout(IREF_GETPPTR(pOldInputLayout, ID3D11InputLayout));
 
-	float blend_factor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	pContext->OMSetBlendState(m_pBlendStateTextured, blend_factor, 0xffffffff);
+		// setup
+		pContext->OMSetRenderTargets(1, pRenderTargetView.get_Array(), nullptr);
+		pContext->RSSetViewports(1, &vp);						// Set the new viewport for the indicator
+		pContext->RSSetState(m_pRasterState);					// Set the new state
+		pContext->OMSetDepthStencilState(m_pDepthState, 1);		// Set depth-stencil state to temporarily disable z-buffer
 
-	pContext->IASetInputLayout(m_pVertexLayout);
+		float blend_factor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+		pContext->OMSetBlendState(m_pBlendStateTextured, blend_factor, 0xffffffff);
 
-	// todo: save current vertex/pixel shaders to restore after drawing
-	// see crysis 3 intro sequence for why (green screen where it tries to do shit using our shader?)
+		pContext->IASetInputLayout(m_pVertexLayout);
 
-	pContext->VSSetShader(m_pVertexShader, NULL, 0);
-	pContext->PSSetShader(m_pPixelShader, NULL, 0);
+		// todo: save current vertex/pixel shaders to restore after drawing
+		// see crysis 3 intro sequence for why (green screen where it tries to do shit using our shader?)
 
-	pContext->PSSetShaderResources(0, 1, m_pResViewOverlay.get_Array());
-	pContext->PSSetSamplers(0, 1, m_pSamplerState.get_Array());
+		pContext->VSSetShader(m_pVertexShader, NULL, 0);
+		pContext->PSSetShader(m_pPixelShader, NULL, 0);
 
-	UpdateOverlayVB();
+		pContext->PSSetShaderResources(0, 1, tex.res.get_Array());
+		pContext->PSSetSamplers(0, 1, m_pSamplerState.get_Array());
 
-	// draw
-	UINT stride = sizeof(TEXMAPVERTEX);
-	UINT offset = 0;
-	pContext->IASetVertexBuffers(0, 1, m_pVBOverlay.get_Array(), &stride, &offset);
-	pContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	pContext->Draw(4, 0);
+		UpdateOverlayVB(tex.tex);
 
-	// restore state
-	pContext->IASetPrimitiveTopology(old_topology);
-	pContext->IASetInputLayout(pOldInputLayout.get_RefObj());
+		// draw
+		UINT stride = sizeof(TEXMAPVERTEX);
+		UINT offset = 0;
+		pContext->IASetVertexBuffers(0, 1, m_pVBOverlay.get_Array(), &stride, &offset);
+		pContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+		pContext->Draw(4, 0);
 
-	auto targetView = pOldRenderTargetView.get_RefObj();
-	pContext->OMSetRenderTargets(1, &targetView, pDepthStencilView);
+		// restore state
+		pContext->IASetPrimitiveTopology(old_topology);
+		pContext->IASetInputLayout(pOldInputLayout.get_RefObj());
 
-	pContext->RSSetViewports(1, &originalVP);				// restore the old viewport
-	pContext->RSSetState(pSavedRSState);					// restore the old state
-	pContext->OMSetDepthStencilState(pSavedDepthState, 1);	// restore the old depth state (re-enable zbuffer)
+		auto targetView = pOldRenderTargetView.get_RefObj();
+		pContext->OMSetRenderTargets(1, &targetView, pDepthStencilView);
 
-	pContext->OMSetBlendState(pBlendState, fBlendFactor, uSampleMask);
+		pContext->RSSetViewports(1, &originalVP);				// restore the old viewport
+		pContext->RSSetState(pSavedRSState);					// restore the old state
+		pContext->OMSetDepthStencilState(pSavedDepthState, 1);	// restore the old depth state (re-enable zbuffer)
 
-	pRenderTargetView.ReleaseRefObj();
-	pOldRenderTargetView.ReleaseRefObj();
-	pOldInputLayout.ReleaseRefObj();
-	return true;
+		pContext->OMSetBlendState(pBlendState, fBlendFactor, uSampleMask);
+
+		pRenderTargetView.ReleaseRefObj();
+		pOldRenderTargetView.ReleaseRefObj();
+		pOldInputLayout.ReleaseRefObj();
+		return true;
+	});
 }
 
 void DX11Renderer::UpdateOverlay()
 {
-	auto vec = ReadNewFramebuffer();
-	if (vec)
-		/*hlog("Got vec %p: %d vs %dx%dx4 = %d", vec, vec->size(), g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy,
-			g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;
-	else
-		return;
-
-	IRefPtr<ID3D11DeviceContext> pContext;
-	m_pDevice->GetImmediateContext(IREF_GETPPTR(pContext, ID3D11DeviceContext));
-
-	D3D11_MAPPED_SUBRESOURCE mr;
-	ZeroMemory(&mr, sizeof(D3D11_MAPPED_SUBRESOURCE));
-
-	auto hr = pContext->Map(m_pOverlayTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mr);
-	if (FAILED(hr))
+	overlay_textures.Buffer([&](D3D11Texture &tex)
 	{
-		LOG_MSG("UpdateOverlay: texture data lock failed!" LOG_CR);
-		return;
-	}
+		auto vec = ReadNewFramebuffer();
+		if (vec)
+			/*hlog("Got vec %p: %d vs %dx%dx4 = %d", vec, vec->size(), g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy,
+				g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;
+		else
+			return false;
 
-	// these probably won't match, gpus are fussy about even dimensions and stuff. we have to copy line by line to compensate
-	//LOG_MSG("InitIndicatorTextures: d3d surface pitch is %d, image stride is %d" LOG_CR, lr.Pitch, data.Stride);
-	for (UINT y = 0; y < g_Proc.m_Stats.m_SizeWnd.cy; y++)
-		memcpy((BYTE *)mr.pData + (y * mr.RowPitch), (BYTE *)vec->data() + (y * g_Proc.m_Stats.m_SizeWnd.cx * 4), g_Proc.m_Stats.m_SizeWnd.cx * 4);
+		IRefPtr<ID3D11DeviceContext> pContext;
+		m_pDevice->GetImmediateContext(IREF_GETPPTR(pContext, ID3D11DeviceContext));
 
-	pContext->Unmap(m_pOverlayTexture, 0);
+		D3D11_MAPPED_SUBRESOURCE mr;
+		ZeroMemory(&mr, sizeof(D3D11_MAPPED_SUBRESOURCE));
 
-	has_content = true;
+		auto hr = pContext->Map(tex.tex, 0, D3D11_MAP_WRITE_DISCARD, 0, &mr);
+		if (FAILED(hr))
+		{
+			LOG_MSG("UpdateOverlay: texture data lock failed!" LOG_CR);
+			return false;
+		}
+
+		// these probably won't match, gpus are fussy about even dimensions and stuff. we have to copy line by line to compensate
+		//LOG_MSG("InitIndicatorTextures: d3d surface pitch is %d, image stride is %d" LOG_CR, lr.Pitch, data.Stride);
+		for (UINT y = 0; y < g_Proc.m_Stats.m_SizeWnd.cy; y++)
+			memcpy((BYTE *)mr.pData + (y * mr.RowPitch), (BYTE *)vec->data() + (y * g_Proc.m_Stats.m_SizeWnd.cx * 4), g_Proc.m_Stats.m_SizeWnd.cx * 4);
+
+		pContext->Unmap(tex.tex, 0);
+
+		return true;
+	});
 }
 
 using namespace std;
