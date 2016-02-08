@@ -198,7 +198,7 @@ void DismissOverlay(bool from_remote)
 
 	ForgeEvent::HideBrowser();
 	hlog("Hiding browser");
-	forgeFramebufferServer.Stop();
+	//forgeFramebufferServer.Stop();
 
 	g_bBrowserShowing = false;
 
@@ -217,7 +217,9 @@ void ToggleOverlay()
 		forgeFramebufferServer.Start();
 
 	if (!g_bBrowserShowing) {
-		forgeFramebufferServer.Start();
+		if (forgeFramebufferServer.died)
+			forgeFramebufferServer.Start();
+
 		ForgeEvent::ShowBrowser(forgeFramebufferServer.name, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
 		hlog("Requesting browser");
 
