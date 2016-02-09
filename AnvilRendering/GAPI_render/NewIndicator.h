@@ -16,6 +16,9 @@ enum IndicatorEvent
 	INDICATE_MIC_IDLE,       // mic capture ready/idle - we're recording but not mixing it in to the output stream
 	INDICATE_MIC_ACTIVE,     // mic capture active - PTT pressed or it's in continuous mode so we're recording and mixing into output stream
 	INDICATE_MIC_MUTED,      // mic capture muted (continuous mode) or disabled due to error
+	INDICATE_CACHE_LIMIT,    // we ran out of storage for (normal) recording
+	INDICATE_CLIP_PROCESSING,// in-game highlighter clip is being processed
+	INDICATE_CLIP_PROCESSED, // in-game highlighter clip is done processing, URL was copied to clipboard
 	INDICATE_NONE            // no image for this one, just a placeholder for loops and to tell graphics code we're not drawing anything
 };
 

@@ -33,7 +33,10 @@ static int s_image_res[INDICATE_NONE] =
 	IDB_BOOKMARK,
 	IDB_MIC_IDLE,
 	IDB_MIC_ACTIVE,
-	IDB_MIC_MUTE
+	IDB_MIC_MUTE,
+	IDB_CACHE_LIMIT,
+	IDB_HIGHLIGHT_UPLOADING,
+	IDB_HIGHLIGHT_UPLOADED,
 };
 
 static Bitmap *LoadBitmapFromResource( wchar_t *resource_name )

@@ -163,6 +163,15 @@
     <Image Include="GAPI_render\res\mic_mute_w_indicator.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="GAPI_render\res\indicator_cache_limit.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\indicator_recorded.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\indicator_uploaded.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="GAPI_render\Anvil.rc">
