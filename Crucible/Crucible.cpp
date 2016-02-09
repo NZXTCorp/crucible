@@ -365,8 +365,10 @@ namespace AnvilCommands {
 		SendForgeInfo();
 		SendSettings();
 
-		if (!show_welcome)
+		if (!show_welcome) {
+			SendIndicator();
 			return true;
+		}
 
 		CreateIndicatorUpdater(enabled_timeout_seconds, enabled_timeout);
 		show_welcome = false;
