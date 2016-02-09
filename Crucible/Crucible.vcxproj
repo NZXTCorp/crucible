@@ -86,6 +86,7 @@
     <ClInclude Include="IPC.hpp" />
     <ClInclude Include="OBSHelpers.hpp" />
     <ClInclude Include="TestWindow.h" />
+    <ClInclude Include="ThreadTools.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

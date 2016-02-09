@@ -31,6 +31,7 @@ using namespace std;
 #include "../AnvilRendering/AnvilRendering.h"
 
 #include "IPC.hpp"
+#include "ThreadTools.hpp"
 
 // window class borrowed from forge, remove once we've got headless mode working
 #include "TestWindow.h"
@@ -280,26 +281,6 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 }
-
-struct JoiningThread {
-	thread t;
-	function<void()> make_joinable;
-	~JoiningThread()
-	{
-		Join();
-	}
-
-	void Join()
-	{
-		if (make_joinable) {
-			make_joinable();
-			make_joinable = nullptr;
-		}
-
-		if (t.joinable())
-			t.join();
-	}
-};
 
 namespace AnvilCommands {
 	IPCClient anvil_client;
