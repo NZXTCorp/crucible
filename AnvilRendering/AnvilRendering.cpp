@@ -4,6 +4,7 @@
 #include "stdafx.h"
 
 #include "../Crucible/IPC.hpp"
+#include "../Crucible/ThreadTools.hpp"
 
 #include "AnvilRendering.h"
 #include "GAPI_render/NewIndicator.h"
@@ -128,6 +129,8 @@ static WORD hotkeys[HOTKEY_QTY] = { 0 };
 
 extern void DismissOverlay(bool);
 
+static void RestartCrucibleServer();
+
 namespace CrucibleCommand {
 
 using namespace json;
@@ -212,8 +215,11 @@ static void HandleCommands(uint8_t *data, size_t size)
 		{"dismiss_overlay", [](Object&) { DismissOverlay(true); }}
 	};
 
-	if (!data)
+	if (!data) {
+		hlog("AnvilRender: command connection died");
+		RestartCrucibleServer();
 		return;
+	}
 	
 	try {
 		Object obj;
@@ -246,7 +252,9 @@ pD3DCompile s_D3DCompile = nullptr;
 
 IndicatorManager indicatorManager;
 
+shared_ptr<void> crucibleConnectionRestartEvent;
 IPCServer crucibleConnection;
+JoiningThread crucibleConnectionRestartThread;
 
 ULONG_PTR gdi_token = 0;
 
@@ -265,6 +273,39 @@ WORD GetHotKey(HOTKEY_TYPE t)
 	return 0;
 }
 
+static bool StartCrucibleServer()
+{
+	return crucibleConnection.Start("AnvilRenderer" + to_string(GetCurrentProcessId()), CrucibleCommand::HandleCommands);
+}
+
+static void RestartCrucibleServer()
+{
+	if (crucibleConnectionRestartEvent)
+		SetEvent(crucibleConnectionRestartEvent.get());
+}
+
+static void CreateRestartThread()
+{
+	crucibleConnectionRestartEvent.reset(CreateEvent(nullptr, false, false, nullptr), HandleDeleter{});
+
+	shared_ptr<void> ev{ CreateEvent(nullptr, true, false, nullptr), HandleDeleter{} };
+
+	crucibleConnectionRestartThread.make_joinable = [ev] { SetEvent(ev.get()); };
+
+	crucibleConnectionRestartThread.t = thread([ev]
+	{
+		HANDLE objs[] = { ev.get(), crucibleConnectionRestartEvent.get() };
+		for (;;)
+		{
+			auto res = WaitForMultipleObjects(2, objs, false, INFINITE);
+			if (res != WAIT_OBJECT_0 + 1)
+				break;
+
+			if (StartCrucibleServer())
+				hlog("AnvilRender: command connection restarted");
+		}
+	});
+}
 
 C_EXPORT bool overlay_init(void (*hlog_)(const char *fmt, ...))
 {
@@ -281,7 +322,9 @@ C_EXPORT bool overlay_init(void (*hlog_)(const char *fmt, ...))
 
 	indicatorManager.LoadImages();
 
-	crucibleConnection.Start("AnvilRenderer" + to_string(GetCurrentProcessId()), CrucibleCommand::HandleCommands);
+	CreateRestartThread();
+
+	StartCrucibleServer();
 
 	return true;
 }
