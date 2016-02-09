@@ -385,6 +385,7 @@ static void get_window_size(HDC hdc, LONG *cx, LONG *cy)
 
 static OpenGLRenderer render;
 static bool initialized = false;
+static bool framebuffer_server_started = false;
 static HGLRC render_context = nullptr;
 
 static TextureBufferingHelper<GLuint> overlay_textures;
@@ -417,11 +418,13 @@ void overlay_gl_free()
 	}
 
 	initialized = false;
+	framebuffer_server_started = false;
 	in_free = false;
 }
 
-static bool update_overlay()
+static void update_overlay()
 {
+	s_glPushAttrib(GL_ALL_ATTRIB_BITS);
 	if (!overlay_tex_initialized)
 	{
 		try {
@@ -440,7 +443,7 @@ static bool update_overlay()
 		catch (GLenum err)
 		{
 			hlog("update_overlay: unable to initialize OpenGL texture (%d)\n", err);
-			return false;
+			return;
 		}
 
 		overlay_tex_initialized = true;
@@ -467,15 +470,11 @@ static bool update_overlay()
 
 		return true;
 	});
-
-	return true;
+	s_glPopAttrib();
 }
 
 static bool show_browser_tex_()
 {
-	if (!update_overlay())
-		return false;
-
 	return overlay_textures.Draw([&](GLuint &tex)
 	{
 		int err = 0;
@@ -586,9 +585,14 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 
 	get_window_size(hdc, &g_Proc.m_Stats.m_SizeWnd.cx, &g_Proc.m_Stats.m_SizeWnd.cy);
 
+	if (!framebuffer_server_started)
+		StartFramebufferServer();
+
 	HandleInputHook(WindowFromDC(hdc));
 
 	//render.DrawIndicator(TAKSI_INDICATE_Recording);
+
+	update_overlay();
 
 	if (!g_bBrowserShowing || !show_browser_tex())
 	ShowCurrentIndicator([](IndicatorEvent indicator, BYTE alpha)

@@ -170,6 +170,14 @@ static struct ForgeFramebufferServer {
 	}
 } forgeFramebufferServer;
 
+void StartFramebufferServer()
+{
+	if (forgeFramebufferServer.died)
+		forgeFramebufferServer.Start();
+
+	ForgeEvent::InitBrowser(forgeFramebufferServer.name, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
+}
+
 vector<uint8_t> *ReadNewFramebuffer()
 {
 	if (!forgeFramebufferServer.new_data)

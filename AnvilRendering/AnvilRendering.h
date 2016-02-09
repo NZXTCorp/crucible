@@ -25,8 +25,8 @@ extern void (*hlog)(const char *fmt, ...);
 
 struct ProcessCompat {
 	struct ProcStatsCompat {
-		SIZE m_SizeWnd;					// the window/backbuffer size. (pixels)
-		HWND m_hWndCap;
+		SIZE m_SizeWnd{};					// the window/backbuffer size. (pixels)
+		HWND m_hWndCap{};
 	} m_Stats;
 };
 
@@ -84,10 +84,11 @@ namespace ForgeEvent
 {
 	bool KeyEvent(UINT msg, WPARAM wParam, LPARAM lParam);
 	bool MouseEvent(UINT msg, WPARAM wParam, LPARAM lParam);
+	bool InitBrowser(const std::string &name, LONG width, LONG height);
 	bool ShowBrowser(const std::string &name, LONG width, LONG height);
 	bool HideBrowser();
 	bool CreateBookmark();
 }
 
 std::vector<uint8_t> *ReadNewFramebuffer();
-
+void StartFramebufferServer();

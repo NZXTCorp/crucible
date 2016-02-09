@@ -535,7 +535,6 @@ void overlay_d3d9_free()
 
 static bool show_browser_tex()
 {
-	renderer->UpdateOverlay();
 	return renderer->DrawOverlay();
 }
 
@@ -556,9 +555,13 @@ C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 		}
 
 		initialized = true;
+
+		StartFramebufferServer();
 	}
 
 	HandleInputHook(window);
+
+	renderer->UpdateOverlay();
 
 	if (!g_bBrowserShowing || !show_browser_tex())
 	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)

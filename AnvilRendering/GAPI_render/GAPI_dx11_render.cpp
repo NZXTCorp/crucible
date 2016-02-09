@@ -700,8 +700,6 @@ void DX11Renderer::DrawIndicator( IDXGISwapChain *pSwapChain, TAKSI_INDICATE_TYP
 
 bool DX11Renderer::DrawOverlay(IDXGISwapChain *pSwapChain)
 {
-	UpdateOverlay();
-
 	return overlay_textures.Draw([&](D3D11Texture &tex)
 	{
 		IRefPtr<ID3D11DeviceContext> pContext;
@@ -869,6 +867,8 @@ static DX11Renderer *get_renderer(IDXGISwapChain *swap)
 
 		renderer.reset(new DX11Renderer{dev}); //release dev?
 		renderer->InitRenderer(indicatorManager);
+
+		StartFramebufferServer();
 	}
 
 	return renderer.get();
@@ -891,6 +891,8 @@ C_EXPORT void overlay_draw_d3d11(IDXGISwapChain *swap)
 		return;
 
 	HandleInputHook(window);
+
+	renderer->UpdateOverlay();
 
 	if (!g_bBrowserShowing || !show_browser_tex(swap))
 	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)

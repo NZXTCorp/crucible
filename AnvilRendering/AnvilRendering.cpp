@@ -73,6 +73,14 @@ namespace ForgeEvent
 			.Set("lParam", lParam));
 	}
 
+	bool InitBrowser(const std::string &name, LONG width, LONG height)
+	{
+		return SendEvent(EventCreate("init_browser")
+			.Set("framebuffer_server", String(name))
+			.Set("width", Number(width))
+			.Set("height", Number(height)));
+	}
+
 	bool ShowBrowser(const std::string &name, LONG width, LONG height)
 	{
 		return SendEvent(EventCreate("show_browser")
@@ -153,6 +161,7 @@ static void HandleForgeInfo(Object &obj)
 		return hlog("Got empty anvil_event name via forge_info");
 
 	ForgeEvent::forge_client.Open(event.Value());
+	StartFramebufferServer();
 }
 
 static void HandleUpdateSettings(Object &obj)

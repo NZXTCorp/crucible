@@ -685,8 +685,6 @@ void DX10Renderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 
 bool DX10Renderer::DrawOverlay(IDXGISwapChain *pSwapChain)
 {
-	UpdateOverlay();
-
 	return overlay_textures.Draw([&](D3D10Texture &tex)
 	{
 		D3D10_VIEWPORT vp;
@@ -831,6 +829,8 @@ static DX10Renderer *get_renderer(IDXGISwapChain *swap)
 
 		renderer.reset(new DX10Renderer{ dev }); //release dev?
 		renderer->InitRenderer(swap, indicatorManager);
+
+		StartFramebufferServer();
 	}
 
 	return renderer.get();
@@ -854,6 +854,8 @@ C_EXPORT void overlay_draw_d3d10(IDXGISwapChain *swap)
 		return;
 
 	HandleInputHook(window);
+
+	renderer->UpdateOverlay();
 
 	if (!g_bBrowserShowing || !show_browser_tex(swap))
 	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)
