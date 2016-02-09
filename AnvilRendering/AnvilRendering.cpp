@@ -144,6 +144,8 @@ static void HandleIndicatorCommand(Object &obj)
 		{"enabled_hotkey", INDICATE_ENABLED_HOTKEY},
 		{"bookmark",   INDICATE_BOOKMARK},
 		{"cache_limit",INDICATE_CACHE_LIMIT},
+		{"clip_processing", INDICATE_CLIP_PROCESSING},
+		{"clip_processed", INDICATE_CLIP_PROCESSED},
 	};
 
 	auto indicator = static_cast<String>(obj["indicator"]).Value();

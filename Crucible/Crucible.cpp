@@ -287,6 +287,7 @@ namespace AnvilCommands {
 	recursive_mutex commandMutex;
 
 	atomic<bool> recording = false;
+	atomic<bool> clipping  = false;
 	atomic<bool> using_mic = false;
 	atomic<bool> using_ptt = false;
 	atomic<bool> mic_muted = false;
@@ -300,6 +301,9 @@ namespace AnvilCommands {
 
 	const uint64_t cache_limit_timeout_seconds = 10;
 	atomic<uint64_t> cache_limit_timeout = 0;
+
+	const uint64_t clip_finished_timeout_seconds = 5;
+	atomic<uint64_t> clip_finished_timeout = 0;
 
 	vector<JoiningThread> indicator_updaters;
 
@@ -392,11 +396,17 @@ namespace AnvilCommands {
 		if (enabled_timeout >= os_gettime_ns())
 			indicator = display_enabled_hotkey ? "enabled_hotkey" : "enabled";
 
+		if (clipping)
+			indicator = "clip_processing";
+
 		if (bookmark_timeout >= os_gettime_ns())
 			indicator = "bookmark";
 
 		if (cache_limit_timeout >= os_gettime_ns())
 			indicator = "cache_limit";
+
+		if (clip_finished_timeout >= os_gettime_ns())
+			indicator = "clip_processed";
 
 		obs_data_set_string(cmd, "indicator", indicator);
 
@@ -417,6 +427,24 @@ namespace AnvilCommands {
 			return;
 
 		SendIndicator();
+	}
+
+	void ShowClipping()
+	{
+		if (clipping.exchange(true))
+			return;
+
+		SendIndicator();
+	}
+
+	void ClipFinished(bool success)
+	{
+		clipping = false;
+
+		if (success)
+			CreateIndicatorUpdater(clip_finished_timeout_seconds, clip_finished_timeout);
+		else
+			SendIndicator();
 	}
 
 	void ShowCacheLimitExceeded()
@@ -1407,6 +1435,11 @@ static void HandleUpdateVideoSettingsCommand(CrucibleContext &cc, OBSData &obj)
 	cc.UpdateVideoSettings(OBSDataGetObj(obj, "settings"));
 }
 
+static void HandleClipFinished(CrucibleContext &cc, OBSData &obj)
+{
+	AnvilCommands::ClipFinished(obs_data_get_bool(obj, "success"));
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -1421,6 +1454,8 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "monitored_process_exit", HandleMonitoredProcessExit },
 		{ "update_video_settings", HandleUpdateVideoSettingsCommand },
 		{ "dismiss_overlay", [](CrucibleContext&, OBSData&) { AnvilCommands::DismissOverlay(); } },
+		{ "clip_accepted", [](CrucibleContext&, OBSData&) { AnvilCommands::ShowClipping(); } },
+		{ "clip_finished", HandleClipFinished },
 	};
 	if (!data)
 		return;
