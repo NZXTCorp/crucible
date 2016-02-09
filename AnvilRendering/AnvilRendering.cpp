@@ -45,6 +45,7 @@ namespace ForgeEvent
 	using namespace json;
 
 	IPCClient forge_client;
+	std::string current_connection;
 
 	static bool SendEvent(const Object &object)
 	{
@@ -166,7 +167,9 @@ static void HandleForgeInfo(Object &obj)
 	if (event.Value().empty())
 		return hlog("Got empty anvil_event name via forge_info");
 
-	ForgeEvent::forge_client.Open(event.Value());
+	if (event.Value() != ForgeEvent::current_connection)
+		ForgeEvent::forge_client.Open(event.Value());
+
 	StartFramebufferServer();
 }
 
