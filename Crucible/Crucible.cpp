@@ -298,6 +298,9 @@ namespace AnvilCommands {
 	const uint64_t bookmark_timeout_seconds = 3;
 	atomic<uint64_t> bookmark_timeout = 0;
 
+	const uint64_t cache_limit_timeout_seconds = 10;
+	atomic<uint64_t> cache_limit_timeout = 0;
+
 	vector<JoiningThread> indicator_updaters;
 
 	string forge_overlay_channel;
@@ -392,6 +395,9 @@ namespace AnvilCommands {
 		if (bookmark_timeout >= os_gettime_ns())
 			indicator = "bookmark";
 
+		if (cache_limit_timeout >= os_gettime_ns())
+			indicator = "cache_limit";
+
 		obs_data_set_string(cmd, "indicator", indicator);
 
 		SendCommand(cmd);
@@ -411,6 +417,11 @@ namespace AnvilCommands {
 			return;
 
 		SendIndicator();
+	}
+
+	void ShowCacheLimitExceeded()
+	{
+		CreateIndicatorUpdater(cache_limit_timeout_seconds, cache_limit_timeout);
 	}
 
 	void ShowBookmark()
@@ -1376,6 +1387,8 @@ static void HandleCreateBookmark(CrucibleContext &cc, OBSData &)
 
 static void HandleStopRecording(CrucibleContext &cc, OBSData &)
 {
+	AnvilCommands::ShowCacheLimitExceeded();
+
 	cc.StopVideo();
 }
 

@@ -172,6 +172,9 @@
     <Image Include="GAPI_render\res\indicator_uploaded.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="res\indicator_cache_limit.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="GAPI_render\Anvil.rc">
