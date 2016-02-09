@@ -284,6 +284,7 @@ namespace ForgeEvents {
 
 namespace AnvilCommands {
 	IPCClient anvil_client;
+	std::string current_connection;
 	recursive_mutex commandMutex;
 
 	DWORD pid;
@@ -353,14 +354,23 @@ namespace AnvilCommands {
 		}), end(indicator_updaters));
 	}
 
-	bool Connect(DWORD pid_)
+	bool Connect(DWORD pid_, bool write_failed=false)
 	{
 		LOCK(commandMutex);
 
 		pid = pid_;
 
-		if (!anvil_client.Open("AnvilRenderer" + to_string(pid_)))
+		auto connection_name = "AnvilRenderer" + to_string(pid_);
+
+		if (!write_failed && current_connection == connection_name && anvil_client) {
+			SendIndicator();
+			return true;
+		}
+
+		if (!anvil_client.Open(connection_name))
 			return false;
+
+		current_connection = connection_name;
 
 		SendForgeInfo();
 		SendSettings();
@@ -390,7 +400,7 @@ namespace AnvilCommands {
 			if (anvil_client.Write(data, strlen(data) + 1))
 				return;
 
-			if (!Connect(pid))
+			if (!Connect(pid, true))
 				return;
 		}
 
