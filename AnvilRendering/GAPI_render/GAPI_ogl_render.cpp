@@ -420,8 +420,9 @@ void overlay_gl_free()
 	in_free = false;
 }
 
-static bool update_overlay()
+static void update_overlay()
 {
+	s_glPushAttrib(GL_ALL_ATTRIB_BITS);
 	if (!overlay_tex_initialized)
 	{
 		try {
@@ -440,7 +441,7 @@ static bool update_overlay()
 		catch (GLenum err)
 		{
 			hlog("update_overlay: unable to initialize OpenGL texture (%d)\n", err);
-			return false;
+			return;
 		}
 
 		overlay_tex_initialized = true;
@@ -467,15 +468,11 @@ static bool update_overlay()
 
 		return true;
 	});
-
-	return true;
+	s_glPopAttrib();
 }
 
 static bool show_browser_tex_()
 {
-	if (!update_overlay())
-		return false;
-
 	return overlay_textures.Draw([&](GLuint &tex)
 	{
 		int err = 0;
@@ -589,6 +586,8 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 	HandleInputHook(WindowFromDC(hdc));
 
 	//render.DrawIndicator(TAKSI_INDICATE_Recording);
+
+	update_overlay();
 
 	if (!g_bBrowserShowing || !show_browser_tex())
 	ShowCurrentIndicator([](IndicatorEvent indicator, BYTE alpha)
