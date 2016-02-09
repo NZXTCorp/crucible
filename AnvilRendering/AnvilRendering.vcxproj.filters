@@ -166,7 +166,7 @@
     <Image Include="GAPI_render\res\indicator_cache_limit.png">
       <Filter>Resource Files</Filter>
     </Image>
-    <Image Include="GAPI_render\res\indicator_recorded.png">
+    <Image Include="GAPI_render\res\indicator_uploading.png">
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="GAPI_render\res\indicator_uploaded.png">

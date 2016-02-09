@@ -231,7 +231,7 @@
     <Image Include="GAPI_render\res\indicator_capturing.png" />
     <Image Include="GAPI_render\res\indicator_enabled.png" />
     <Image Include="GAPI_render\res\indicator_enabled_hotkeys.png" />
-    <Image Include="GAPI_render\res\indicator_recorded.png" />
+    <Image Include="GAPI_render\res\indicator_uploading.png" />
     <Image Include="GAPI_render\res\indicator_uploaded.png" />
     <Image Include="GAPI_render\res\mic_active_w_indicator.png" />
     <Image Include="GAPI_render\res\mic_idle_w_indicator.png" />
