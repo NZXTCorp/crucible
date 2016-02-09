@@ -55,7 +55,7 @@ struct JoiningThread
 
 	bool TryJoin()
 	{
-		if (!t.joinable() || !monitor.valid() || monitor.wait_for(std::chrono::milliseconds(0)) != future_status::ready)
+		if (!t.joinable() || !monitor.valid() || monitor.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)
 			return false;
 
 		make_joinable = nullptr;
