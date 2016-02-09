@@ -236,9 +236,6 @@
     <Image Include="GAPI_render\res\mic_active_w_indicator.png" />
     <Image Include="GAPI_render\res\mic_idle_w_indicator.png" />
     <Image Include="GAPI_render\res\mic_mute_w_indicator.png" />
-    <Image Include="res\indicator_cache_limit.png" />
-    <Image Include="res\indicator_recorded.png" />
-    <Image Include="res\indicator_uploaded.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
