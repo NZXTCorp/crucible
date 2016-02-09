@@ -288,6 +288,7 @@ namespace AnvilCommands {
 
 	DWORD pid;
 
+	atomic<bool> show_welcome = false;
 	atomic<bool> recording = false;
 	atomic<bool> clipping  = false;
 	atomic<bool> using_mic = false;
@@ -364,7 +365,11 @@ namespace AnvilCommands {
 		SendForgeInfo();
 		SendSettings();
 
+		if (!show_welcome)
+			return true;
+
 		CreateIndicatorUpdater(enabled_timeout_seconds, enabled_timeout);
+		show_welcome = false;
 
 		return true;
 	}
@@ -423,6 +428,11 @@ namespace AnvilCommands {
 		obs_data_set_string(cmd, "indicator", indicator);
 
 		SendCommand(cmd);
+	}
+
+	void ResetShowWelcome()
+	{
+		show_welcome = true;
 	}
 
 	void ShowRecording()
@@ -1388,7 +1398,10 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 	cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
 	cc.UpdateFilenames(obs_data_get_string(obj, "filename"), obs_data_get_string(obj, "profiler_data"));
 	cc.UpdateMuxerSettings(obs_data_get_string(obj, "muxer_settings"));
+
 	blog(LOG_INFO, "Starting new capture");
+
+	AnvilCommands::ResetShowWelcome();
 	cc.StartVideoCapture();
 }
 
