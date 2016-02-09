@@ -28,26 +28,27 @@ struct TextureBufferingHelper
 		did_buffer = false;
 	}
 
+	typename Textures_t::iterator Next(const typename Textures_t::iterator &iter)
+	{
+		auto res = iter == textures.end() ? textures.begin() : iter + 1;
+		return res == textures.end() ? textures.begin() : res;
+	}
+
 	template <typename Func/*=bool(T&)*/>
 	bool Buffer(Func &&func)
 	{
 		if (buffering_texture == textures.end())
 			buffering_texture = textures.begin();
 
+		auto next = Next(draw_texture);
+		if (did_buffer && next != buffering_texture)
+			draw_texture = next;
+
 		if (!func(*buffering_texture))
 			return false;
 
-		if (did_buffer)
-		{
-			if (draw_texture != textures.end())
-				draw_texture++;
-
-			if (draw_texture == textures.end())
-				draw_texture = textures.begin();
-		}
-
 		did_buffer = true;
-		buffering_texture++;
+		buffering_texture = Next(buffering_texture);
 		return true;
 	}
 
