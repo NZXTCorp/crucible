@@ -291,11 +291,14 @@ namespace AnvilCommands {
 	atomic<bool> using_ptt = false;
 	atomic<bool> mic_muted = false;
 	atomic<bool> display_enabled_hotkey = false;
+
+	const uint64_t enabled_timeout_seconds = 10;
 	atomic<uint64_t> enabled_timeout = 0;
+
+	const uint64_t bookmark_timeout_seconds = 3;
 	atomic<uint64_t> bookmark_timeout = 0;
 
-	JoiningThread update_enabled_indicator;
-	JoiningThread update_bookmark_indicator;
+	vector<JoiningThread> indicator_updaters;
 
 	string forge_overlay_channel;
 	OBSData bookmark_key;
@@ -305,29 +308,26 @@ namespace AnvilCommands {
 	void SendSettings(obs_data_t *bookmark_key_=nullptr, obs_data_t *highlight_key_=nullptr);
 	void SendIndicator();
 
-	void Connect(DWORD pid)
+	void CreateIndicatorUpdater(uint64_t timeout_seconds, atomic<uint64_t> &timeout_var)
 	{
+		uint64_t timeout = timeout_var = os_gettime_ns() + timeout_seconds * 1000 * 1000 * 1000;
+
+		auto ev = shared_ptr<void>{ CreateEvent(nullptr, true, false, nullptr), HandleDeleter() };
+		auto make_joinable = [ev] { SetEvent(ev.get()); };
+
 		LOCK(commandMutex);
+		indicator_updaters.emplace_back();
+		auto &jt = indicator_updaters.back();
 
-		anvil_client.Open("AnvilRenderer" + to_string(pid));
-
-		const uint64_t enabled_timeout_seconds = 10;
-
-		uint64_t timeout = enabled_timeout = os_gettime_ns() + enabled_timeout_seconds * 1000 * 1000 * 1000;
-
-		update_enabled_indicator.Join();
-
-		auto ev = CreateEvent(nullptr, true, false, nullptr);
-		update_enabled_indicator.make_joinable = [=]{ SetEvent(ev); };
-
-		update_enabled_indicator.t = thread([&, ev, timeout, enabled_timeout_seconds]
+		jt.make_joinable = make_joinable;
+		jt.Run([ev, timeout_seconds, timeout]
 		{
-			auto res = WaitForSingleObject(ev, static_cast<DWORD>(enabled_timeout_seconds * 1000));
+			auto res = WaitForSingleObject(ev.get(), static_cast<DWORD>(timeout_seconds * 1000));
 			if (res == WAIT_OBJECT_0)
 				return;
 
 			while (timeout > os_gettime_ns()) {
-				res = WaitForSingleObject(ev, 1000);
+				res = WaitForSingleObject(ev.get(), 1000);
 				if (res == WAIT_OBJECT_0)
 					return;
 			}
@@ -335,9 +335,24 @@ namespace AnvilCommands {
 			SendIndicator();
 		});
 
+		SendIndicator();
+
+		indicator_updaters.erase(remove_if(begin(indicator_updaters), end(indicator_updaters), [](JoiningThread &jt)
+		{
+			return jt.TryJoin();
+		}), end(indicator_updaters));
+	}
+
+	void Connect(DWORD pid)
+	{
+		LOCK(commandMutex);
+
+		anvil_client.Open("AnvilRenderer" + to_string(pid));
+
 		SendForgeInfo();
 		SendSettings();
-		SendIndicator();
+
+		CreateIndicatorUpdater(enabled_timeout_seconds, enabled_timeout);
 	}
 
 	void SendCommand(obs_data_t *cmd)
@@ -400,31 +415,7 @@ namespace AnvilCommands {
 
 	void ShowBookmark()
 	{
-		const uint64_t timeout_seconds = 3;
-
-		uint64_t timeout = bookmark_timeout = os_gettime_ns() + timeout_seconds * 1000 * 1000 * 1000;
-
-		update_bookmark_indicator.Join();
-
-		auto ev = CreateEvent(nullptr, true, false, nullptr);
-		update_bookmark_indicator.make_joinable = [=]{ SetEvent(ev); };
-
-		update_bookmark_indicator.t = thread([&, ev, timeout, timeout_seconds]
-		{
-			auto res = WaitForSingleObject(ev, static_cast<DWORD>(timeout_seconds * 1000));
-			if (res == WAIT_OBJECT_0)
-				return;
-
-			while (timeout > os_gettime_ns()) {
-				res = WaitForSingleObject(ev, 1000);
-				if (res == WAIT_OBJECT_0)
-					return;
-			}
-
-			SendIndicator();
-		});
-
-		SendIndicator();
+		CreateIndicatorUpdater(bookmark_timeout_seconds, bookmark_timeout);
 	}
 
 	void HotkeyMatches(bool matches)
