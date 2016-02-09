@@ -286,6 +286,8 @@ namespace AnvilCommands {
 	IPCClient anvil_client;
 	recursive_mutex commandMutex;
 
+	DWORD pid;
+
 	atomic<bool> recording = false;
 	atomic<bool> clipping  = false;
 	atomic<bool> using_mic = false;
@@ -350,16 +352,21 @@ namespace AnvilCommands {
 		}), end(indicator_updaters));
 	}
 
-	void Connect(DWORD pid)
+	bool Connect(DWORD pid_)
 	{
 		LOCK(commandMutex);
 
-		anvil_client.Open("AnvilRenderer" + to_string(pid));
+		pid = pid_;
+
+		if (!anvil_client.Open("AnvilRenderer" + to_string(pid_)))
+			return false;
 
 		SendForgeInfo();
 		SendSettings();
 
 		CreateIndicatorUpdater(enabled_timeout_seconds, enabled_timeout);
+
+		return true;
 	}
 
 	void SendCommand(obs_data_t *cmd)
@@ -372,8 +379,13 @@ namespace AnvilCommands {
 			return;
 
 		LOCK(commandMutex);
-		if (anvil_client.Write(data, strlen(data) + 1))
-			return;
+		for (;;) {
+			if (anvil_client.Write(data, strlen(data) + 1))
+				return;
+
+			if (!Connect(pid))
+				return;
+		}
 
 		blog(LOG_INFO, "anvil_client.Write failed");
 	}
