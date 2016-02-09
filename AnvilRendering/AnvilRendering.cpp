@@ -283,8 +283,17 @@ static bool StartCrucibleServer()
 
 static void RestartCrucibleServer()
 {
-	if (crucibleConnectionRestartEvent)
-		SetEvent(crucibleConnectionRestartEvent.get());
+	currentIndicator = INDICATE_NONE;
+	{
+		LOCK(hotkeys_mutex);
+		for (int t = 0; t < HOTKEY_QTY; t++)
+			hotkeys[t] = 0;
+	}
+
+	if (!crucibleConnectionRestartEvent)
+		return;
+
+	SetEvent(crucibleConnectionRestartEvent.get());
 }
 
 static void CreateRestartThread()
