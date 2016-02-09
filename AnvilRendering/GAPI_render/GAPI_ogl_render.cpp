@@ -385,6 +385,7 @@ static void get_window_size(HDC hdc, LONG *cx, LONG *cy)
 
 static OpenGLRenderer render;
 static bool initialized = false;
+static bool framebuffer_server_started = false;
 static HGLRC render_context = nullptr;
 
 static TextureBufferingHelper<GLuint> overlay_textures;
@@ -417,6 +418,7 @@ void overlay_gl_free()
 	}
 
 	initialized = false;
+	framebuffer_server_started = false;
 	in_free = false;
 }
 
@@ -582,6 +584,9 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 		return;
 
 	get_window_size(hdc, &g_Proc.m_Stats.m_SizeWnd.cx, &g_Proc.m_Stats.m_SizeWnd.cy);
+
+	if (!framebuffer_server_started)
+		StartFramebufferServer();
 
 	HandleInputHook(WindowFromDC(hdc));
 

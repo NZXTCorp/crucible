@@ -829,6 +829,8 @@ static DX10Renderer *get_renderer(IDXGISwapChain *swap)
 
 		renderer.reset(new DX10Renderer{ dev }); //release dev?
 		renderer->InitRenderer(swap, indicatorManager);
+
+		StartFramebufferServer();
 	}
 
 	return renderer.get();

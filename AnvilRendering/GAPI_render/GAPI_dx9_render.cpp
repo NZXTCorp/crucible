@@ -555,6 +555,8 @@ C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 		}
 
 		initialized = true;
+
+		StartFramebufferServer();
 	}
 
 	HandleInputHook(window);
