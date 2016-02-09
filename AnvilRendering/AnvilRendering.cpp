@@ -289,6 +289,7 @@ static void RestartCrucibleServer()
 		for (int t = 0; t < HOTKEY_QTY; t++)
 			hotkeys[t] = 0;
 	}
+	DismissOverlay(true);
 
 	if (!crucibleConnectionRestartEvent)
 		return;
