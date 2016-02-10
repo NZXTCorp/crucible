@@ -178,4 +178,66 @@
       <Filter>Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="cursors\aliasb.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\cell.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\col_resize.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\copy.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\hand_grab.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\hand_grabbing.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\pan_east.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\pan_middle.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\pan_north.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\pan_north_east.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\pan_north_west.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\pan_south.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\pan_south_east.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\pan_south_west.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\pan_west.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\row_resize.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\vertical_text.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\zoom_in.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\zoom_out.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="cursors\none.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>

@@ -214,12 +214,14 @@ static void HandleUpdateSettings(Object &obj)
 
 static void HandleSetCursor(Object &obj)
 {
-	auto id = Number(obj["cursor"]).Value();
+	auto id = MAKEINTRESOURCEW(Number(obj["cursor"]).Value());
 	if (!id)
-		id = (WORD)IDC_ARROW;
+		id = IDC_ARROW;
+
+	auto handle = LoadCursorW((id >= IDC_ARROW) ? nullptr : g_hInst, MAKEINTRESOURCEW(id));
 
 	auto cursor = overlay_cursor.Lock();
-	*cursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(id));
+	*cursor = handle;
 }
 
 static void HandleCommands(uint8_t *data, size_t size)
