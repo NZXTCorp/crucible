@@ -11,6 +11,8 @@
 
 #include <vector>
 
+#include "../../Crucible/ProtectedObject.hpp"
+
 //#define HOOK_REGISTER_RAW_DEVICES
 
 #ifdef USE_DIRECTI
@@ -363,11 +365,13 @@ BOOL WINAPI Hook_RegisterRawInputDevices(PCRAWINPUTDEVICE pRawInputDevices, UINT
 	return res;
 }
 
+extern ProtectedObject<HCURSOR> overlay_cursor;
+
 static HCURSOR old_cursor = nullptr;
 void ShowOverlayCursor()
 {
 	s_HookSetCursor.SwapOld(s_SetCursor);
-	old_cursor = s_HookSetCursor.Call(s_SetCursor, LoadCursorW(NULL, IDC_ARROW));
+	old_cursor = s_HookSetCursor.Call(s_SetCursor, *overlay_cursor.Lock());
 	s_HookSetCursor.SwapReset(s_SetCursor);
 }
 
@@ -384,7 +388,7 @@ void ResetOverlayCursor()
 		return;
 
 	s_HookSetCursor.SwapOld(s_SetCursor);
-	s_HookSetCursor.Call(s_SetCursor, LoadCursorW(NULL, IDC_ARROW));
+	s_HookSetCursor.Call(s_SetCursor, *overlay_cursor.Lock());
 	s_HookSetCursor.SwapReset(s_SetCursor);
 }
 

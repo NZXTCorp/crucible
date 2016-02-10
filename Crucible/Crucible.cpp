@@ -314,10 +314,12 @@ namespace AnvilCommands {
 	string forge_overlay_channel;
 	OBSData bookmark_key;
 	OBSData highlight_key;
+	OBSData cursor;
 
 	void SendForgeInfo(const char *info=nullptr);
 	void SendSettings(obs_data_t *bookmark_key_=nullptr, obs_data_t *highlight_key_=nullptr);
 	void SendIndicator();
+	void SendCursor(obs_data_t *cmd=nullptr);
 
 	void CreateIndicatorUpdater(uint64_t timeout_seconds, atomic<uint64_t> &timeout_var)
 	{
@@ -374,6 +376,7 @@ namespace AnvilCommands {
 
 		SendForgeInfo();
 		SendSettings();
+		SendCursor();
 
 		if (!show_welcome) {
 			SendIndicator();
@@ -547,6 +550,17 @@ namespace AnvilCommands {
 			obs_data_set_obj(cmd, "highlight_key", highlight_key);
 
 		SendCommand(cmd);
+	}
+
+	void SendCursor(obs_data_t *cmd)
+	{
+		LOCK(commandMutex);
+
+		if (cmd)
+			cursor = cmd;
+
+		if (cursor)
+			SendCommand(cursor);
 	}
 
 	void DismissOverlay()
@@ -1472,6 +1486,11 @@ static void HandleUpdateVideoSettingsCommand(CrucibleContext &cc, OBSData &obj)
 	cc.UpdateVideoSettings(OBSDataGetObj(obj, "settings"));
 }
 
+static void HandleSetCursor(CrucibleContext&, OBSData &obj)
+{
+	AnvilCommands::SendCursor(obj);
+}
+
 static void HandleClipFinished(CrucibleContext &cc, OBSData &obj)
 {
 	AnvilCommands::ClipFinished(obs_data_get_bool(obj, "success"));
@@ -1490,6 +1509,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "injector_result", HandleInjectorResult },
 		{ "monitored_process_exit", HandleMonitoredProcessExit },
 		{ "update_video_settings", HandleUpdateVideoSettingsCommand },
+		{ "set_cursor", HandleSetCursor },
 		{ "dismiss_overlay", [](CrucibleContext&, OBSData&) { AnvilCommands::DismissOverlay(); } },
 		{ "clip_accepted", [](CrucibleContext&, OBSData&) { AnvilCommands::ShowClipping(); } },
 		{ "clip_finished", HandleClipFinished },

@@ -4,6 +4,7 @@
 #include "stdafx.h"
 
 #include "../Crucible/IPC.hpp"
+#include "../Crucible/ProtectedObject.hpp"
 #include "../Crucible/ThreadTools.hpp"
 
 #include "AnvilRendering.h"
@@ -128,6 +129,8 @@ void ShowCurrentIndicator(const std::function<void(IndicatorEvent, BYTE /*alpha*
 mutex hotkeys_mutex;
 static WORD hotkeys[HOTKEY_QTY] = { 0 };
 
+ProtectedObject<HCURSOR> overlay_cursor;
+
 extern void DismissOverlay(bool);
 
 static void RestartCrucibleServer();
@@ -209,12 +212,23 @@ static void HandleUpdateSettings(Object &obj)
 	}
 }
 
+static void HandleSetCursor(Object &obj)
+{
+	auto id = Number(obj["cursor"]).Value();
+	if (!id)
+		id = (WORD)IDC_ARROW;
+
+	auto cursor = overlay_cursor.Lock();
+	*cursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(id));
+}
+
 static void HandleCommands(uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(Object&)> handlers = {
 		{"indicator", HandleIndicatorCommand},
 		{"forge_info", HandleForgeInfo},
 		{"update_settings", HandleUpdateSettings},
+		{"set_cursor", HandleSetCursor},
 		{"dismiss_overlay", [](Object&) { DismissOverlay(true); }}
 	};
 
@@ -290,6 +304,7 @@ static void RestartCrucibleServer()
 			hotkeys[t] = 0;
 	}
 	DismissOverlay(true);
+	*overlay_cursor.Lock() = LoadCursorW(nullptr, IDC_ARROW);
 
 	if (!crucibleConnectionRestartEvent)
 		return;
@@ -334,6 +349,8 @@ C_EXPORT bool overlay_init(void (*hlog_)(const char *fmt, ...))
 	Gdiplus::Status status = Gdiplus::GdiplusStartup(&gdi_token, &gdiplusStartupInput, NULL);
 
 	indicatorManager.LoadImages();
+
+	*overlay_cursor.Lock() = LoadCursorW(nullptr, IDC_ARROW);
 
 	CreateRestartThread();
 
