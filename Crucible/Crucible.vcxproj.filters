@@ -38,5 +38,8 @@
     <ClInclude Include="ThreadTools.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ProtectedObject.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

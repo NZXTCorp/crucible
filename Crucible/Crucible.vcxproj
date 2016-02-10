@@ -85,6 +85,7 @@
   <ItemGroup>
     <ClInclude Include="IPC.hpp" />
     <ClInclude Include="OBSHelpers.hpp" />
+    <ClInclude Include="ProtectedObject.hpp" />
     <ClInclude Include="TestWindow.h" />
     <ClInclude Include="ThreadTools.hpp" />
   </ItemGroup>
