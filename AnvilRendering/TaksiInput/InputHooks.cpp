@@ -414,6 +414,29 @@ HCURSOR WINAPI Hook_GetCursor(VOID)
 	return res;
 }
 
+static bool UpdateCursorState()
+{
+	static bool was_showing = false;
+
+	if (was_showing != g_bBrowserShowing)
+	{
+		if (g_bBrowserShowing)
+			ShowOverlayCursor();
+		else
+			RestoreCursor();
+
+		was_showing = g_bBrowserShowing;
+
+		return true;
+	}
+
+	if (!g_bBrowserShowing)
+		return false;
+
+	ResetOverlayCursor();
+	return true;
+}
+
 template <typename T>
 static bool InitHook(HMODULE dll, T *&orig, T* new_, const char *name, CHookJump &hook)
 {
@@ -542,6 +565,8 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 			return handleKey(KEY_UP);
 		case WM_CHAR:
 			return handleKey(KEY_CHAR);
+		case WM_SETCURSOR:
+			return UpdateCursorState();
 	}
 
 	return false;
