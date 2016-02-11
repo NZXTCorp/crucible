@@ -40,6 +40,7 @@ using namespace std;
 
 extern "C" {
 	_declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 
 extern OBSEncoder CreateAudioEncoder(const char *name);
