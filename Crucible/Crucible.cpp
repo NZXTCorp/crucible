@@ -1244,7 +1244,7 @@ struct CrucibleContext {
 		auto scale = width / static_cast<float>(target_width);
 		auto new_height = static_cast<decltype(ovi.output_height)>(height / scale);
 
-		if (width <= target_width && width == ovi.base_width && height == ovi.base_height && target_width == ovi.output_width && new_height == ovi.output_height)
+		if (width == ovi.base_width && height == ovi.base_height && target_width == ovi.output_width && new_height == ovi.output_height)
 			return false;
 
 		if (width > target_width) {
