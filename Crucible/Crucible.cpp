@@ -1244,7 +1244,9 @@ struct CrucibleContext {
 		auto scale = width / static_cast<float>(target_width);
 		auto new_height = static_cast<decltype(ovi.output_height)>(height / scale);
 
-		if (width == ovi.base_width && height == ovi.base_height && target_width == ovi.output_width && new_height == ovi.output_height)
+		bool output_dimensions_changed = target_width != ovi.output_width || new_height != ovi.output_height;
+
+		if (width == ovi.base_width && height == ovi.base_height && !output_dimensions_changed)
 			return false;
 
 		if (width > target_width) {
@@ -1270,7 +1272,9 @@ struct CrucibleContext {
 				sendRecordingStop = false;
 			}
 
-			StopVideo();
+			if (output_dimensions_changed)
+				StopVideo();
+			
 			StartVideo();
 
 			obs_output_start(this->output);
