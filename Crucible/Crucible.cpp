@@ -1242,7 +1242,7 @@ struct CrucibleContext {
 		ForgeEvents::SendBrowserSizeHint(width, height);
 
 		auto scale = width / static_cast<float>(target_width);
-		auto new_height = height / scale;
+		auto new_height = static_cast<decltype(ovi.output_height)>(height / scale);
 
 		if (width <= target_width && width == ovi.base_width && height == ovi.base_height && target_width == ovi.output_width && new_height == ovi.output_height)
 			return false;
@@ -1251,7 +1251,7 @@ struct CrucibleContext {
 			ovi.base_width = width;
 			ovi.base_height = height;
 			ovi.output_width = target_width;
-			ovi.output_height = static_cast<uint32_t>(new_height);
+			ovi.output_height = new_height;
 		} else {
 			ovi.base_width = width;
 			ovi.base_height = height;
