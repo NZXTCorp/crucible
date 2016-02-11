@@ -1501,6 +1501,11 @@ static void HandleClipFinished(CrucibleContext &cc, OBSData &obj)
 	AnvilCommands::ClipFinished(obs_data_get_bool(obj, "success"));
 }
 
+static void HandleStopForUpdate(CrucibleContext &cc, OBSData&)
+{
+	cc.StopVideo();
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -1518,6 +1523,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "dismiss_overlay", [](CrucibleContext&, OBSData&) { AnvilCommands::DismissOverlay(); } },
 		{ "clip_accepted", [](CrucibleContext&, OBSData&) { AnvilCommands::ShowClipping(); } },
 		{ "clip_finished", HandleClipFinished },
+		{ "stop_for_update", HandleStopForUpdate },
 	};
 	if (!data)
 		return;
