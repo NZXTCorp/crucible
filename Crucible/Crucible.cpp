@@ -1782,7 +1782,7 @@ LONG WINAPI SaveCrashDump(__in struct _EXCEPTION_POINTERS *ExceptionInfo)
 	auto utc = *gmtime(&t);
 	ostringstream dump_name;
 	dump_name << "crucible-crash-" << put_time(&utc, "%Y%m%dT%H%M%SZ") << "-" << GetCurrentProcessId() << ".dmp";
-	auto dump_path = GetConfigDirectory("crashdumps");
+	auto dump_path = GetConfigDirectory("logs");
 	
 	auto dump_path_w = dstr_to_wcs(dump_path);
 	SHCreateDirectoryExW(nullptr, dump_path_w, nullptr);
