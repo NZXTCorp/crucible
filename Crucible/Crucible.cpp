@@ -235,9 +235,14 @@ namespace ForgeEvents {
 		SendFileCompleteEvent(EventCreate("buffer_ready"), filename, total_frames, duration, bookmarks, width, height);
 	}
 
-	void SendInjectFailed()
+	void SendInjectFailed(long *injector_exit_code)
 	{
-		SendEvent(EventCreate("inject_failed"));
+		auto event = EventCreate("inject_failed");
+		
+		if (injector_exit_code)
+			obs_data_set_int(event, "injector_exit_code", *injector_exit_code);
+
+		SendEvent(event);
 	}
 
 	void SendInjectRequest(bool process_is_64bit, bool anti_cheat, DWORD process_thread_id)
@@ -1127,7 +1132,7 @@ struct CrucibleContext {
 			.SetOwner(gameCapture)
 			.SetFunc([=](calldata_t *data)
 		{
-			ForgeEvents::SendInjectFailed();
+			ForgeEvents::SendInjectFailed(static_cast<long*>(calldata_ptr(data, "injector_exit_code")));
 		}).Connect();
 
 		injectRequest
