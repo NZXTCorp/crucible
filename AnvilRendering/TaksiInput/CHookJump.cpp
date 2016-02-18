@@ -23,6 +23,8 @@ bool CHookJump::InstallHook( LPVOID pFunc, LPVOID pFuncNew )
 	hook_init(&hook, pFunc, pFuncNew, "unknown hook name");
 	rehook(&hook);
 
+	installed = hook.hooked;
+
 	DEBUG_MSG(("InstallHook: JMP-hook planted." LOG_CR));
 	return true;
 }
@@ -36,6 +38,8 @@ void CHookJump::RemoveHook( LPVOID pFunc)
 	try 
 	{
 		unhook(&hook);
+
+		installed = false;
 	}
 	catch (...)
 	{

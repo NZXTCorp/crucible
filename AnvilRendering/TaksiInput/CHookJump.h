@@ -17,7 +17,7 @@ public:
 
 	bool IsHookInstalled() const
 	{
-		return hook.hooked;
+		return installed;
 	}
 	bool InstallHook( LPVOID pFunc, LPVOID pFuncNew );
 	void RemoveHook( LPVOID pFunc );
@@ -51,5 +51,6 @@ public:
 #endif
 public:
 	func_hook hook{};
+	bool installed = false;
 };
 
