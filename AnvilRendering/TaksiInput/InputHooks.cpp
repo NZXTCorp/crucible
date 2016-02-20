@@ -101,6 +101,51 @@ DECLARE_HOOK(ShowCursor, [](BOOL bShow)
 	return s_HookShowCursor.Call(bShow);
 });
 
+static struct cursor_info_ {
+	bool saved = false;
+	bool showing = false;
+} cursor_info;
+
+void OverlaySaveShowCursor()
+{
+	CURSORINFO info;
+	info.cbSize = sizeof(CURSORINFO);
+	if (!GetCursorInfo(&info))
+		return;
+
+	cursor_info.saved = true;
+	cursor_info.showing = info.flags == CURSOR_SHOWING;
+
+	if (!s_HookShowCursor.hook.IsHookInstalled())
+		return;
+
+	info.cbSize = sizeof(CURSORINFO);
+	for (; GetCursorInfo(&info) && !info.flags;)
+	{
+		s_HookShowCursor.Call(true);
+		info.cbSize = sizeof(CURSORINFO);
+	}
+}
+
+void OverlayRestoreShowCursor()
+{
+	if (!cursor_info.saved || cursor_info.showing)
+		return;
+
+	cursor_info.saved = false;
+
+	if (!s_HookShowCursor.hook.IsHookInstalled())
+		return;
+
+	CURSORINFO info;
+	info.cbSize = sizeof(CURSORINFO);
+	for (; GetCursorInfo(&info) && info.flags == CURSOR_SHOWING;)
+	{
+		s_HookShowCursor.Call(false);
+		info.cbSize = sizeof(CURSORINFO);
+	}
+}
+
 #ifdef USE_DIRECTI
 
 bool GetDIHookOffsets( HINSTANCE hInst )
@@ -394,6 +439,7 @@ void RestoreCursor()
 	if (!s_HookSetCursor.IsHookInstalled())
 		return;
 
+	OverlayRestoreShowCursor();
 	s_HookSetCursor.SwapOld(s_SetCursor);
 	s_HookSetCursor.Call(s_SetCursor, old_cursor);
 	s_HookSetCursor.SwapReset(s_SetCursor);

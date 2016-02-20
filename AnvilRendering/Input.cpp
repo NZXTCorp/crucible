@@ -215,6 +215,7 @@ void DismissOverlay(bool from_remote)
 			SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER);
 }
 
+void OverlaySaveShowCursor();
 void ToggleOverlay()
 {
 	if (g_bBrowserShowing && forgeFramebufferServer.died)
@@ -231,6 +232,7 @@ void ToggleOverlay()
 		g_bBrowserShowing = true;
 
 		DisableRawInput();
+		OverlaySaveShowCursor();
 		mouse_position.x = g_Proc.m_Stats.m_SizeWnd.cx / 2;
 		mouse_position.y = g_Proc.m_Stats.m_SizeWnd.cy / 2;
 	} else {
