@@ -90,6 +90,9 @@ static CHookJump s_HookRegisterRawInputDevices;
 static CHookJump s_HookSetCursor;
 static CHookJump s_HookGetCursor;
 
+#define DECLARE_HOOK_EXP(func, name, wrapper) static FuncHook<decltype(func)> name{ #func, (decltype(func)*)wrapper }
+#define DECLARE_HOOK(func, wrapper) DECLARE_HOOK_EXP(func, s_Hook ## func, wrapper)
+
 #ifdef USE_DIRECTI
 
 bool GetDIHookOffsets( HINSTANCE hInst )
@@ -458,6 +461,17 @@ static bool InitHook(HMODULE dll, T *&orig, T* new_, const char *name, CHookJump
 		return true;
 
 	hlog("HookInput: unable to hook function %s", name);
+	return false;
+}
+
+template <typename T>
+static bool InitHook(HMODULE dll, T &hook)
+{
+	auto orig = (decltype(hook.original))GetProcAddress(dll, hook.func_name);
+	if (hook.Install(orig))
+		return true;
+
+	hlog("HookInput: unable to hook function %s", hook.func_name);
 	return false;
 }
 

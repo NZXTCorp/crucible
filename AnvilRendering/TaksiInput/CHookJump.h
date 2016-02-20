@@ -45,3 +45,42 @@ public:
 	static bool installed;
 };
 
+
+template <typename Func>
+struct FuncHook
+{
+	const char *func_name;
+	Func *wrapper;
+	Func *original = nullptr;
+	CHookJump hook;
+
+	FuncHook(const char *func_name, Func *wrapper)
+		: func_name(func_name),
+		  wrapper(wrapper)
+	{}
+
+	bool Install(Func *original_)
+	{
+		if (!hook.InstallHook(original_, wrapper))
+			return false;
+
+		original = original_;
+		return true;
+	}
+
+	void Remove()
+	{
+		if (original)
+			hook.RemoveHook(original);
+	}
+
+	template <typename ... CallArgs>
+	auto Call(CallArgs ... args) -> decltype(wrapper(args ...))
+	{
+		hook.SwapOld(nullptr);
+		auto res = hook.Call(original, std::forward<CallArgs>(args) ...);
+		hook.SwapReset(nullptr);
+		return res;
+	}
+};
+
