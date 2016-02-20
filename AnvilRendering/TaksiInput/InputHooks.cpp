@@ -111,6 +111,43 @@ DECLARE_HOOK(GetPhysicalCursorPos, [](LPPOINT lpPoint)
 	return s_HookGetPhysicalCursorPos.Call(lpPoint);
 });
 
+static RECT clip_cursor_rect;
+static bool cursor_clipped = false;
+DECLARE_HOOK(ClipCursor, [](CONST RECT *lpRect) -> BOOL
+{
+	cursor_clipped = !!lpRect;
+	if (cursor_clipped)
+		clip_cursor_rect = *lpRect;
+
+	if (g_bBrowserShowing)
+		return true;
+
+	return s_HookClipCursor.Call(lpRect);
+});
+
+DECLARE_HOOK(GetClipCursor, [](LPRECT lpRect) -> BOOL
+{
+	if (!g_bBrowserShowing)
+		return s_HookGetClipCursor.Call(lpRect);
+
+	if (!lpRect)
+		return true;
+
+	if (cursor_clipped)
+	{
+		*lpRect = clip_cursor_rect;
+		return true;
+	}
+
+	MONITORINFO info;
+	info.cbSize = sizeof(info);
+	GetMonitorInfoW(MonitorFromWindow(g_Proc.m_Stats.m_hWndCap, MONITOR_DEFAULTTOPRIMARY), &info);
+
+	*lpRect = info.rcMonitor; // no idea if the coordinate systems match here
+
+	return true;
+});
+
 static struct cursor_info_ {
 	bool saved = false;
 	bool showing = false;
@@ -620,6 +657,9 @@ static bool InitHooks()
 
 			if (!InitHook(dll, s_HookGetPhysicalCursorPos))
 				hlog("GetPhysicalCursorPos not available (probably the same as GetCursorPos, on windows 8.1+?)");
+
+			InitHook(dll, s_HookClipCursor);
+			InitHook(dll, s_HookGetClipCursor);
 
 			return true;
 		}())
