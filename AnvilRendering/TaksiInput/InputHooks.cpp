@@ -93,6 +93,14 @@ static CHookJump s_HookGetCursor;
 #define DECLARE_HOOK_EXP(func, name, wrapper) static FuncHook<decltype(func)> name{ #func, (decltype(func)*)wrapper }
 #define DECLARE_HOOK(func, wrapper) DECLARE_HOOK_EXP(func, s_Hook ## func, wrapper)
 
+DECLARE_HOOK(ShowCursor, [](BOOL bShow)
+{
+	if (g_bBrowserShowing)
+		return bShow ? 0 : -1;
+
+	return s_HookShowCursor.Call(bShow);
+});
+
 #ifdef USE_DIRECTI
 
 bool GetDIHookOffsets( HINSTANCE hInst )
@@ -546,6 +554,9 @@ static bool InitHooks()
 				return false;
 
 			if (!InitHook(dll, s_GetCursor, Hook_GetCursor, "GetCursor", s_HookGetCursor))
+				return false;
+
+			if (!InitHook(dll, s_HookShowCursor))
 				return false;
 
 			return true;
