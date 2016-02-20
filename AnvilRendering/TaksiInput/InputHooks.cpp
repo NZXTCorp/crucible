@@ -370,6 +370,9 @@ extern ProtectedObject<HCURSOR> overlay_cursor;
 static HCURSOR old_cursor = nullptr;
 void ShowOverlayCursor()
 {
+	if (!s_HookSetCursor.IsHookInstalled())
+		return;
+
 	s_HookSetCursor.SwapOld(s_SetCursor);
 	old_cursor = s_HookSetCursor.Call(s_SetCursor, *overlay_cursor.Lock());
 	s_HookSetCursor.SwapReset(s_SetCursor);
@@ -377,6 +380,9 @@ void ShowOverlayCursor()
 
 void RestoreCursor()
 {
+	if (!s_HookSetCursor.IsHookInstalled())
+		return;
+
 	s_HookSetCursor.SwapOld(s_SetCursor);
 	s_HookSetCursor.Call(s_SetCursor, old_cursor);
 	s_HookSetCursor.SwapReset(s_SetCursor);
@@ -384,6 +390,9 @@ void RestoreCursor()
 
 void ResetOverlayCursor()
 {
+	if (!s_HookSetCursor.IsHookInstalled())
+		return;
+
 	if (!g_bBrowserShowing)
 		return;
 
