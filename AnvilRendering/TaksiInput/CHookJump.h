@@ -61,10 +61,11 @@ struct FuncHook
 
 	bool Install(Func *original_)
 	{
+		original = original_;
+
 		if (!hook.InstallHook(original_, wrapper))
 			return false;
 
-		original = original_;
 		return true;
 	}
 
