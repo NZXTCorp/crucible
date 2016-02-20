@@ -20,10 +20,11 @@ bool CHookJump::InstallHook( LPVOID pFunc, LPVOID pFuncNew )
 
 	// DEBUG_TRACE(("InstallHook: pFunc = %08x, pFuncNew = %08x" LOG_CR, (UINT_PTR)pFunc, (UINT_PTR)pFuncNew ));
 
-	hook_init(&hook, pFunc, pFuncNew, "unknown hook name");
-	rehook(&hook);
-
-	installed = hook.hooked;
+	if (MH_CreateHook(pFunc, pFuncNew, &original) != MH_OK)
+	{
+		LOG_WARN("MH_CreateHook failed");
+		return false;
+	}
 
 	DEBUG_MSG(("InstallHook: JMP-hook planted." LOG_CR));
 	return true;
@@ -37,7 +38,7 @@ void CHookJump::RemoveHook( LPVOID pFunc)
 		return;
 	try 
 	{
-		unhook(&hook);
+		MH_DisableHook(pFunc);
 
 		installed = false;
 	}

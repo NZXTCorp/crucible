@@ -452,84 +452,111 @@ static bool InitHook(HMODULE dll, T *&orig, T* new_, const char *name, CHookJump
 	return false;
 }
 
-bool HookInput( void )
+static std::once_flag init_mh;
+bool CHookJump::installed = false;
+
+static bool InitHooks()
 {
-	HMODULE dll = GetModuleHandle( L"user32.dll" );
-	s_GetKeyboardState = (GETKEYBOARDSTATE)GetProcAddress( dll, "GetKeyboardState" );
-	if ( !s_HookGetKeyboardState.InstallHook( s_GetKeyboardState, Hook_GetKeyboardState ) )
+	static bool hooks_ready = false;
+	std::call_once(init_mh, []
 	{
-		LOG_MSG( "HookInput: unable to hook function GetKeyboardState" LOG_CR );
-		return false;
-	}
+		if ([]
+		{
+			if (MH_Initialize())
+			{
+				hlog("MH_Initialize failed");
+				return false;
+			}
 
-	s_GetAsyncKeyState = (GETASYNCKEYSTATE)GetProcAddress( dll, "GetAsyncKeyState" );
-	if ( !s_HookGetAsyncKeyState.InstallHook( s_GetAsyncKeyState, Hook_GetAsyncKeyState ) )
-	{
-		LOG_MSG( "HookInput: unable to hook function GetAsyncKeyState" LOG_CR );
-		return false;
-	}
+			HMODULE dll = GetModuleHandle(L"user32.dll");
+			s_GetKeyboardState = (GETKEYBOARDSTATE)GetProcAddress(dll, "GetKeyboardState");
+			if (!s_HookGetKeyboardState.InstallHook(s_GetKeyboardState, Hook_GetKeyboardState))
+			{
+				LOG_MSG("HookInput: unable to hook function GetKeyboardState" LOG_CR);
+				return false;
+			}
 
-	s_GetCursorPos = (GETCURSORPOS)GetProcAddress( dll, "GetCursorPos" );
-	if ( !s_HookGetCursorPos.InstallHook( s_GetCursorPos, Hook_GetCursorPos ) )
-	{
-		LOG_MSG( "HookInput: unable to hook function GetCursorPos" LOG_CR );
-		return false;
-	}
+			s_GetAsyncKeyState = (GETASYNCKEYSTATE)GetProcAddress(dll, "GetAsyncKeyState");
+			if (!s_HookGetAsyncKeyState.InstallHook(s_GetAsyncKeyState, Hook_GetAsyncKeyState))
+			{
+				LOG_MSG("HookInput: unable to hook function GetAsyncKeyState" LOG_CR);
+				return false;
+			}
 
-	s_SetCursorPos = (SETCURSORPOS)GetProcAddress( dll, "SetCursorPos" );
-	if ( !s_HookSetCursorPos.InstallHook( s_SetCursorPos, Hook_SetCursorPos ) )
-	{
-		LOG_MSG( "HookInput: unable to hook function SetCursorPos" LOG_CR );
-		return false;
-	}
+			s_GetCursorPos = (GETCURSORPOS)GetProcAddress(dll, "GetCursorPos");
+			if (!s_HookGetCursorPos.InstallHook(s_GetCursorPos, Hook_GetCursorPos))
+			{
+				LOG_MSG("HookInput: unable to hook function GetCursorPos" LOG_CR);
+				return false;
+			}
 
-	s_GetRawInputData = (GETRAWINPUTDATA)GetProcAddress( dll, "GetRawInputData" );
-	if ( !s_HookGetRawInputData.InstallHook( s_GetRawInputData, Hook_GetRawInputData ) )
-	{
-		LOG_MSG( "HookInput: unable to hook function GetRawInputData" LOG_CR );
-		return false;
-	}
+			s_SetCursorPos = (SETCURSORPOS)GetProcAddress(dll, "SetCursorPos");
+			if (!s_HookSetCursorPos.InstallHook(s_SetCursorPos, Hook_SetCursorPos))
+			{
+				LOG_MSG("HookInput: unable to hook function SetCursorPos" LOG_CR);
+				return false;
+			}
 
-	s_GetRawInputBuffer = (GETRAWINPUTBUFFER)GetProcAddress( dll, "GetRawInputBuffer" );
-	if ( !s_HookGetRawInputBuffer.InstallHook( s_GetRawInputBuffer, Hook_GetRawInputBuffer ) )
-	{
-		LOG_MSG( "HookInput: unable to hook function GetRawInputBuffer" LOG_CR );
-		return false;
-	}
+			s_GetRawInputData = (GETRAWINPUTDATA)GetProcAddress(dll, "GetRawInputData");
+			if (!s_HookGetRawInputData.InstallHook(s_GetRawInputData, Hook_GetRawInputData))
+			{
+				LOG_MSG("HookInput: unable to hook function GetRawInputData" LOG_CR);
+				return false;
+			}
+
+			s_GetRawInputBuffer = (GETRAWINPUTBUFFER)GetProcAddress(dll, "GetRawInputBuffer");
+			if (!s_HookGetRawInputBuffer.InstallHook(s_GetRawInputBuffer, Hook_GetRawInputBuffer))
+			{
+				LOG_MSG("HookInput: unable to hook function GetRawInputBuffer" LOG_CR);
+				return false;
+			}
 
 #ifdef HOOK_REGISTER_RAW_DEVICES
-	if (!InitHook(dll, s_GetRegisteredRawInputDevices, Hook_GetRegisteredRawInputDevices, "GetRegisteredRawInputDevices", s_HookGetRegisteredRawInputDevices))
-		return false;
+			if (!InitHook(dll, s_GetRegisteredRawInputDevices, Hook_GetRegisteredRawInputDevices, "GetRegisteredRawInputDevices", s_HookGetRegisteredRawInputDevices))
+				return false;
 
-	if (!InitHook(dll, s_RegisterRawInputDevices, Hook_RegisterRawInputDevices, "RegisterRawInputDevices", s_HookRegisterRawInputDevices))
-		return false;
+			if (!InitHook(dll, s_RegisterRawInputDevices, Hook_RegisterRawInputDevices, "RegisterRawInputDevices", s_HookRegisterRawInputDevices))
+				return false;
 #endif
 
-	if (!InitHook(dll, s_SetCursor, Hook_SetCursor, "SetCursor", s_HookSetCursor))
+			if (!InitHook(dll, s_SetCursor, Hook_SetCursor, "SetCursor", s_HookSetCursor))
+				return false;
+
+			if (!InitHook(dll, s_GetCursor, Hook_GetCursor, "GetCursor", s_HookGetCursor))
+				return false;
+
+			return true;
+		}())
+			hooks_ready = true;
+	});
+
+	return hooks_ready;
+}
+
+bool HookInput( void )
+{
+	if (!InitHooks())
 		return false;
 
-	if (!InitHook(dll, s_GetCursor, Hook_GetCursor, "GetCursor", s_HookGetCursor))
+	if (MH_EnableHook(MH_ALL_HOOKS) != MH_OK)
+	{
+		hlog("MH_EnableHook failed");
 		return false;
+	}
+
+	CHookJump::installed = true;
 
 	return true;
 }
 
 void UnhookInput( void )
 {
-	s_HookGetKeyboardState.RemoveHook( s_GetKeyboardState );
-	s_HookGetAsyncKeyState.RemoveHook( s_GetAsyncKeyState );
-	s_HookGetCursorPos.RemoveHook( s_GetCursorPos );
-	s_HookSetCursorPos.RemoveHook( s_SetCursorPos );
-	s_HookGetRawInputData.RemoveHook( s_GetRawInputData );
-	s_HookGetRawInputBuffer.RemoveHook( s_GetRawInputBuffer );
+	if (!InitHooks())
+		return;
 
-#ifdef HOOK_REGISTER_RAW_DEVICES
-	s_HookGetRegisteredRawInputDevices.RemoveHook(s_GetRegisteredRawInputDevices);
-	s_HookRegisterRawInputDevices.RemoveHook(s_RegisterRawInputDevices);
-#endif
+	CHookJump::installed = false;
 
-	s_HookSetCursor.RemoveHook(s_SetCursor);
-	s_HookGetCursor.RemoveHook(s_GetCursor);
+	MH_DisableHook(MH_ALL_HOOKS);
 }
 
 // handle any input events sent to game's window. return true if we're eating them (ie: showing overlay)

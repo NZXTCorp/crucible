@@ -71,25 +71,25 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProjectDir);$(OBSLib);$(OBSLib)\..\deps\ipc-util;$(ForgeLib)\open-steamworks\Open Steamworks;$(Boost);$(ForgeLib)\libcef-3.2526.1352.g61f7df0;$(OpenSSL)\include;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\include;$(ForgeLib)\cajun-2.0.2;$(IncludePath)</IncludePath>
-    <LibraryPath>$(OBSBuild)\..\deps\ipc-util\$(Configuration);$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
+    <IncludePath>$(MinHook)\include;$(ProjectDir);$(OBSLib);$(OBSLib)\..\deps\ipc-util;$(ForgeLib)\open-steamworks\Open Steamworks;$(Boost);$(ForgeLib)\libcef-3.2526.1352.g61f7df0;$(OpenSSL)\include;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\include;$(ForgeLib)\cajun-2.0.2;$(IncludePath)</IncludePath>
+    <LibraryPath>$(MinHook)\build\VC12\lib\$(Configuration);$(OBSBuild)\..\deps\ipc-util\$(Configuration);$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProjectDir);$(OBSLib);$(OBSLib)\..\deps\ipc-util;$(ForgeLib)\open-steamworks\Open Steamworks;$(Boost);$(ForgeLib)\libcef-3.2526.1352.g61f7df0;$(OpenSSL)\include;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\include;$(ForgeLib)\cajun-2.0.2;$(IncludePath)</IncludePath>
-    <LibraryPath>$(OBSBuild64)\..\deps\ipc-util\$(Configuration);$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
+    <IncludePath>$(MinHook)\include;$(ProjectDir);$(OBSLib);$(OBSLib)\..\deps\ipc-util;$(ForgeLib)\open-steamworks\Open Steamworks;$(Boost);$(ForgeLib)\libcef-3.2526.1352.g61f7df0;$(OpenSSL)\include;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\include;$(ForgeLib)\cajun-2.0.2;$(IncludePath)</IncludePath>
+    <LibraryPath>$(MinHook)\build\VC12\lib\$(Configuration);$(OBSBuild64)\..\deps\ipc-util\$(Configuration);$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)\$(Configuration)\</OutDir>
     <TargetName>$(ProjectName)64</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProjectDir);$(OBSLib);$(OBSLib)\..\deps\ipc-util;$(ForgeLib)\open-steamworks\Open Steamworks;$(Boost);$(ForgeLib)\libcef-3.2526.1352.g61f7df0;$(OpenSSL)\include;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\include;$(ForgeLib)\cajun-2.0.2;$(IncludePath)</IncludePath>
-    <LibraryPath>$(OBSBuild)\..\deps\ipc-util\$(Configuration);$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
+    <IncludePath>$(MinHook)\include;$(ProjectDir);$(OBSLib);$(OBSLib)\..\deps\ipc-util;$(ForgeLib)\open-steamworks\Open Steamworks;$(Boost);$(ForgeLib)\libcef-3.2526.1352.g61f7df0;$(OpenSSL)\include;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\include;$(ForgeLib)\cajun-2.0.2;$(IncludePath)</IncludePath>
+    <LibraryPath>$(MinHook)\build\VC12\lib\$(Configuration);$(OBSBuild)\..\deps\ipc-util\$(Configuration);$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProjectDir);$(OBSLib);$(OBSLib)\..\deps\ipc-util;$(ForgeLib)\open-steamworks\Open Steamworks;$(Boost);$(ForgeLib)\libcef-3.2526.1352.g61f7df0;$(OpenSSL)\include;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\include;$(ForgeLib)\cajun-2.0.2;$(IncludePath)</IncludePath>
-    <LibraryPath>$(OBSBuild64)\..\deps\ipc-util\$(Configuration);$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
+    <IncludePath>$(MinHook)\include;$(ProjectDir);$(OBSLib);$(OBSLib)\..\deps\ipc-util;$(ForgeLib)\open-steamworks\Open Steamworks;$(Boost);$(ForgeLib)\libcef-3.2526.1352.g61f7df0;$(OpenSSL)\include;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\include;$(ForgeLib)\cajun-2.0.2;$(IncludePath)</IncludePath>
+    <LibraryPath>$(MinHook)\build\VC12\lib\$(Configuration);$(OBSBuild64)\..\deps\ipc-util\$(Configuration);$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)\$(Configuration)\</OutDir>
     <TargetName>$(ProjectName)64</TargetName>
   </PropertyGroup>
@@ -104,7 +104,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>dxguid.lib;dinput8.lib;ipc-util.lib;shlwapi.lib;gdiplus.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libMinHook.x86.lib;dxguid.lib;dinput8.lib;ipc-util.lib;shlwapi.lib;gdiplus.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -118,7 +118,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>dxguid.lib;dinput8.lib;ipc-util.lib;shlwapi.lib;gdiplus.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libMinHook.x64.lib;dxguid.lib;dinput8.lib;ipc-util.lib;shlwapi.lib;gdiplus.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -136,7 +136,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>dxguid.lib;dinput8.lib;ipc-util.lib;shlwapi.lib;gdiplus.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libMinHook.x86.lib;dxguid.lib;dinput8.lib;ipc-util.lib;shlwapi.lib;gdiplus.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -154,12 +154,11 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>dxguid.lib;dinput8.lib;ipc-util.lib;shlwapi.lib;gdiplus.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libMinHook.x64.lib;dxguid.lib;dinput8.lib;ipc-util.lib;shlwapi.lib;gdiplus.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="AnvilRendering.h" />
-    <ClInclude Include="funchook.h" />
     <ClInclude Include="GAPI_render\CDll.h" />
     <ClInclude Include="GAPI_render\CImageGDIP.h" />
     <ClInclude Include="GAPI_render\CRefPtr.h" />
@@ -197,12 +196,6 @@
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="funchook.c">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="GAPI_render\GAPI_dx10_render.cpp" />
     <ClCompile Include="GAPI_render\GAPI_dx11_render.cpp" />
