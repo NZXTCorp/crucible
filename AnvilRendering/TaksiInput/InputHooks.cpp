@@ -101,6 +101,16 @@ DECLARE_HOOK(ShowCursor, [](BOOL bShow)
 	return s_HookShowCursor.Call(bShow);
 });
 
+DECLARE_HOOK(SetPhysicalCursorPos, [](int X, int Y)
+{
+	return s_HookSetPhysicalCursorPos.Call(X, Y);
+});
+
+DECLARE_HOOK(GetPhysicalCursorPos, [](LPPOINT lpPoint)
+{
+	return s_HookGetPhysicalCursorPos.Call(lpPoint);
+});
+
 static struct cursor_info_ {
 	bool saved = false;
 	bool showing = false;
@@ -604,6 +614,12 @@ static bool InitHooks()
 
 			if (!InitHook(dll, s_HookShowCursor))
 				return false;
+
+			if (!InitHook(dll, s_HookSetPhysicalCursorPos))
+				return false;
+
+			if (!InitHook(dll, s_HookGetPhysicalCursorPos))
+				hlog("GetPhysicalCursorPos not available (probably the same as GetCursorPos, on windows 8.1+?)");
 
 			return true;
 		}())
