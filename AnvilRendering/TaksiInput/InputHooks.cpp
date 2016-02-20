@@ -113,6 +113,7 @@ DECLARE_HOOK(GetPhysicalCursorPos, [](LPPOINT lpPoint)
 
 static RECT clip_cursor_rect;
 static bool cursor_clipped = false;
+static bool overlay_clip_saved = false;
 DECLARE_HOOK(ClipCursor, [](CONST RECT *lpRect) -> BOOL
 {
 	cursor_clipped = !!lpRect;
@@ -120,7 +121,12 @@ DECLARE_HOOK(ClipCursor, [](CONST RECT *lpRect) -> BOOL
 		clip_cursor_rect = *lpRect;
 
 	if (g_bBrowserShowing)
+	{
+		if (overlay_clip_saved)
+			overlay_clip_saved = cursor_clipped;
+
 		return true;
+	}
 
 	return s_HookClipCursor.Call(lpRect);
 });
@@ -191,6 +197,29 @@ void OverlayRestoreShowCursor()
 		s_HookShowCursor.Call(false);
 		info.cbSize = sizeof(CURSORINFO);
 	}
+}
+
+void OverlayUnclipCursor()
+{
+	if (!s_HookGetClipCursor.hook.IsHookInstalled())
+		return;
+
+	if (s_HookGetClipCursor.Call(&clip_cursor_rect))
+		overlay_clip_saved = true;
+
+	s_HookClipCursor.Call(nullptr);
+}
+
+void OverlayRestoreClipCursor()
+{
+	if (!s_HookGetClipCursor.hook.IsHookInstalled())
+		return;
+
+	if (!overlay_clip_saved)
+		return;
+
+	overlay_clip_saved = false;
+	s_HookClipCursor.Call(&clip_cursor_rect);
 }
 
 #ifdef USE_DIRECTI
@@ -486,6 +515,7 @@ void RestoreCursor()
 	if (!s_HookSetCursor.IsHookInstalled())
 		return;
 
+	OverlayRestoreClipCursor();
 	OverlayRestoreShowCursor();
 	s_HookSetCursor.SwapOld(s_SetCursor);
 	s_HookSetCursor.Call(s_SetCursor, old_cursor);

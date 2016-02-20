@@ -216,6 +216,7 @@ void DismissOverlay(bool from_remote)
 }
 
 void OverlaySaveShowCursor();
+void OverlayUnclipCursor();
 void ToggleOverlay()
 {
 	if (g_bBrowserShowing && forgeFramebufferServer.died)
@@ -233,6 +234,7 @@ void ToggleOverlay()
 
 		DisableRawInput();
 		OverlaySaveShowCursor();
+		OverlayUnclipCursor();
 		mouse_position.x = g_Proc.m_Stats.m_SizeWnd.cx / 2;
 		mouse_position.y = g_Proc.m_Stats.m_SizeWnd.cy / 2;
 	} else {
