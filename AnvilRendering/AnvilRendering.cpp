@@ -132,6 +132,7 @@ static WORD hotkeys[HOTKEY_QTY] = { 0 };
 ProtectedObject<HCURSOR> overlay_cursor;
 
 extern void DismissOverlay(bool);
+extern void EnableInputHooks();
 
 static void RestartCrucibleServer();
 
@@ -203,6 +204,8 @@ static void HandleUpdateSettings(Object &obj)
 
 		hlog("hotkey '%s' (%s) updated", HotKeyTypeName(hotkey), setting_name);
 	};
+
+	EnableInputHooks();
 
 	{
 		LOCK(hotkeys_mutex);
