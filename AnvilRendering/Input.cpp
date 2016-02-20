@@ -260,20 +260,12 @@ static void ProcessHotKeys()
 	g_HotKeys.m_events.clear();
 }
 
-static bool hook_input = false;
-void EnableInputHooks()
-{
-	hook_input = true;
-}
-
 void HookWndProc();
 void HandleInputHook(HWND window)
 {
 #ifndef ANVIL_HOTKEYS
 	return;
 #endif
-	if (!hook_input)
-		return;
 
 	if (!win)
 	{
