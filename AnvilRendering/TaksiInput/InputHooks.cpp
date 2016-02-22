@@ -764,6 +764,10 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 			return handleKey(KEY_CHAR);
 		case WM_SETCURSOR:
 			return UpdateCursorState();
+		case WM_INPUT:
+			if (g_bBrowserShowing)
+				return DefWindowProc(hWnd, uMsg, wParam, lParam);
+			return false;
 	}
 
 	return false;
