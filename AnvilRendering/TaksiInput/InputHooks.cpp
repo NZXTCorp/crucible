@@ -749,13 +749,16 @@ void UnhookInput( void )
 
 // handle any input events sent to game's window. return true if we're eating them (ie: showing overlay)
 // we should try to keep this code simple and pass messages off to appropriate handler functions.
-bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
+bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LPMSG lpMsg=nullptr)
 {
 	auto handleKey = [&](KeyEventType type)
 	{
 		auto res = UpdateWMKeyState(wParam, type);
 		if (g_bBrowserShowing)
 			ForgeEvent::KeyEvent(uMsg, wParam, lParam);
+		if (uMsg != WM_CHAR && lpMsg)
+			TranslateMessage(lpMsg);
+
 		return res;
 	};
 
@@ -801,7 +804,7 @@ static bool HandlePeekMessage(LPMSG lpMsg, UINT wRemoveMsg)
 	if (!(wRemoveMsg & PM_REMOVE) || !lpMsg) // The Witness seems to always use PM_REMOVE, not sure what to do about games that use PM_NOREMOVE and actually do stuff with the message
 		return false;
 
-	if (InputWndProc(lpMsg->hwnd, lpMsg->message, lpMsg->wParam, lpMsg->lParam))
+	if (InputWndProc(lpMsg->hwnd, lpMsg->message, lpMsg->wParam, lpMsg->lParam, lpMsg))
 		return true;
 
 	return false;
