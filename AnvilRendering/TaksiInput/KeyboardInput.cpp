@@ -227,6 +227,10 @@ SHORT UpdateSingleKeyState( int key, SHORT state )
 // update the state of a single key from a GetRawInputData call
 void UpdateRawKeyState( PRAWKEYBOARD event )
 {
+	if (!g_bBrowserShowing)
+		return;
+
+	ZeroMemory(event, sizeof(*event));
 	//LOG_MSG( "UpdateRawKeyState: key event for %u, flags 0x%x"LOG_CR, event->VKey, event->Flags );
 }
 
