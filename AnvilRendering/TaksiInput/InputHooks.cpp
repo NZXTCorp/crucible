@@ -154,6 +154,25 @@ DECLARE_HOOK(GetClipCursor, [](LPRECT lpRect) -> BOOL
 	return true;
 });
 
+static bool HandlePeekMessage(LPMSG lpMsg, UINT wRemoveMsg);
+DECLARE_HOOK(PeekMessageA, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) -> BOOL
+{
+	BOOL res = false;
+	while ((res = s_HookPeekMessageA.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg)))
+		if (!HandlePeekMessage(lpMsg, wRemoveMsg))
+			break;
+	return res;
+});
+
+DECLARE_HOOK(PeekMessageW, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) -> BOOL
+{
+	BOOL res = false;
+	while ((res = s_HookPeekMessageW.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg)))
+		if (!HandlePeekMessage(lpMsg, wRemoveMsg))
+			break;
+	return res;
+});
+
 static struct cursor_info_ {
 	bool saved = false;
 	bool showing = false;
@@ -691,6 +710,9 @@ static bool InitHooks()
 			InitHook(dll, s_HookClipCursor);
 			InitHook(dll, s_HookGetClipCursor);
 
+			InitHook(dll, s_HookPeekMessageA);
+			InitHook(dll, s_HookPeekMessageW);
+
 			return true;
 		}())
 			hooks_ready = true;
@@ -769,6 +791,18 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 				return DefWindowProc(hWnd, uMsg, wParam, lParam);
 			return false;
 	}
+
+	return false;
+}
+
+
+static bool HandlePeekMessage(LPMSG lpMsg, UINT wRemoveMsg)
+{
+	if (!(wRemoveMsg & PM_REMOVE) || !lpMsg) // The Witness seems to always use PM_REMOVE, not sure what to do about games that use PM_NOREMOVE and actually do stuff with the message
+		return false;
+
+	if (InputWndProc(lpMsg->hwnd, lpMsg->message, lpMsg->wParam, lpMsg->lParam))
+		return true;
 
 	return false;
 }
