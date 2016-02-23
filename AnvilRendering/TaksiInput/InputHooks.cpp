@@ -756,7 +756,7 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LPMSG lpM
 		auto res = UpdateWMKeyState(wParam, type);
 		if (g_bBrowserShowing)
 			ForgeEvent::KeyEvent(uMsg, wParam, lParam);
-		if (uMsg != WM_CHAR && lpMsg)
+		if (g_bBrowserShowing && uMsg != WM_CHAR && lpMsg)
 			TranslateMessage(lpMsg);
 
 		return res;
