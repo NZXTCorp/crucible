@@ -258,6 +258,10 @@ static void ProcessHotKeys()
 			break;
 		case HOTKEY_Screenshot:
 			break;
+		case HOTKEY_Stream:
+			if (event.event == HKEVENT_PRESS)
+				ForgeEvent::StartStream();
+			break;
 		}
 	}
 

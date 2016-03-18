@@ -101,6 +101,11 @@ namespace ForgeEvent
 	{
 		return SendEvent(EventCreate("create_bookmark"));
 	}
+
+	bool StartStream()
+	{
+		return SendEvent(EventCreate("start_stream"));
+	}
 }
 
 
@@ -209,6 +214,7 @@ static void HandleUpdateSettings(Object &obj)
 		//UpdateHotkey(HOTKEY_Screenshot, "...?");
 		UpdateHotkey(HOTKEY_Bookmark, "bookmark_key");
 		UpdateHotkey(HOTKEY_Overlay, "highlight_key");
+		UpdateHotkey(HOTKEY_Stream, "stream_key");
 	}
 }
 

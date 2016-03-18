@@ -46,6 +46,7 @@ enum HOTKEY_TYPE
 	HOTKEY_Screenshot,
 	HOTKEY_Bookmark,
 	HOTKEY_Overlay,
+	HOTKEY_Stream,
 	HOTKEY_QTY,
 };
 
@@ -57,6 +58,7 @@ static inline const char *HotKeyTypeName(HOTKEY_TYPE hotkey)
 		HK(HOTKEY_Screenshot);
 		HK(HOTKEY_Bookmark);
 		HK(HOTKEY_Overlay);
+		HK(HOTKEY_Stream);
 	default:
 		break;
 	}
@@ -88,6 +90,7 @@ namespace ForgeEvent
 	bool ShowBrowser(const std::string &name, LONG width, LONG height);
 	bool HideBrowser();
 	bool CreateBookmark();
+	bool StartStream();
 }
 
 std::vector<uint8_t> *ReadNewFramebuffer();
