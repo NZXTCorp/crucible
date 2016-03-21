@@ -281,8 +281,9 @@ void HandleInputHook(HWND window)
 	if (!g_HotKeys.HotkeysAttached())
 		g_HotKeys.AttachHotKeysToApp();
 
-	if (g_UserDI.m_bSetup)
-		g_UserDI.ProcessDirectInput();
+	// TODO: Remove and implement DI hooks instead
+	/*if (g_UserDI.m_bSetup)
+		g_UserDI.ProcessDirectInput();*/
 
 	HookMouse();
 
