@@ -1156,6 +1156,11 @@ struct CrucibleContext {
 		obs_set_output_source(0, gameCapture);
 	}
 
+	void StartStreaming(const char *server, const char *key)
+	{
+		// start stream outputs
+	}
+
 	void UpdateSettings(obs_data_t *settings)
 	{
 		if (!settings)
@@ -1521,6 +1526,11 @@ static void HandleForgeWillClose(CrucibleContext &cc, OBSData&)
 	cc.StopVideo();
 }
 
+static void HandleStartStreaming(CrucibleContext &cc, OBSData& obj)
+{
+	cc.StartStreaming(obs_data_get_string(obj, "server"), obs_data_get_string(obj, "key"));
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -1539,6 +1549,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "clip_accepted", [](CrucibleContext&, OBSData&) { AnvilCommands::ShowClipping(); } },
 		{ "clip_finished", HandleClipFinished },
 		{ "forge_will_close", HandleForgeWillClose },
+		{ "start_streaming", HandleStartStreaming }
 	};
 	if (!data)
 		return;
