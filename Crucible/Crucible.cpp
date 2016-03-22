@@ -131,6 +131,22 @@ static DStr GetModulePath(const char *name)
 	return res;
 }
 
+
+
+
+struct obs_service_info streaming_service = {
+	"forge_rtmp",
+	[](void *data)->const char *{ return "forge streaming service"; },//rtmp_custom_name,
+	rtmp_custom_create,
+	rtmp_custom_destroy,
+	rtmp_custom_update,
+	rtmp_custom_properties,
+	[](void *data)->const char *{ return "live.twitch.tv"; },//rtmp_custom_url,
+	[](void *data)->const char *{ return "live_21389778_AW3JyWLOVc7JaalQNEYWzIylw76Rqd"; },//rtmp_custom_key,
+	[](void *data)->const char *{ return nullptr; },//rtmp_custom_username,
+	[](void *data)->const char *{ return nullptr; }//rtmp_custom_password
+};
+
 #ifdef _WIN64
 #define BIT_STRING "64bit"
 #else
@@ -626,7 +642,7 @@ struct CrucibleContext {
 	string filename = "";
 	string profiler_filename = "";
 	string muxerSettings = "";
-	OBSOutput output, buffer;
+	OBSOutput output, buffer, stream;
 	OBSOutputSignal startRecording, stopRecording;
 	OBSOutputSignal sentTrackedFrame, bufferSentTrackedFrame;
 	OBSOutputSignal bufferSaved;
@@ -907,6 +923,14 @@ struct CrucibleContext {
 
 		obs_output_set_video_encoder(buffer, h264);
 		obs_output_set_audio_encoder(buffer, aac, 0);
+
+
+		InitRef(stream, "Couldn't create stream output", obs_output_release,
+			obs_output_create("rtmp_output", "rtmp streaming", nullptr, nullptr));
+
+		obs_output_set_video_encoder(stream, h264);
+		obs_output_set_audio_encoder(stream, aac, 0);
+
 
 		stopRecording
 			.Disconnect()
