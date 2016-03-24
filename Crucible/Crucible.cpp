@@ -585,6 +585,17 @@ namespace AnvilCommands {
 
 		SendCommand(cmd);
 	}
+
+	void StreamStatus(bool streaming)
+	{
+		auto cmd = CommandCreate("stream_status");
+
+		obs_data_set_bool(cmd, "streaming", streaming);
+
+		LOCK(commandMutex);
+
+		SendCommand(cmd);
+	}
 }
 
 template <typename T, typename U>
