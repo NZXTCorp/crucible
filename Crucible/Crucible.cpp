@@ -967,14 +967,14 @@ struct CrucibleContext {
 		obs_output_set_video_encoder(buffer, h264);
 		obs_output_set_audio_encoder(buffer, aac, 0);
 
-
 		InitRef(stream, "Couldn't create stream output", obs_output_release,
 			obs_output_create("rtmp_output", "rtmp streaming", nullptr, nullptr));
 
-		obs_output_set_video_encoder(stream, h264);
+		obs_output_set_video_encoder(stream, stream_h264);
 		obs_output_set_audio_encoder(stream, aac, 0);
-
-
+		obs_output_set_service(stream, stream_service);
+		
+		
 		stopRecording
 			.Disconnect()
 			.SetOwner(output)
@@ -1002,6 +1002,7 @@ struct CrucibleContext {
 
 		auto weakOutput = OBSGetWeakRef(output);
 		auto weakBuffer = OBSGetWeakRef(buffer);
+		auto weakStream = OBSGetWeakRef(stream);
 
 		stopCapture
 			.Disconnect()
@@ -1013,6 +1014,10 @@ struct CrucibleContext {
 				obs_output_stop(ref);
 
 			ref = OBSGetStrongRef(weakBuffer);
+			if (ref)
+				obs_output_stop(ref);
+
+			ref = OBSGetStrongRef(weakStream);
 			if (ref)
 				obs_output_stop(ref);
 		}).Connect();
@@ -1035,6 +1040,12 @@ struct CrucibleContext {
 			ref = OBSGetStrongRef(weakBuffer);
 			if (ref)
 				obs_output_start(ref);
+
+			if (streaming) {
+				ref = OBSGetStrongRef(weakStream);
+				if (ref)
+					obs_output_start(ref);
+			}
 		}).Connect();
 	}
 
@@ -1382,6 +1393,8 @@ struct CrucibleContext {
 
 			obs_output_start(this->output);
 			obs_output_start(buffer);
+			if (streaming)
+				obs_output_start(stream);
 
 			{
 				LOCK(updateMutex);
@@ -1444,6 +1457,8 @@ struct CrucibleContext {
 			obs_output_stop(output);
 		if (obs_output_active(buffer))
 			obs_output_stop(buffer);
+		if (obs_output_active(stream))
+			obs_output_stop(stream);
 
 		output = nullptr;
 		buffer = nullptr;
@@ -1469,8 +1484,10 @@ struct CrucibleContext {
 		ResetVideo();
 
 		obs_encoder_set_video(h264, obs_get_video());
-		obs_encoder_set_audio(aac, obs_get_audio());
+		obs_encoder_set_video(stream_h264, obs_get_video());
 
+		obs_encoder_set_audio(aac, obs_get_audio());
+		
 		CreateOutput();
 	}
 
