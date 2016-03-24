@@ -142,6 +142,8 @@ static WORD hotkeys[HOTKEY_QTY] = { 0 };
 
 ProtectedObject<HCURSOR> overlay_cursor;
 
+bool stream_active = false;
+
 extern void DismissOverlay(bool);
 
 static void RestartCrucibleServer();
@@ -236,14 +238,23 @@ static void HandleSetCursor(Object &obj)
 	*cursor = handle;
 }
 
+static void HandleStreamStatus(Object &obj)
+{
+	Boolean streaming = obj["streaming"];
+	stream_active = streaming.Value();
+	if (streaming)
+		DismissOverlay(true);
+}
+
 static void HandleCommands(uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(Object&)> handlers = {
-		{"indicator", HandleIndicatorCommand},
-		{"forge_info", HandleForgeInfo},
-		{"update_settings", HandleUpdateSettings},
-		{"set_cursor", HandleSetCursor},
-		{"dismiss_overlay", [](Object&) { DismissOverlay(true); }}
+		{ "indicator", HandleIndicatorCommand },
+		{ "forge_info", HandleForgeInfo },
+		{ "update_settings", HandleUpdateSettings },
+		{ "set_cursor", HandleSetCursor },
+		{ "dismiss_overlay", [](Object&) { DismissOverlay(true); } },
+		{ "stream_status", HandleStreamStatus }
 	};
 
 	if (!data) {
