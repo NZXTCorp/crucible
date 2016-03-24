@@ -131,21 +131,6 @@ static DStr GetModulePath(const char *name)
 	return res;
 }
 
-
-
-
-struct obs_service_info streaming_service = {
-	"forge_rtmp",
-	[](void *data)->const char *{ return "forge streaming service"; },//rtmp_custom_name,
-	rtmp_custom_create,
-	rtmp_custom_destroy,
-	rtmp_custom_update,
-	rtmp_custom_properties,
-	[](void *data)->const char *{ return "live_21389778_AW3JyWLOVc7JaalQNEYWzIylw76Rqd"; },//rtmp_custom_key,
-	[](void *data)->const char *{ return nullptr; },//rtmp_custom_username,
-	[](void *data)->const char *{ return nullptr; }//rtmp_custom_password
-};
-
 #ifdef _WIN64
 #define BIT_STRING "64bit"
 #else
