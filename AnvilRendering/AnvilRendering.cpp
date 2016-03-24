@@ -107,6 +107,11 @@ namespace ForgeEvent
 	{
 		return SendEvent(EventCreate("start_stream"));
 	}
+
+	bool StopStream()
+	{
+		return SendEvent(EventCreate("stop_stream"));
+	}
 }
 
 
