@@ -75,22 +75,25 @@ enum HOTKEY_EVENT
 
 WORD GetHotKey(HOTKEY_TYPE t);
 
-void ToggleOverlay();
+void ToggleOverlay(const std::string& name = "");
 
 extern HINSTANCE g_hInst;
 extern bool g_bUseDirectInput;
 extern bool g_bUseKeyboard;
 extern bool g_bBrowserShowing;
 
+extern bool stream_active;
+
 namespace ForgeEvent
 {
 	bool KeyEvent(UINT msg, WPARAM wParam, LPARAM lParam);
 	bool MouseEvent(UINT msg, WPARAM wParam, LPARAM lParam);
 	bool InitBrowser(const std::string &name, LONG width, LONG height);
-	bool ShowBrowser(const std::string &name, LONG width, LONG height);
+	bool ShowBrowser(const std::string &server_name, LONG width, LONG height, const std::string& name);
 	bool HideBrowser();
 	bool CreateBookmark();
 	bool StartStream();
+	bool StopStream();
 }
 
 std::vector<uint8_t> *ReadNewFramebuffer();

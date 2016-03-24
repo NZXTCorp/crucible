@@ -391,7 +391,7 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt)
 	{
 	case HOTKEY_Overlay:
 		if (activated)
-			ToggleOverlay();
+			ToggleOverlay("highlighter");
 		return true;
 	case HOTKEY_Screenshot:
 	case HOTKEY_Bookmark:

@@ -84,12 +84,13 @@ namespace ForgeEvent
 			.Set("height", Number(height)));
 	}
 
-	bool ShowBrowser(const std::string &name, LONG width, LONG height)
+	bool ShowBrowser(const std::string &server_name, LONG width, LONG height, const std::string& name)
 	{
 		return SendEvent(EventCreate("show_browser")
-			.Set("framebuffer_server", String(name))
+			.Set("framebuffer_server", String(server_name))
 			.Set("width", Number(width))
-			.Set("height", Number(height)));
+			.Set("height", Number(height))
+			.Set("name", String(name)));
 	}
 
 	bool HideBrowser()
