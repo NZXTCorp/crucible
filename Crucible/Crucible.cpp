@@ -141,7 +141,6 @@ struct obs_service_info streaming_service = {
 	rtmp_custom_destroy,
 	rtmp_custom_update,
 	rtmp_custom_properties,
-	[](void *data)->const char *{ return "live.twitch.tv"; },//rtmp_custom_url,
 	[](void *data)->const char *{ return "live_21389778_AW3JyWLOVc7JaalQNEYWzIylw76Rqd"; },//rtmp_custom_key,
 	[](void *data)->const char *{ return nullptr; },//rtmp_custom_username,
 	[](void *data)->const char *{ return nullptr; }//rtmp_custom_password
@@ -638,7 +637,7 @@ struct CrucibleContext {
 	OBSSource tunes, mic, gameCapture;
 	OBSSourceSignal micMuted, pttActive;
 	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess;
-	OBSEncoder h264, aac;
+	OBSEncoder h264, aac, stream_h264;
 	string filename = "";
 	string profiler_filename = "";
 	string muxerSettings = "";
@@ -661,6 +660,10 @@ struct CrucibleContext {
 	obs_hotkey_id unmute_hotkey_id = OBS_INVALID_HOTKEY_ID;
 
 	obs_hotkey_id bookmark_hotkey_id = OBS_INVALID_HOTKEY_ID;
+
+	struct obs_service_info forge_streaming_service;
+	OBSService stream_service;
+	bool streaming = false;
 
 	struct RestartThread {
 		thread t;
@@ -764,6 +767,14 @@ struct CrucibleContext {
 		InitRef(h264, "Couldn't create video encoder", obs_encoder_release,
 				obs_video_encoder_create("obs_x264", "x264 video", vsettings, nullptr));
 
+		auto ssettings = OBSDataCreate();
+		obs_data_set_int(ssettings, "bitrate", target_bitrate);
+		obs_data_set_bool(ssettings, "cbr", true);
+		obs_data_set_string(ssettings, "profile", "high");
+		obs_data_set_string(ssettings, "preset", "veryfast");
+
+		InitRef(stream_h264, "Couldn't create stream video encoder", obs_encoder_release,
+			obs_video_encoder_create("obs_x264", "stream video", ssettings, nullptr));
 
 		aac = CreateAudioEncoder("aac");
 		if (!aac)
@@ -771,6 +782,8 @@ struct CrucibleContext {
 
 
 		obs_encoder_set_video(h264, obs_get_video());
+		obs_encoder_set_video(stream_h264, obs_get_video());
+
 		obs_encoder_set_audio(aac, obs_get_audio());
 	}
 
@@ -904,6 +917,40 @@ struct CrucibleContext {
 		{
 			ForgeEvents::SendMonitorProcess(static_cast<DWORD>(calldata_int(data, "process_id")));
 		});
+	}
+
+	void InitStreamService()
+	{
+		memset(&forge_streaming_service, 0, sizeof(forge_streaming_service));
+
+		forge_streaming_service.id = "forge_rtmp";
+		forge_streaming_service.get_name = [](void *data)->const char *{ return "forge streaming service"; };
+		forge_streaming_service.create = [](obs_data_t *settings, obs_service_t *service)->void *{ return obs_data_create(); };
+		forge_streaming_service.destroy = [](void *data)->void{ obs_data_release((obs_data_t *)data); };
+		forge_streaming_service.update = [](void *data, obs_data_t *settings)->void{ obs_data_apply((obs_data_t *)data, settings); };
+		//forge_streaming_service.get_properties = [](void *data)->obs_properties_t *{ return obs_properties_create(); };
+		forge_streaming_service.get_url = [](void *data)->const char *{ return obs_data_get_string((obs_data_t *)data, "server"); };
+		forge_streaming_service.get_key = [](void *data)->const char *{ return obs_data_get_string((obs_data_t *)data, "key"); };
+
+		obs_register_service(&forge_streaming_service);
+		
+		InitRef(stream_service, "Couldn't create streaming service", obs_service_release,
+			obs_service_create("forge_rtmp", "forge streaming", nullptr, nullptr));
+	}
+
+	void UpdateStreamSettings()
+	{
+		auto ssettings = OBSDataCreate();
+		obs_data_set_int(ssettings, "bitrate", 3000);
+		obs_data_set_bool(ssettings, "cbr", true);
+		obs_data_set_string(ssettings, "profile", "high");
+		obs_data_set_string(ssettings, "preset", "veryfast");
+
+		obs_encoder_update(stream_h264, ssettings);
+
+		// todo: set some useful default for these?
+		obs_output_set_delay(stream, 0, 0);
+		obs_output_set_reconnect_settings(stream, 0, 0);
 	}
 
 	void CreateOutput()
@@ -1471,6 +1518,7 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 
 	cc.CreateGameCapture(OBSDataGetObj(obj, "game_capture"));
 	cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
+	cc.UpdateStreamSettings();
 	cc.UpdateFilenames(obs_data_get_string(obj, "filename"), obs_data_get_string(obj, "profiler_data"));
 	cc.UpdateMuxerSettings(obs_data_get_string(obj, "muxer_settings"));
 
@@ -1617,6 +1665,7 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 			ProfileScope("CrucibleContext Init");
 
 			crucibleContext.InitLibobs(!forge);
+			crucibleContext.InitStreamService();
 			crucibleContext.InitSources();
 			crucibleContext.InitEncoders();
 			crucibleContext.InitSignals();
