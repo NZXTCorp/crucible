@@ -1225,7 +1225,22 @@ struct CrucibleContext {
 
 	void StartStreaming(const char *server, const char *key)
 	{
-		// start stream outputs
+		auto settings = OBSDataCreate();
+		obs_data_set_string(settings, "server", server);
+		obs_data_set_string(settings, "key", key);
+		obs_service_update(stream_service, settings);
+
+		UpdateStreamSettings();
+		streaming = true;
+		obs_output_start(stream);
+		AnvilCommands::StreamStatus(streaming);
+	}
+
+	void StopStreaming()
+	{
+		streaming = false;
+		obs_output_stop(stream);
+		AnvilCommands::StreamStatus(streaming);
 	}
 
 	void UpdateSettings(obs_data_t *settings)
@@ -1599,6 +1614,11 @@ static void HandleStartStreaming(CrucibleContext &cc, OBSData& obj)
 	cc.StartStreaming(obs_data_get_string(obj, "server"), obs_data_get_string(obj, "key"));
 }
 
+static void HandleStopStreaming(CrucibleContext &cc, OBSData&)
+{
+	cc.StopStreaming();
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -1617,7 +1637,8 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "clip_accepted", [](CrucibleContext&, OBSData&) { AnvilCommands::ShowClipping(); } },
 		{ "clip_finished", HandleClipFinished },
 		{ "forge_will_close", HandleForgeWillClose },
-		{ "start_streaming", HandleStartStreaming }
+		{ "start_streaming", HandleStartStreaming },
+		{ "stop_streaming", HandleStopStreaming }
 	};
 	if (!data)
 		return;
