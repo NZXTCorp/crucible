@@ -660,6 +660,9 @@ struct CrucibleContext {
 	struct obs_service_info forge_streaming_service;
 	OBSService stream_service;
 	bool streaming = false;
+	uint32_t target_stream_width = 1280;
+	uint32_t target_stream_height = 720;
+	uint32_t target_stream_bitrate = 3000;
 
 	struct RestartThread {
 		thread t;
@@ -764,10 +767,11 @@ struct CrucibleContext {
 				obs_video_encoder_create("obs_x264", "x264 video", vsettings, nullptr));
 
 		auto ssettings = OBSDataCreate();
-		obs_data_set_int(ssettings, "bitrate", target_bitrate);
+		obs_data_set_int(ssettings, "bitrate", target_stream_bitrate);
 		obs_data_set_bool(ssettings, "cbr", true);
 		obs_data_set_string(ssettings, "profile", "high");
 		obs_data_set_string(ssettings, "preset", "veryfast");
+		obs_data_set_string(ssettings, "x264opts", "keyint=30");
 
 		InitRef(stream_h264, "Couldn't create stream video encoder", obs_encoder_release,
 			obs_video_encoder_create("obs_x264", "stream video", ssettings, nullptr));
@@ -936,11 +940,17 @@ struct CrucibleContext {
 
 	void UpdateStreamSettings()
 	{
+		auto scale = ovi.output_width / static_cast<float>(target_stream_width);
+		target_stream_height = static_cast<uint32_t>(ovi.output_height / scale);
+
+		obs_encoder_set_scaled_size(stream_h264, target_stream_width, target_stream_height);
+
 		auto ssettings = OBSDataCreate();
-		obs_data_set_int(ssettings, "bitrate", 3000);
+		obs_data_set_int(ssettings, "bitrate", target_stream_bitrate);
 		obs_data_set_bool(ssettings, "cbr", true);
 		obs_data_set_string(ssettings, "profile", "high");
 		obs_data_set_string(ssettings, "preset", "veryfast");
+		obs_data_set_string(ssettings, "x264opts", "keyint=30");
 
 		obs_encoder_update(stream_h264, ssettings);
 
@@ -1413,6 +1423,9 @@ struct CrucibleContext {
 		uint32_t new_width = static_cast<uint32_t>(obs_data_get_int(settings, "width"));
 		uint32_t max_rate = static_cast<uint32_t>(obs_data_get_int(settings, "max_rate"));
 
+		uint32_t new_stream_width = static_cast<uint32_t>(obs_data_get_int(settings, "stream_width"));
+		uint32_t stream_rate = static_cast<uint32_t>(obs_data_get_int(settings, "stream_rate"));
+
 		LOCK(updateMutex);
 		if (max_rate) {
 			target_bitrate = max_rate;
@@ -1432,6 +1445,26 @@ struct CrucibleContext {
 				obs_data_set_string(vsettings, "x264opts", os.str().c_str());
 
 				obs_encoder_update(h264, vsettings);
+			}
+		}
+
+		if (stream_rate) {
+			target_stream_bitrate = stream_rate;
+
+			auto scale = ovi.output_width / static_cast<float>(new_stream_width);
+			target_stream_width = new_stream_width;
+			target_stream_height = static_cast<uint32_t>(ovi.output_height / scale);
+			
+			if (stream_h264) {
+				auto vsettings = OBSDataCreate();
+				obs_data_set_int(vsettings, "bitrate", stream_rate);
+				obs_data_set_bool(vsettings, "cbr", true);
+				obs_data_set_string(vsettings, "profile", "high");
+				obs_data_set_string(vsettings, "preset", "veryfast");
+				obs_data_set_string(vsettings, "x264opts", "keyint=30");
+				
+				obs_encoder_set_scaled_size(stream_h264, target_stream_width, target_stream_height);
+				obs_encoder_update(stream_h264, vsettings);
 			}
 		}
 
