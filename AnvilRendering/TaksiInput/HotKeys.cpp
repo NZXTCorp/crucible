@@ -393,6 +393,16 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt)
 		if (activated)
 			ToggleOverlay("highlighter");
 		return true;
+
+	case HOTKEY_Stream:
+		if (activated) {
+			if (stream_active)
+				ForgeEvent::StopStream();
+			else
+				ToggleOverlay("streaming");
+		}
+		return true;
+
 	case HOTKEY_Screenshot:
 	case HOTKEY_Bookmark:
 		// schedule to be in the PresentFrameBegin() call.
