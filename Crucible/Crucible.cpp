@@ -940,9 +940,10 @@ struct CrucibleContext {
 
 	void UpdateStreamSettings()
 	{
-		auto scale = ovi.output_width / static_cast<float>(target_stream_width);
-		target_stream_height = static_cast<uint32_t>(ovi.output_height / scale);
+		auto scale = ovi.base_width / static_cast<float>(target_stream_width);
+		target_stream_height = static_cast<uint32_t>(ovi.base_height / scale);
 
+		blog(LOG_INFO, "setting stream output size to %ux%u", target_stream_width, target_stream_height);
 		obs_encoder_set_scaled_size(stream_h264, target_stream_width, target_stream_height);
 
 		auto ssettings = OBSDataCreate();
@@ -1451,9 +1452,9 @@ struct CrucibleContext {
 		if (stream_rate) {
 			target_stream_bitrate = stream_rate;
 
-			auto scale = ovi.output_width / static_cast<float>(new_stream_width);
+			auto scale = ovi.base_width / static_cast<float>(new_stream_width);
 			target_stream_width = new_stream_width;
-			target_stream_height = static_cast<uint32_t>(ovi.output_height / scale);
+			target_stream_height = static_cast<uint32_t>(ovi.base_height / scale);
 			
 			if (stream_h264) {
 				auto vsettings = OBSDataCreate();
