@@ -217,7 +217,13 @@ void DismissOverlay(bool from_remote)
 
 void OverlaySaveShowCursor();
 void OverlayUnclipCursor();
-void ToggleOverlay(const std::string& name)
+
+static const char *name_for_overlay[OVERLAY_COUNT] = {
+	"highlighter",
+	"streaming"
+};
+
+void ToggleOverlay(ActiveOverlay overlay)
 {
 	if (g_bBrowserShowing && forgeFramebufferServer.died)
 		forgeFramebufferServer.Start();
@@ -226,7 +232,8 @@ void ToggleOverlay(const std::string& name)
 		if (forgeFramebufferServer.died)
 			forgeFramebufferServer.Start();
 
-		ForgeEvent::ShowBrowser(forgeFramebufferServer.name, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, name);
+		active_overlay = overlay;
+		ForgeEvent::ShowBrowser(forgeFramebufferServer.name, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, name_for_overlay[overlay]);
 		hlog("Requesting browser");
 
 
@@ -250,7 +257,7 @@ static void ProcessHotKeys()
 		{
 		case HOTKEY_Overlay:
 			if (event.event == HKEVENT_PRESS)
-				ToggleOverlay("highlighter");
+				ToggleOverlay(OVERLAY_HIGHLIGHTER);
 			break;
 		case HOTKEY_Bookmark:
 			if (event.event == HKEVENT_PRESS)
@@ -263,7 +270,7 @@ static void ProcessHotKeys()
 				if (stream_active)
 					ForgeEvent::StopStream();
 				else
-					ToggleOverlay("streaming");
+					ToggleOverlay(OVERLAY_STREAMING);
 			break;
 		}
 	}

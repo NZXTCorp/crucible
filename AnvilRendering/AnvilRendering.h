@@ -75,7 +75,15 @@ enum HOTKEY_EVENT
 
 WORD GetHotKey(HOTKEY_TYPE t);
 
-void ToggleOverlay(const std::string& name = "");
+enum ActiveOverlay
+{
+	OVERLAY_HIGHLIGHTER,
+	OVERLAY_STREAMING,
+	OVERLAY_COUNT
+};
+
+extern ActiveOverlay active_overlay;
+void ToggleOverlay(const ActiveOverlay overlay);
 
 extern HINSTANCE g_hInst;
 extern bool g_bUseDirectInput;

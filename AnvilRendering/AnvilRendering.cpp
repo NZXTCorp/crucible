@@ -311,6 +311,8 @@ bool g_bUseDirectInput = true;
 bool g_bUseKeyboard = true;
 bool g_bBrowserShowing = false;
 
+ActiveOverlay active_overlay = OVERLAY_HIGHLIGHTER;
+
 WORD GetHotKey(HOTKEY_TYPE t)
 {
 	if (t >= 0 && t < HOTKEY_QTY)

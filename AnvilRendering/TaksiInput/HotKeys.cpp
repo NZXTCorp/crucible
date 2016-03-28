@@ -391,7 +391,7 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt)
 	{
 	case HOTKEY_Overlay:
 		if (activated)
-			ToggleOverlay("highlighter");
+			ToggleOverlay(OVERLAY_HIGHLIGHTER);
 		return true;
 
 	case HOTKEY_Stream:
@@ -399,7 +399,7 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt)
 			if (stream_active)
 				ForgeEvent::StopStream();
 			else
-				ToggleOverlay("streaming");
+				ToggleOverlay(OVERLAY_STREAMING);
 		}
 		return true;
 
