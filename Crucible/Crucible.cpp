@@ -286,6 +286,20 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendStreamingStart()
+	{
+		auto event = EventCreate("started_streaming");
+
+		SendEvent(event);
+	}
+
+	void SendStreamingStop()
+	{
+		auto event = EventCreate("stopped_streaming");
+
+		SendEvent(event);
+	}
 }
 
 namespace AnvilCommands {
@@ -943,6 +957,7 @@ struct CrucibleContext {
 		{
 			streaming = true;
 			AnvilCommands::StreamStatus(streaming);
+			ForgeEvents::SendStreamingStart();
 		});
 
 		stopStreaming
@@ -951,7 +966,7 @@ struct CrucibleContext {
 		{
 			streaming = false;
 			AnvilCommands::StreamStatus(streaming);
-			// todo: send indicator
+			ForgeEvents::SendStreamingStop();
 		});
 
 	}
