@@ -302,6 +302,7 @@ namespace AnvilCommands {
 	atomic<bool> using_ptt = false;
 	atomic<bool> mic_muted = false;
 	atomic<bool> display_enabled_hotkey = false;
+	atomic<bool> streaming = false;
 
 	const uint64_t enabled_timeout_seconds = 10;
 	atomic<uint64_t> enabled_timeout = 0;
@@ -314,6 +315,9 @@ namespace AnvilCommands {
 
 	const uint64_t clip_finished_timeout_seconds = 5;
 	atomic<uint64_t> clip_finished_timeout = 0;
+
+	const uint64_t stream_timeout_seconds = 3;
+	atomic<uint64_t> stream_timeout = 0;
 
 	vector<JoiningThread> indicator_updaters;
 
@@ -448,6 +452,9 @@ namespace AnvilCommands {
 
 		if (clip_finished_timeout >= os_gettime_ns())
 			indicator = "clip_processed";
+
+		if (stream_timeout >= os_gettime_ns())
+			indicator = streaming ? "stream_started" : "stream_stopped";
 
 		obs_data_set_string(cmd, "indicator", indicator);
 
@@ -586,15 +593,19 @@ namespace AnvilCommands {
 		SendCommand(cmd);
 	}
 
-	void StreamStatus(bool streaming)
+	void StreamStatus(bool streaming_)
 	{
 		auto cmd = CommandCreate("stream_status");
 
-		obs_data_set_bool(cmd, "streaming", streaming);
+		streaming.exchange(streaming_);
+		obs_data_set_bool(cmd, "streaming", streaming_);
 
-		LOCK(commandMutex);
+		{
+			LOCK(commandMutex);
+			SendCommand(cmd);
+		}
 
-		SendCommand(cmd);
+		CreateIndicatorUpdater(stream_timeout_seconds, stream_timeout);
 	}
 }
 
@@ -663,6 +674,7 @@ struct CrucibleContext {
 	uint32_t target_stream_width = 1280;
 	uint32_t target_stream_height = 720;
 	uint32_t target_stream_bitrate = 3000;
+	OBSOutputSignal startStreaming, stopStreaming;
 
 	struct RestartThread {
 		thread t;
@@ -917,6 +929,24 @@ struct CrucibleContext {
 		{
 			ForgeEvents::SendMonitorProcess(static_cast<DWORD>(calldata_int(data, "process_id")));
 		});
+
+		startStreaming
+			.SetSignal("start")
+			.SetFunc([=](calldata*)
+		{
+			streaming = true;
+			AnvilCommands::StreamStatus(streaming);
+		});
+
+		stopStreaming
+			.SetSignal("stop")
+			.SetFunc([=](calldata*)
+		{
+			streaming = false;
+			AnvilCommands::StreamStatus(streaming);
+			// todo: send indicator
+		});
+
 	}
 
 	void InitStreamService()
@@ -1058,6 +1088,16 @@ struct CrucibleContext {
 					obs_output_start(ref);
 			}
 		}).Connect();
+
+		stopStreaming
+			.Disconnect()
+			.SetOwner(stream)
+			.Connect();
+
+		startStreaming
+			.Disconnect()
+			.SetOwner(stream)
+			.Connect();
 	}
 
 	void ClearBookmarks()
@@ -1253,16 +1293,12 @@ struct CrucibleContext {
 		obs_service_update(stream_service, settings);
 
 		UpdateStreamSettings();
-		streaming = true;
 		obs_output_start(stream);
-		AnvilCommands::StreamStatus(streaming);
 	}
 
 	void StopStreaming()
 	{
-		streaming = false;
 		obs_output_stop(stream);
-		AnvilCommands::StreamStatus(streaming);
 	}
 
 	void UpdateSettings(obs_data_t *settings)

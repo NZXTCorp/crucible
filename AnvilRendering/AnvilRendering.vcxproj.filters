@@ -163,6 +163,18 @@
     <Image Include="GAPI_render\res\indicator_uploaded.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="res\indicator_stream_ended.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="res\indicator_stream_started.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\indicator_stream_ended.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\indicator_stream_started.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="GAPI_render\Anvil.rc">
@@ -228,6 +240,66 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="cursors\none.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\aliasb.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\cell.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\col_resize.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\copy.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\hand_grab.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\hand_grabbing.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\pan_east.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\pan_middle.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\pan_north.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\pan_north_east.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\pan_north_west.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\pan_south.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\pan_south_east.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\pan_south_west.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\pan_west.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\row_resize.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\vertical_text.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\zoom_in.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\zoom_out.cur">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="AnvilRendering\cursors\none.cur">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

@@ -37,6 +37,8 @@ static int s_image_res[INDICATE_NONE] =
 	IDB_CACHE_LIMIT,
 	IDB_HIGHLIGHT_UPLOADING,
 	IDB_HIGHLIGHT_UPLOADED,
+	IDB_STREAM_STARTED,
+	IDB_STREAM_STOPPED
 };
 
 static Bitmap *LoadBitmapFromResource( wchar_t *resource_name )

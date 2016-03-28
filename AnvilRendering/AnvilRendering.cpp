@@ -166,6 +166,8 @@ static void HandleIndicatorCommand(Object &obj)
 		{"cache_limit",INDICATE_CACHE_LIMIT},
 		{"clip_processing", INDICATE_CLIP_PROCESSING},
 		{"clip_processed", INDICATE_CLIP_PROCESSED},
+		{"stream_started", INDICATE_STREAM_STARTED},
+		{"stream_stopped", INDICATE_STREAM_STOPPED},
 	};
 
 	auto indicator = static_cast<String>(obj["indicator"]).Value();

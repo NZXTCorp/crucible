@@ -224,13 +224,37 @@
     <Image Include="GAPI_render\res\indicator_capturing.png" />
     <Image Include="GAPI_render\res\indicator_enabled.png" />
     <Image Include="GAPI_render\res\indicator_enabled_hotkeys.png" />
+    <Image Include="GAPI_render\res\indicator_stream_ended.png" />
+    <Image Include="GAPI_render\res\indicator_stream_started.png" />
     <Image Include="GAPI_render\res\indicator_uploading.png" />
     <Image Include="GAPI_render\res\indicator_uploaded.png" />
     <Image Include="GAPI_render\res\mic_active_w_indicator.png" />
     <Image Include="GAPI_render\res\mic_idle_w_indicator.png" />
     <Image Include="GAPI_render\res\mic_mute_w_indicator.png" />
+    <Image Include="res\indicator_stream_ended.png" />
+    <Image Include="res\indicator_stream_started.png" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="AnvilRendering\cursors\aliasb.cur" />
+    <None Include="AnvilRendering\cursors\cell.cur" />
+    <None Include="AnvilRendering\cursors\col_resize.cur" />
+    <None Include="AnvilRendering\cursors\copy.cur" />
+    <None Include="AnvilRendering\cursors\hand_grab.cur" />
+    <None Include="AnvilRendering\cursors\hand_grabbing.cur" />
+    <None Include="AnvilRendering\cursors\none.cur" />
+    <None Include="AnvilRendering\cursors\pan_east.cur" />
+    <None Include="AnvilRendering\cursors\pan_middle.cur" />
+    <None Include="AnvilRendering\cursors\pan_north.cur" />
+    <None Include="AnvilRendering\cursors\pan_north_east.cur" />
+    <None Include="AnvilRendering\cursors\pan_north_west.cur" />
+    <None Include="AnvilRendering\cursors\pan_south.cur" />
+    <None Include="AnvilRendering\cursors\pan_south_east.cur" />
+    <None Include="AnvilRendering\cursors\pan_south_west.cur" />
+    <None Include="AnvilRendering\cursors\pan_west.cur" />
+    <None Include="AnvilRendering\cursors\row_resize.cur" />
+    <None Include="AnvilRendering\cursors\vertical_text.cur" />
+    <None Include="AnvilRendering\cursors\zoom_in.cur" />
+    <None Include="AnvilRendering\cursors\zoom_out.cur" />
     <None Include="cursors\aliasb.cur" />
     <None Include="cursors\cell.cur" />
     <None Include="cursors\col_resize.cur" />

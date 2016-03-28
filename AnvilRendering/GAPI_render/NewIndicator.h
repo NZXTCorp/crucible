@@ -19,6 +19,8 @@ enum IndicatorEvent
 	INDICATE_CACHE_LIMIT,    // we ran out of storage for (normal) recording
 	INDICATE_CLIP_PROCESSING,// in-game highlighter clip is being processed
 	INDICATE_CLIP_PROCESSED, // in-game highlighter clip is done processing, URL was copied to clipboard
+	INDICATE_STREAM_STARTED, // streaming started - output is active and we're sending data
+	INDICATE_STREAM_STOPPED, // streaming stopped
 	INDICATE_NONE            // no image for this one, just a placeholder for loops and to tell graphics code we're not drawing anything
 };
 
