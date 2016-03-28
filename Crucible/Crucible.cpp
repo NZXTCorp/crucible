@@ -438,6 +438,13 @@ namespace AnvilCommands {
 		if (recording && using_mic)
 			indicator = mic_muted ? (using_ptt ? "mic_idle" : "mic_muted") : "mic_active";
 
+		if (streaming) {
+			indicator = "streaming";
+
+			if (using_mic)
+				indicator = mic_muted ? (using_ptt ? "stream_mic_idle" : "stream_mic_muted") : "stream_mic_active";
+		}
+
 		if (enabled_timeout >= os_gettime_ns())
 			indicator = display_enabled_hotkey ? "enabled_hotkey" : "enabled";
 

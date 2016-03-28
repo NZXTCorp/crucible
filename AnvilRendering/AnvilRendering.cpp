@@ -168,6 +168,10 @@ static void HandleIndicatorCommand(Object &obj)
 		{"clip_processed", INDICATE_CLIP_PROCESSED},
 		{"stream_started", INDICATE_STREAM_STARTED},
 		{"stream_stopped", INDICATE_STREAM_STOPPED},
+		{"streaming", INDICATE_STREAMING},
+		{"stream_mic_idle", INDICATE_STREAM_MIC_IDLE},
+		{"stream_mic_active", INDICATE_STREAM_MIC_ACTIVE},
+		{"stream_mic_muted", INDICATE_STREAM_MIC_MUTED},
 	};
 
 	auto indicator = static_cast<String>(obj["indicator"]).Value();

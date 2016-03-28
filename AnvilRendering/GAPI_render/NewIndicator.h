@@ -21,6 +21,10 @@ enum IndicatorEvent
 	INDICATE_CLIP_PROCESSED, // in-game highlighter clip is done processing, URL was copied to clipboard
 	INDICATE_STREAM_STARTED, // streaming started - output is active and we're sending data
 	INDICATE_STREAM_STOPPED, // streaming stopped
+	INDICATE_STREAMING,      // streaming is active (replaces INDICATE_CAPTURING)
+	INDICATE_STREAM_MIC_IDLE, // streaming replacement for INDICATE_MIC_IDLE
+	INDICATE_STREAM_MIC_ACTIVE, // streaming replacement for INDICATE_MIC_ACTIVE
+	INDICATE_STREAM_MIC_MUTED, // streaming replacement for INDICATE_MIC_MUTE
 	INDICATE_NONE            // no image for this one, just a placeholder for loops and to tell graphics code we're not drawing anything
 };
 
