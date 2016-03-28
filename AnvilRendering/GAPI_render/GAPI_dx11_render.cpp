@@ -144,20 +144,22 @@ void DX11Renderer::InitIndicatorTextures( IndicatorManager &manager )
 	desc.Usage = D3D11_USAGE_DYNAMIC;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-	overlay_textures.Apply([&](D3D11Texture &tex)
-	{
-		HRESULT hRes;
-		hRes = m_pDevice->CreateTexture2D(&desc, nullptr, IREF_GETPPTR(tex.tex, ID3D11Texture2D));
-		if (FAILED(hRes))
+	for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
+		overlay_textures[a].Apply([&](D3D11Texture &tex)
 		{
-			LOG_WARN("InitIndicatorTextures: couldn't create overlay texture! 0x%08x" LOG_CR, hRes);
-			return;
-		}
+			HRESULT hRes;
+			hRes = m_pDevice->CreateTexture2D(&desc, nullptr, IREF_GETPPTR(tex.tex, ID3D11Texture2D));
+			if (FAILED(hRes))
+			{
+				LOG_WARN("InitIndicatorTextures: couldn't create overlay texture! 0x%08x" LOG_CR, hRes);
+				return;
+			}
 
-		hRes = m_pDevice->CreateShaderResourceView(tex.tex, nullptr, IREF_GETPPTR(tex.res, ID3D11ShaderResourceView));
-		if (FAILED(hRes))
-			LOG_WARN("InitIndicatorTextures: couldn't create overlay shader resource view! 0x%08x" LOG_CR, hRes);
-	});
+			hRes = m_pDevice->CreateShaderResourceView(tex.tex, nullptr, IREF_GETPPTR(tex.res, ID3D11ShaderResourceView));
+			if (FAILED(hRes))
+				LOG_WARN("InitIndicatorTextures: couldn't create overlay shader resource view! 0x%08x" LOG_CR, hRes);
+		});
+	}
 }
 
 void DX11Renderer::UpdateOverlayVB(ID3D11Texture2D *tex)
@@ -700,7 +702,7 @@ void DX11Renderer::DrawIndicator( IDXGISwapChain *pSwapChain, TAKSI_INDICATE_TYP
 
 bool DX11Renderer::DrawOverlay(IDXGISwapChain *pSwapChain)
 {
-	return overlay_textures.Draw([&](D3D11Texture &tex)
+	return overlay_textures[active_overlay].Draw([&](D3D11Texture &tex)
 	{
 		IRefPtr<ID3D11DeviceContext> pContext;
 		m_pDevice->GetImmediateContext(IREF_GETPPTR(pContext, ID3D11DeviceContext));
@@ -810,7 +812,7 @@ bool DX11Renderer::DrawOverlay(IDXGISwapChain *pSwapChain)
 
 void DX11Renderer::UpdateOverlay()
 {
-	overlay_textures.Buffer([&](D3D11Texture &tex)
+	overlay_textures[active_overlay].Buffer([&](D3D11Texture &tex)
 	{
 		auto vec = ReadNewFramebuffer();
 		if (vec)

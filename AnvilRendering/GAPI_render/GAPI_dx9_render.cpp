@@ -80,10 +80,12 @@ bool DX9Renderer::InitRenderer( IDirect3DDevice9 *pDevice, IndicatorManager &man
 	SetupRenderState( IREF_GETPPTR(m_pTexturedRenderState, IDirect3DStateBlock9), width, height, true );
 
 	// create textures
-	overlay_textures.Apply([&](OverlayTexture_t &tex)
-	{
-		m_pDevice->CreateTexture(g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, IREF_GETPPTR(tex, IDirect3DTexture9), NULL);
-	});
+	for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
+		overlay_textures[a].Apply([&](OverlayTexture_t &tex)
+		{
+			m_pDevice->CreateTexture(g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, IREF_GETPPTR(tex, IDirect3DTexture9), NULL);
+		});
+	}
 	InitIndicatorTextures( manager );
 
 	// fill buffers. most will be updated between frames anyway.
@@ -107,10 +109,12 @@ void DX9Renderer::FreeRenderer( void )
 	REK(m_pSolidRenderState);
 	REK(m_pTexturedRenderState);
 
-	overlay_textures.Apply([&](OverlayTexture_t &tex)
-	{
-		REK(tex);
-	});
+	for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
+		overlay_textures[a].Apply([&](OverlayTexture_t &tex)
+		{
+			REK(tex);
+		});
+	}
 
 	for ( int i = 0; i < INDICATE_NONE; i++ )
 	{
@@ -388,7 +392,7 @@ void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color 
 
 bool DX9Renderer::DrawOverlay( void )
 {
-	return overlay_textures.Draw([&](OverlayTexture_t &tex)
+	return overlay_textures[active_overlay].Draw([&](OverlayTexture_t &tex)
 	{
 		// NOTE: there will be a separate function to call to update the overlay texture and vertex buffer
 		HRESULT hRes = m_pCurrentRenderState->Capture();
@@ -428,7 +432,7 @@ bool DX9Renderer::DrawOverlay( void )
 
 void DX9Renderer::UpdateOverlay()
 {
-	overlay_textures.Buffer([&](OverlayTexture_t &tex)
+	overlay_textures[active_overlay].Buffer([&](OverlayTexture_t &tex)
 	{
 		auto vec = ReadNewFramebuffer();
 		if (vec)

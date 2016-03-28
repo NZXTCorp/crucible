@@ -79,7 +79,7 @@ private:
 
 	IRefPtr<ID3D10Texture2D> m_pIndicatorTexture[INDICATE_NONE]; // textures for new indicators
 
-	TextureBufferingHelper<D3D10Texture> overlay_textures;
+	TextureBufferingHelper<D3D10Texture> overlay_textures[OVERLAY_COUNT];
 
 	IRefPtr<ID3D10Buffer> m_pVBSquareIndicator;
 	IRefPtr<ID3D10Buffer> m_pVBSquareBorder;

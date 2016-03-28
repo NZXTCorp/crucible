@@ -388,7 +388,7 @@ static bool initialized = false;
 static bool framebuffer_server_started = false;
 static HGLRC render_context = nullptr;
 
-static TextureBufferingHelper<GLuint> overlay_textures;
+static TextureBufferingHelper<GLuint> overlay_textures[OVERLAY_COUNT];
 static bool overlay_tex_initialized = false;
 
 static bool in_free = false;
@@ -399,14 +399,16 @@ void overlay_gl_free()
 
 	in_free = true;
 
-	overlay_textures.Reset([&](GLuint &tex)
-	{
-		if (!tex)
-			return;
+	for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
+		overlay_textures[a].Reset([&](GLuint &tex)
+		{
+			if (!tex)
+				return;
 
-		s_glDeleteTextures(1, &tex);
-		tex = 0;
-	});
+			s_glDeleteTextures(1, &tex);
+			tex = 0;
+		});
+	}
 
 	overlay_tex_initialized = false;
 
@@ -428,17 +430,19 @@ static void update_overlay()
 	if (!overlay_tex_initialized)
 	{
 		try {
-			overlay_textures.Apply([&](GLuint &tex)
-			{
-				s_glGenTextures(1, &tex);
+			for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
+				overlay_textures[a].Apply([&](GLuint &tex)
+				{
+					s_glGenTextures(1, &tex);
 
-				s_glBindTexture(GL_TEXTURE_2D, tex);
-				s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-				s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-				auto err = s_glGetError();
-				if (err)
-					throw err;
-			});
+					s_glBindTexture(GL_TEXTURE_2D, tex);
+					s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+					s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+					auto err = s_glGetError();
+					if (err)
+						throw err;
+				});
+			}
 		}
 		catch (GLenum err)
 		{
@@ -449,7 +453,7 @@ static void update_overlay()
 		overlay_tex_initialized = true;
 	}
 
-	overlay_textures.Buffer([&](GLuint &tex)
+	overlay_textures[active_overlay].Buffer([&](GLuint &tex)
 	{
 		auto vec = ReadNewFramebuffer();
 		if (!vec || vec->size() != g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)
@@ -475,7 +479,7 @@ static void update_overlay()
 
 static bool show_browser_tex_()
 {
-	return overlay_textures.Draw([&](GLuint &tex)
+	return overlay_textures[active_overlay].Draw([&](GLuint &tex)
 	{
 		int err = 0;
 		// opengl positioning is still a fucking nightmare, these might not even work properly with all indicators yet

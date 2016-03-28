@@ -181,20 +181,22 @@ void DX10Renderer::InitIndicatorTextures( IndicatorManager &manager )
 	desc.Usage = D3D10_USAGE_DYNAMIC;
 	desc.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
 
-	overlay_textures.Apply([&](D3D10Texture &tex)
-	{
-		HRESULT hRes;
-		hRes = m_pDevice->CreateTexture2D(&desc, nullptr, IREF_GETPPTR(tex.tex, ID3D10Texture2D));
-		if (FAILED(hRes))
+	for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
+		overlay_textures[a].Apply([&](D3D10Texture &tex)
 		{
-			LOG_WARN("InitIndicatorTextures: couldn't create overlay texture! 0x%08x" LOG_CR, hRes);
-			return;
-		}
+			HRESULT hRes;
+			hRes = m_pDevice->CreateTexture2D(&desc, nullptr, IREF_GETPPTR(tex.tex, ID3D10Texture2D));
+			if (FAILED(hRes))
+			{
+				LOG_WARN("InitIndicatorTextures: couldn't create overlay texture! 0x%08x" LOG_CR, hRes);
+				return;
+			}
 
-		hRes = m_pDevice->CreateShaderResourceView(tex.tex, nullptr, IREF_GETPPTR(tex.res, ID3D10ShaderResourceView));
-		if (FAILED(hRes))
-			LOG_WARN("InitIndicatorTextures: couldn't create overlay shader resource view! 0x%08x" LOG_CR, hRes);
-	});
+			hRes = m_pDevice->CreateShaderResourceView(tex.tex, nullptr, IREF_GETPPTR(tex.res, ID3D10ShaderResourceView));
+			if (FAILED(hRes))
+				LOG_WARN("InitIndicatorTextures: couldn't create overlay shader resource view! 0x%08x" LOG_CR, hRes);
+		});
+	}
 }
 
 void DX10Renderer::UpdateOverlayVB(ID3D10Texture2D *tex)
@@ -685,7 +687,7 @@ void DX10Renderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 
 bool DX10Renderer::DrawOverlay(IDXGISwapChain *pSwapChain)
 {
-	return overlay_textures.Draw([&](D3D10Texture &tex)
+	return overlay_textures[active_overlay].Draw([&](D3D10Texture &tex)
 	{
 		D3D10_VIEWPORT vp;
 		vp.TopLeftX = 0;
@@ -774,7 +776,7 @@ bool DX10Renderer::DrawOverlay(IDXGISwapChain *pSwapChain)
 
 void DX10Renderer::UpdateOverlay()
 {
-	overlay_textures.Buffer([&](D3D10Texture &tex)
+	overlay_textures[active_overlay].Buffer([&](D3D10Texture &tex)
 	{
 		auto vec = ReadNewFramebuffer();
 		if (vec)
