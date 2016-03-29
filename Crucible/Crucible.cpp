@@ -1307,12 +1307,19 @@ struct CrucibleContext {
 		obs_set_output_source(0, gameCapture);
 	}
 
-	void StartStreaming(const char *server, const char *key)
+	void StartStreaming(const char *server, const char *key, const char *version)
 	{
 		auto settings = OBSDataCreate();
 		obs_data_set_string(settings, "server", server);
 		obs_data_set_string(settings, "key", key);
 		obs_service_update(stream_service, settings);
+
+		DStr encoder_name;
+		dstr_printf(encoder_name, "Crucible (%s)", version);
+
+		auto ssettings = OBSDataCreate();
+		obs_data_set_string(ssettings, "encoder_name", encoder_name->array);
+		obs_output_update(stream, ssettings);
 
 		UpdateStreamSettings();
 		obs_output_start(stream);
@@ -1720,7 +1727,7 @@ static void HandleForgeWillClose(CrucibleContext &cc, OBSData&)
 
 static void HandleStartStreaming(CrucibleContext &cc, OBSData& obj)
 {
-	cc.StartStreaming(obs_data_get_string(obj, "server"), obs_data_get_string(obj, "key"));
+	cc.StartStreaming(obs_data_get_string(obj, "server"), obs_data_get_string(obj, "key"), obs_data_get_string(obj, "version"));
 }
 
 static void HandleStopStreaming(CrucibleContext &cc, OBSData&)
