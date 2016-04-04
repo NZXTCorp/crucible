@@ -630,6 +630,13 @@ namespace AnvilCommands {
 	}
 }
 
+static uint32_t AlignX264Height(uint32_t height)
+{
+	// We're currently using NV12, so height has to be a multiple of 2, see:
+	// http://git.videolan.org/?p=x264.git;a=blob;f=encoder/encoder.c;hb=a01e33913655f983df7a4d64b0a4178abb1eb618#l502
+	return (height + 1) & ~static_cast<uint32_t>(1);
+}
+
 template <typename T, typename U>
 static void InitRef(T &ref, const char *msg, void (*release)(U*), U *val)
 {
@@ -993,7 +1000,7 @@ struct CrucibleContext {
 	void UpdateStreamSettings()
 	{
 		auto scale = ovi.base_width / static_cast<float>(target_stream_width);
-		target_stream_height = static_cast<uint32_t>(ovi.base_height / scale);
+		target_stream_height = AlignX264Height(static_cast<uint32_t>(ovi.base_height / scale));
 
 		blog(LOG_INFO, "setting stream output size to %ux%u", target_stream_width, target_stream_height);
 		obs_encoder_set_scaled_size(stream_h264, target_stream_width, target_stream_height);
@@ -1432,7 +1439,7 @@ struct CrucibleContext {
 		ForgeEvents::SendBrowserSizeHint(width, height);
 
 		auto scale = width / static_cast<float>(target_width);
-		auto new_height = static_cast<decltype(ovi.output_height)>(height / scale);
+		auto new_height = AlignX264Height(static_cast<decltype(ovi.output_height)>(height / scale));
 
 		bool output_dimensions_changed = target_width != ovi.output_width || new_height != ovi.output_height;
 
@@ -1519,7 +1526,7 @@ struct CrucibleContext {
 
 			auto scale = ovi.base_width / static_cast<float>(new_stream_width);
 			target_stream_width = new_stream_width;
-			target_stream_height = static_cast<uint32_t>(ovi.base_height / scale);
+			target_stream_height = AlignX264Height(static_cast<uint32_t>(ovi.base_height / scale));
 			
 			if (stream_h264) {
 				auto vsettings = OBSDataCreate();
