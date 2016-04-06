@@ -11,8 +11,5 @@ Requires libobs from [obs-studio](https://github.com/ForgeGaming/obs-studio-inte
 - __$(ForgeLib)__ - path to a 'forge libraries' collection that contains cajun
 - __$(MinHook)__ - path to [MinHook](https://github.com/TsudaKageyu/minhook) repository (VC12 solution should be compiled for all targets)
 
-## Debugging
-Should work out of the box with [obs-studio-internal@75622cc](https://github.com/ForgeGaming/obs-studio-internal/commit/75622cc147f6c73f19355f7d92f349bab208b489) or later (no need to copy any files, as long as the libobs rundir is set up properly (can be checked by building and running the OBS UI))
-
 ## Running
 Requires modules and data from obs-studio in the same directory you're running from (this will change in future)
