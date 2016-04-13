@@ -1761,7 +1761,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "clip_finished", HandleClipFinished },
 		{ "forge_will_close", HandleForgeWillClose },
 		{ "start_streaming", HandleStartStreaming },
-		{ "stop_streaming", HandleStopStreaming }
+		{ "stop_streaming", HandleStopStreaming },
 	};
 	if (!data)
 		return;
