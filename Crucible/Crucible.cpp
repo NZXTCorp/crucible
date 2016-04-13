@@ -31,6 +31,7 @@ using namespace std;
 #include "../AnvilRendering/AnvilRendering.h"
 
 #include "IPC.hpp"
+#include "ProtectedObject.hpp"
 #include "ThreadTools.hpp"
 
 // window class borrowed from forge, remove once we've got headless mode working
@@ -297,6 +298,16 @@ namespace ForgeEvents {
 	void SendStreamingStop()
 	{
 		auto event = EventCreate("stopped_streaming");
+
+		SendEvent(event);
+	}
+
+	void SendSavedGameScreenshot(const char *requested_filename, const char *actual_filename)
+	{
+		auto event = EventCreate("saved_game_screenshot");
+
+		obs_data_set_string(event, "requested_filename", requested_filename);
+		obs_data_set_string(event, "actual_filename", actual_filename);
 
 		SendEvent(event);
 	}
@@ -671,7 +682,7 @@ struct CrucibleContext {
 	uint32_t fps_den;
 	OBSSource tunes, mic, gameCapture;
 	OBSSourceSignal micMuted, pttActive;
-	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess;
+	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess, screenshotSaved;
 	OBSEncoder h264, aac, stream_h264;
 	string filename = "";
 	string profiler_filename = "";
@@ -703,6 +714,8 @@ struct CrucibleContext {
 	uint32_t target_stream_height = 720;
 	uint32_t target_stream_bitrate = 3000;
 	OBSOutputSignal startStreaming, stopStreaming;
+
+	vector<pair<string, long long>> requested_screenshots;
 
 	struct RestartThread {
 		thread t;
@@ -956,6 +969,22 @@ struct CrucibleContext {
 			.SetFunc([](calldata_t *data)
 		{
 			ForgeEvents::SendMonitorProcess(static_cast<DWORD>(calldata_int(data, "process_id")));
+		});
+
+		screenshotSaved
+			.SetSignal("screenshot_saved")
+			.SetFunc([=](calldata_t *data)
+		{
+			auto filename = calldata_string(data, "filename");
+			auto id = calldata_int(data, "screenshot_id");
+
+			LOCK(updateMutex);
+			auto rs = find_if(begin(requested_screenshots), end(requested_screenshots), [&](const pair<string, long long> &p) { return p.second == id; });
+			if (rs == end(requested_screenshots))
+				return;
+
+			ForgeEvents::SendSavedGameScreenshot(rs->first.c_str(), filename);
+			requested_screenshots.erase(rs);
 		});
 
 		startStreaming
@@ -1311,6 +1340,11 @@ struct CrucibleContext {
 			.SetOwner(gameCapture)
 			.Connect();
 
+		screenshotSaved
+			.Disconnect()
+			.SetOwner(gameCapture)
+			.Connect();
+
 		obs_set_output_source(0, gameCapture);
 	}
 
@@ -1549,6 +1583,25 @@ struct CrucibleContext {
 		}
 	}
 
+	void SaveGameScreenshot(const char *filename)
+	{
+		calldata_t data;
+		calldata_init(&data);
+
+		calldata_set_string(&data, "filename", filename);
+
+		{
+			LOCK(updateMutex);
+			auto proc = obs_source_get_proc_handler(gameCapture);
+			proc_handler_call(proc, "save_screenshot", &data);
+
+			auto id = calldata_int(&data, "screenshot_id");
+			requested_screenshots.emplace_back(filename, id);
+		}
+
+		calldata_free(&data);
+	}
+	
 	bool stopping = false;
 	void StopVideo()
 	{
@@ -1742,6 +1795,11 @@ static void HandleStopStreaming(CrucibleContext &cc, OBSData&)
 	cc.StopStreaming();
 }
 
+static void HandleGameScreenshot(CrucibleContext &cc, OBSData &obj)
+{
+	cc.SaveGameScreenshot(obs_data_get_string(obj, "filename"));
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -1762,6 +1820,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "forge_will_close", HandleForgeWillClose },
 		{ "start_streaming", HandleStartStreaming },
 		{ "stop_streaming", HandleStopStreaming },
+		{ "save_game_screenshot", HandleGameScreenshot },
 	};
 	if (!data)
 		return;
