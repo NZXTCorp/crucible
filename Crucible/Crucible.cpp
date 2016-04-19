@@ -1209,7 +1209,7 @@ struct CrucibleContext {
 		estimates.erase(it);
 	}
 
-	void CreateBookmark()
+	void CreateBookmark(OBSData &obj)
 	{
 		if (!output || !obs_output_active(output))
 			return;
@@ -1229,6 +1229,8 @@ struct CrucibleContext {
 
 		blog(LOG_INFO, "Created bookmark at offset %g s (estimated, tracking frame %lld)", bookmark.time, tracked_id);
 
+		SaveRecordingBuffer(obj);
+
 		AnvilCommands::ShowBookmark();
 	}
 
@@ -1245,7 +1247,7 @@ struct CrucibleContext {
 
 		calldata_t param{};
 		calldata_init(&param);
-		calldata_set_string(&param, "filename", obs_data_get_string(settings, "filename"));
+		calldata_set_string(&param, "filename", filename);
 
 		{
 			LOCK(updateMutex);
@@ -1747,9 +1749,9 @@ static void HandleSaveRecordingBuffer(CrucibleContext &cc, OBSData &obj)
 	cc.SaveRecordingBuffer(obj);
 }
 
-static void HandleCreateBookmark(CrucibleContext &cc, OBSData &)
+static void HandleCreateBookmark(CrucibleContext &cc, OBSData &obj)
 {
-	cc.CreateBookmark();
+	cc.CreateBookmark(obj);
 }
 
 static void HandleStopRecording(CrucibleContext &cc, OBSData &)
@@ -1909,7 +1911,7 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 			[](void *data, obs_hotkey_id id, obs_hotkey_t *hotkey, bool pressed)
 		{
 			if (pressed)
-				static_cast<CrucibleContext*>(data)->CreateBookmark();
+				static_cast<CrucibleContext*>(data)->CreateBookmark(OBSDataCreate());
 		}, &crucibleContext);
 
 		auto handleCommand = [&](const uint8_t *data, size_t size)
