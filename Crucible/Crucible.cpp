@@ -1239,6 +1239,10 @@ struct CrucibleContext {
 		if (!settings)
 			return;
 
+		const char *filename = obs_data_get_string(settings, "filename");
+		if (!filename || !*filename)
+			return;
+
 		calldata_t param{};
 		calldata_init(&param);
 		calldata_set_string(&param, "filename", obs_data_get_string(settings, "filename"));
