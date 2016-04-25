@@ -236,6 +236,15 @@ namespace ForgeEvents {
 		SendFileCompleteEvent(EventCreate("buffer_ready"), filename, total_frames, duration, bookmarks, width, height);
 	}
 
+	void SendBufferFailure(const char *filename)
+	{
+		auto event = EventCreate("buffer_save_failed");
+
+		obs_data_set_string(event, "filename", filename);
+
+		SendEvent(event);
+	}
+
 	void SendInjectFailed(long *injector_exit_code)
 	{
 		auto event = EventCreate("inject_failed");
@@ -690,7 +699,7 @@ struct CrucibleContext {
 	OBSOutput output, buffer, stream;
 	OBSOutputSignal startRecording, stopRecording;
 	OBSOutputSignal sentTrackedFrame, bufferSentTrackedFrame;
-	OBSOutputSignal bufferSaved;
+	OBSOutputSignal bufferSaved, bufferSaveFailed;
 
 	uint32_t target_width = 1280;
 	uint32_t target_height = 720;
@@ -935,6 +944,14 @@ struct CrucibleContext {
 				ovi.base_width, ovi.base_height);
 		});
 
+		bufferSaveFailed
+			.SetSignal("buffer_output_failed")
+			.SetFunc([=](calldata_t *data)
+		{
+			auto filename = calldata_string(data, "filename");
+			ForgeEvents::SendBufferFailure(filename);
+		});
+
 		bufferSentTrackedFrame
 			.SetSignal("sent_tracked_frame")
 			.SetFunc([=](calldata *data)
@@ -1090,6 +1107,11 @@ struct CrucibleContext {
 			.Connect();
 
 		bufferSaved
+			.Disconnect()
+			.SetOwner(buffer)
+			.Connect();
+
+		bufferSaveFailed
 			.Disconnect()
 			.SetOwner(buffer)
 			.Connect();
