@@ -1253,6 +1253,12 @@ struct CrucibleContext {
 
 		SaveRecordingBuffer(obj);
 
+		{
+			const char *filename = obs_data_get_string(obj, "screenshot");
+			if (filename && *filename)
+				SaveGameScreenshot(filename);
+		}
+
 		AnvilCommands::ShowBookmark();
 	}
 
