@@ -1294,6 +1294,9 @@ struct CrucibleContext {
 		if (!filename || !*filename)
 			return false;
 
+		if (!buffer || !obs_output_active(buffer))
+			return false;
+
 		calldata_t param{};
 		calldata_init(&param);
 		calldata_set_string(&param, "filename", filename);
