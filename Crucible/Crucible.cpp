@@ -27,6 +27,7 @@
 using namespace std;
 
 #include <boost/logic/tribool.hpp>
+#include <boost/optional.hpp>
 
 #include "../AnvilRendering/AnvilRendering.h"
 
@@ -231,9 +232,16 @@ namespace ForgeEvents {
 	}
 
 	void SendBufferReady(const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
-		uint32_t width, uint32_t height)
+		uint32_t width, uint32_t height, boost::optional<double> timestamp)
 	{
-		SendFileCompleteEvent(EventCreate("buffer_ready"), filename, total_frames, duration, bookmarks, width, height);
+		auto event = EventCreate("buffer_ready");
+
+		if (timestamp)
+			obs_data_set_double(event, "created_at_offset", *timestamp);
+		else
+			blog(LOG_INFO, "SendBufferReady: no timestamp provided for file %s", filename);
+
+		SendFileCompleteEvent(event, filename, total_frames, duration, bookmarks, width, height);
 	}
 
 	void SendBufferFailure(const char *filename)
@@ -939,9 +947,10 @@ struct CrucibleContext {
 			.SetFunc([=](calldata_t *data)
 		{
 			auto filename = calldata_string(data, "filename");
+			video_tracked_frame_id tracked_id = calldata_int(data, "tracked_frame_id");
 			ForgeEvents::SendBufferReady(filename, static_cast<uint32_t>(calldata_int(data, "frames")),
 				calldata_float(data, "duration"), BookmarkTimes(bufferBookmarks, calldata_int(data, "start_pts")),
-				ovi.base_width, ovi.base_height);
+				ovi.base_width, ovi.base_height, FindBookmarkTime(bookmarks, tracked_id));
 		});
 
 		bufferSaveFailed
@@ -1206,6 +1215,18 @@ struct CrucibleContext {
 		}
 
 		return res;
+	}
+
+	boost::optional<double> FindBookmarkTime(const vector<Bookmark> &bookmarks, video_tracked_frame_id id)
+	{
+		LOCK(bookmarkMutex);
+
+		for (auto &bookmark : bookmarks) {
+			if (bookmark.tracked_id == id)
+				return bookmark.pts / static_cast<double>(bookmark.fps_den);
+		}
+
+		return boost::none;
 	}
 
 	void FinalizeBookmark(vector<Bookmark> &estimates, vector<Bookmark> &bookmarks, video_tracked_frame_id tracked_id, int64_t pts, uint32_t fps_den)
