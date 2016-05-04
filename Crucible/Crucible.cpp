@@ -254,14 +254,14 @@ namespace ForgeEvents {
 	}
 
 	void SendBufferReady(const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
-		uint32_t width, uint32_t height, boost::optional<double> timestamp)
+		uint32_t width, uint32_t height, boost::optional<Bookmark> bookmark_info)
 	{
 		auto event = EventCreate("buffer_ready");
 
-		if (timestamp)
-			obs_data_set_double(event, "created_at_offset", *timestamp);
-		else
-			blog(LOG_INFO, "SendBufferReady: no timestamp provided for file %s", filename);
+		if (bookmark_info) {
+			obs_data_set_double(event, "created_at_offset", bookmark_info->time);
+			obs_data_set_int(event, "bookmark_id", bookmark_info->id);
+		}
 
 		SendFileCompleteEvent(event, filename, total_frames, duration, bookmarks, width, height);
 	}
@@ -1240,13 +1240,13 @@ struct CrucibleContext {
 		return res;
 	}
 
-	boost::optional<double> FindBookmarkTime(const vector<Bookmark> &bookmarks, video_tracked_frame_id id)
+	boost::optional<Bookmark> FindBookmark(const vector<Bookmark> &bookmarks, video_tracked_frame_id id)
 	{
 		LOCK(bookmarkMutex);
 
 		for (auto &bookmark : bookmarks) {
 			if (bookmark.tracked_id == id)
-				return bookmark.pts / static_cast<double>(bookmark.fps_den);
+				return bookmark;
 		}
 
 		return boost::none;
