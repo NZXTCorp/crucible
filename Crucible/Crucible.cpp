@@ -1245,13 +1245,13 @@ struct CrucibleContext {
 
 		bookmark.time = bufferBookmark.time = (os_gettime_ns() - recordingStartTime) / 1000000000.;
 
-		auto tracked_id = obs_track_next_frame();
+		video_tracked_frame_id tracked_id = 0;
+		if (!SaveRecordingBuffer(obj, &tracked_id))
+			tracked_id = obs_track_next_frame();
 
 		bookmark.tracked_id = bufferBookmark.tracked_id = tracked_id;
 
 		blog(LOG_INFO, "Created bookmark at offset %g s (estimated, tracking frame %lld)", bookmark.time, tracked_id);
-
-		SaveRecordingBuffer(obj);
 
 		{
 			const char *filename = obs_data_get_string(obj, "screenshot");
@@ -1264,14 +1264,14 @@ struct CrucibleContext {
 
 	recursive_mutex updateMutex;
 
-	void SaveRecordingBuffer(obs_data_t *settings)
+	bool SaveRecordingBuffer(obs_data_t *settings, video_tracked_frame_id *tracked_id=nullptr)
 	{
 		if (!settings)
-			return;
+			return false;
 
 		const char *filename = obs_data_get_string(settings, "filename");
 		if (!filename || !*filename)
-			return;
+			return false;
 
 		calldata_t param{};
 		calldata_init(&param);
@@ -1283,7 +1283,11 @@ struct CrucibleContext {
 			proc_handler_call(proc, "output_precise_buffer", &param);
 		}
 
+		if (tracked_id)
+			*tracked_id = calldata_int(&param, "tracked_frame_id");
+
 		calldata_free(&param);
+		return true;
 	}
 
 	void ForwardInjectorResult(obs_data_t *res)
