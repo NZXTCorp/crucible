@@ -1305,7 +1305,8 @@ struct CrucibleContext {
 				SaveGameScreenshot(filename);
 		}
 
-		AnvilCommands::ShowBookmark();
+		if (!obs_data_get_bool(obj, "suppress_indicator"))
+			AnvilCommands::ShowBookmark();
 	}
 
 	recursive_mutex updateMutex;
