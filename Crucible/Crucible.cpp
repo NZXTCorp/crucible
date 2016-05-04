@@ -145,6 +145,8 @@ struct Bookmark {
 	int64_t pts = 0;
 	uint32_t fps_den = 1;
 	double time = 0.;
+
+	OBSData extra_data;
 };
 
 namespace ForgeEvents {
@@ -235,6 +237,7 @@ namespace ForgeEvents {
 
 			obs_data_set_int(mark, "bookmark_id", bookmark.id);
 			obs_data_set_double(mark, "timestamp", bookmark.time);
+			obs_data_set_obj(mark, "extra_data", bookmark.extra_data);
 
 			obs_data_array_push_back(arr, mark);
 		}
@@ -261,6 +264,7 @@ namespace ForgeEvents {
 		if (bookmark_info) {
 			obs_data_set_double(event, "created_at_offset", bookmark_info->time);
 			obs_data_set_int(event, "bookmark_id", bookmark_info->id);
+			obs_data_set_obj(event, "bookmark_extra_data", bookmark_info->extra_data);
 		}
 
 		SendFileCompleteEvent(event, filename, total_frames, duration, bookmarks, width, height);
@@ -1290,6 +1294,8 @@ struct CrucibleContext {
 		bookmark.id = bufferBookmark.id = ++next_bookmark_id;
 
 		bookmark.time = bufferBookmark.time = (os_gettime_ns() - recordingStartTime) / 1000000000.;
+
+		bookmark.extra_data = bufferBookmark.extra_data = OBSDataGetObj(obj, "extra_data");
 
 		video_tracked_frame_id tracked_id = 0;
 		if (!SaveRecordingBuffer(obj, &tracked_id))
