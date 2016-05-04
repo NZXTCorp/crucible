@@ -139,6 +139,14 @@ static DStr GetModulePath(const char *name)
 #define BIT_STRING "32bit"
 #endif
 
+struct Bookmark {
+	int id = 0;
+	video_tracked_frame_id tracked_id = 0;
+	int64_t pts = 0;
+	uint32_t fps_den = 1;
+	double time = 0.;
+};
+
 namespace ForgeEvents {
 	mutex eventMutex;
 	vector<OBSData> queuedEvents;
@@ -217,9 +225,23 @@ namespace ForgeEvents {
 	}
 
 	void SendRecordingStop(const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
-		uint32_t width, uint32_t height, DWORD pid)
+		uint32_t width, uint32_t height, DWORD pid, const vector<Bookmark> &full_bookmarks)
 	{
-		SendFileCompleteEvent(EventCreate("stopped_recording"), filename, total_frames, duration, bookmarks, width, height, &pid);
+		auto event = EventCreate("stopped_recording");
+
+		auto arr = OBSDataArrayCreate();
+		for (auto &bookmark : full_bookmarks) {
+			auto mark = OBSDataCreate();
+
+			obs_data_set_int(mark, "bookmark_id", bookmark.id);
+			obs_data_set_double(mark, "timestamp", bookmark.time);
+
+			obs_data_array_push_back(arr, mark);
+		}
+
+		obs_data_set_array(event, "full_bookmarks", arr);
+
+		SendFileCompleteEvent(event, filename, total_frames, duration, bookmarks, width, height, &pid);
 	}
 
 	void SendQueryMicsResponse(obs_data_array_t *devices)
@@ -677,19 +699,13 @@ static void InitRef(T &ref, const char *msg, void (*release)(U*), U *val)
 
 static decltype(ProfileSnapshotCreate()) last_session;
 
-struct Bookmark {
-	video_tracked_frame_id tracked_id = 0;
-	int64_t pts = 0;
-	uint32_t fps_den = 1;
-	double time = 0.;
-};
-
 struct CrucibleContext {
 	mutex bookmarkMutex;
 	vector<Bookmark> estimatedBookmarks;
 	vector<Bookmark> bookmarks;
 	vector<Bookmark> estimatedBufferBookmarks;
 	vector<Bookmark> bufferBookmarks;
+	int next_bookmark_id = 0;
 
 	uint64_t recordingStartTime = 0;
 	bool recordingStartSent = false;
@@ -891,10 +907,15 @@ struct CrucibleContext {
 				if (sendRecordingStop) {
 					profiler_path = profiler_filename;
 					auto data = OBSTransferOwned(obs_output_get_settings(output));
+					decltype(bookmarks) full_bookmarks;
+					{
+						LOCK(bookmarkMutex);
+						full_bookmarks = bookmarks;
+					}
 					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
 						obs_output_get_total_frames(output),
 						obs_output_get_output_duration(output),
-						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, pid);
+						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, pid, full_bookmarks);
 					AnvilCommands::ShowIdle();
 				}
 			}
@@ -950,7 +971,7 @@ struct CrucibleContext {
 			video_tracked_frame_id tracked_id = calldata_int(data, "tracked_frame_id");
 			ForgeEvents::SendBufferReady(filename, static_cast<uint32_t>(calldata_int(data, "frames")),
 				calldata_float(data, "duration"), BookmarkTimes(bufferBookmarks, calldata_int(data, "start_pts")),
-				ovi.base_width, ovi.base_height, FindBookmarkTime(bookmarks, tracked_id));
+				ovi.base_width, ovi.base_height, FindBookmark(bookmarks, tracked_id));
 		});
 
 		bufferSaveFailed
@@ -1197,6 +1218,8 @@ struct CrucibleContext {
 
 		estimatedBufferBookmarks.clear();
 		bufferBookmarks.clear();
+
+		next_bookmark_id = 0;
 	}
 
 	vector<double> BookmarkTimes(vector<Bookmark> &bookmarks, int64_t start_pts = 0)
@@ -1263,6 +1286,8 @@ struct CrucibleContext {
 
 		estimatedBufferBookmarks.emplace_back();
 		auto &bufferBookmark = estimatedBufferBookmarks.back();
+
+		bookmark.id = bufferBookmark.id = ++next_bookmark_id;
 
 		bookmark.time = bufferBookmark.time = (os_gettime_ns() - recordingStartTime) / 1000000000.;
 
