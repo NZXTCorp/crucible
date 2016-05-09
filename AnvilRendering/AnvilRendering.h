@@ -90,8 +90,6 @@ extern bool g_bUseDirectInput;
 extern bool g_bUseKeyboard;
 extern bool g_bBrowserShowing;
 
-extern bool stream_active;
-
 namespace ForgeEvent
 {
 	bool KeyEvent(UINT msg, WPARAM wParam, LPARAM lParam);

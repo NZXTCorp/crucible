@@ -142,8 +142,6 @@ static WORD hotkeys[HOTKEY_QTY] = { 0 };
 
 ProtectedObject<HCURSOR> overlay_cursor;
 
-bool stream_active = false;
-
 extern void DismissOverlay(bool);
 
 static void RestartCrucibleServer();
@@ -247,7 +245,6 @@ static void HandleSetCursor(Object &obj)
 static void HandleStreamStatus(Object &obj)
 {
 	Boolean streaming = obj["streaming"];
-	stream_active = streaming.Value();
 	if (streaming)
 		DismissOverlay(true);
 }

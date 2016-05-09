@@ -395,12 +395,8 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt)
 		return true;
 
 	case HOTKEY_Stream:
-		if (activated) {
-			if (stream_active)
-				ForgeEvent::StopStream();
-			else
-				ToggleOverlay(OVERLAY_STREAMING);
-		}
+		if (activated)
+			ToggleOverlay(OVERLAY_STREAMING);
 		return true;
 
 	case HOTKEY_Screenshot:

@@ -267,10 +267,7 @@ static void ProcessHotKeys()
 			break;
 		case HOTKEY_Stream:
 			if (event.event == HKEVENT_PRESS)
-				if (stream_active)
-					ForgeEvent::StopStream();
-				else
-					ToggleOverlay(OVERLAY_STREAMING);
+				ToggleOverlay(OVERLAY_STREAMING);
 			break;
 		}
 	}
