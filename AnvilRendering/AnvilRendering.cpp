@@ -242,11 +242,8 @@ static void HandleSetCursor(Object &obj)
 	*cursor = handle;
 }
 
-static void HandleStreamStatus(Object &obj)
+static void HandleStreamStatus(Object &)
 {
-	Boolean streaming = obj["streaming"];
-	if (streaming)
-		DismissOverlay(true);
 }
 
 static void HandleCommands(uint8_t *data, size_t size)
