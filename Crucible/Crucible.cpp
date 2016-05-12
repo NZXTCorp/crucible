@@ -1,6 +1,7 @@
 // [crucible.cpp 2015-10-22 abright]
 // libobs-based game capture (currently an experimental thing based on the libobs sample app)
 
+#define NOMINMAX
 #include <ShlObj.h>
 #include <stdio.h>
 #include <windows.h>
@@ -696,6 +697,70 @@ static uint32_t AlignX264Height(uint32_t height)
 	// We're currently using NV12, so height has to be a multiple of 2, see:
 	// http://git.videolan.org/?p=x264.git;a=blob;f=encoder/encoder.c;hb=a01e33913655f983df7a4d64b0a4178abb1eb618#l502
 	return (height + 1) & ~static_cast<uint32_t>(1);
+}
+
+static uint32_t gcd(uint32_t a, uint32_t b)
+{
+	if (!a) return b;
+	if (!b) return a;
+
+	uint32_t c = a;
+	a = max(a, b);
+	b = min(c, b);
+
+	uint32_t remainder;
+	do
+	{
+		remainder = a % b;
+		a = b;
+		b = remainder;
+	} while (remainder);
+
+	return a;
+}
+
+static boost::optional<OutputResolution> ScaleResolutionInteger(const OutputResolution &target, const OutputResolution &source)
+{
+	auto aspect_segments = gcd(source.width, source.height);
+	auto aspect_width = source.width / aspect_segments;
+	auto aspect_height = source.height / aspect_segments;
+
+	auto pixel_ratio = min(target.pixels() / static_cast<double>(source.pixels()), 1.0);
+	auto target_aspect_segments = static_cast<uint32_t>(floor(sqrt(pixel_ratio * aspect_segments * aspect_segments)));
+
+	for (auto i : { 0, 1, -1 }) {
+		auto target_segments = max(static_cast<uint32_t>(1), min(aspect_segments, target_aspect_segments + i));
+		OutputResolution res{ aspect_width * target_aspect_segments, aspect_height * target_aspect_segments };
+
+		if (res.width > source.width || res.height > source.height)
+			continue;
+		
+		if (res.width % 4 == 0 && res.height % 2 == 0) //libobs enforces multiple of 4 width and multiple of 2 height
+			return res;
+	}
+
+	return boost::none;
+}
+
+static OutputResolution ScaleResolution(const OutputResolution &target, const OutputResolution &source)
+{
+	{
+		auto res = ScaleResolutionInteger(target, source);
+		if (res)
+			return *res;
+	}
+
+	auto pixel_ratio = min(target.pixels() / static_cast<double>(source.pixels()), 1.0);
+	OutputResolution res{
+		static_cast<uint32_t>(source.width * pixel_ratio),
+		static_cast<uint32_t>(source.height * pixel_ratio)
+	};
+
+	//libobs enforces multiple of 4 width and multiple of 2 height
+	res.width &= ~3;
+	res.height &= ~1;
+
+	return res;
 }
 
 template <typename T, typename U>
