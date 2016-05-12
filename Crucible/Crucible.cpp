@@ -684,6 +684,13 @@ namespace AnvilCommands {
 	}
 }
 
+struct OutputResolution {
+	uint32_t width;
+	uint32_t height;
+
+	uint32_t pixels() const { return width * height; }
+};
+
 static uint32_t AlignX264Height(uint32_t height)
 {
 	// We're currently using NV12, so height has to be a multiple of 2, see:
@@ -729,12 +736,10 @@ struct CrucibleContext {
 	OBSOutputSignal sentTrackedFrame, bufferSentTrackedFrame;
 	OBSOutputSignal bufferSaved, bufferSaveFailed;
 
-	uint32_t target_width = 1280;
-	uint32_t target_height = 720;
+	OutputResolution target = OutputResolution{ 1280, 720 }; //thanks VS2013
 	uint32_t target_bitrate = 3500;
 
-	uint32_t game_width = 0;
-	uint32_t game_height = 0;
+	OutputResolution game_res = OutputResolution{ 0, 0 };
 
 	DWORD game_pid = -1;
 
@@ -747,8 +752,7 @@ struct CrucibleContext {
 	struct obs_service_info forge_streaming_service;
 	OBSService stream_service;
 	bool streaming = false;
-	uint32_t target_stream_width = 1280;
-	uint32_t target_stream_height = 720;
+	OutputResolution target_stream = OutputResolution{ 1280, 720 };
 	uint32_t target_stream_bitrate = 3000;
 	OBSOutputSignal startStreaming, stopStreaming;
 
@@ -1079,11 +1083,11 @@ struct CrucibleContext {
 
 	void UpdateStreamSettings()
 	{
-		auto scale = ovi.base_width / static_cast<float>(target_stream_width);
-		target_stream_height = AlignX264Height(static_cast<uint32_t>(ovi.base_height / scale));
+		auto scale = ovi.base_width / static_cast<float>(target_stream.width);
+		target_stream.height = AlignX264Height(static_cast<uint32_t>(ovi.base_height / scale));
 
-		blog(LOG_INFO, "setting stream output size to %ux%u", target_stream_width, target_stream_height);
-		obs_encoder_set_scaled_size(stream_h264, target_stream_width, target_stream_height);
+		blog(LOG_INFO, "setting stream output size to %ux%u", target_stream.width, target_stream.height);
+		obs_encoder_set_scaled_size(stream_h264, target_stream.width, target_stream.height);
 
 		auto ssettings = OBSDataCreate();
 		obs_data_set_int(ssettings, "bitrate", target_stream_bitrate);
@@ -1561,23 +1565,23 @@ struct CrucibleContext {
 	{
 		LOCK(updateMutex);
 
-		game_width = width;
-		game_height = height;
+		game_res.width = width;
+		game_res.height = height;
 
 		ForgeEvents::SendBrowserSizeHint(width, height);
 
-		auto scale = width / static_cast<float>(target_width);
+		auto scale = width / static_cast<float>(target.width);
 		auto new_height = AlignX264Height(static_cast<decltype(ovi.output_height)>(height / scale));
 
-		bool output_dimensions_changed = target_width != ovi.output_width || new_height != ovi.output_height;
+		bool output_dimensions_changed = target.width != ovi.output_width || new_height != ovi.output_height;
 
 		if (width == ovi.base_width && height == ovi.base_height && !output_dimensions_changed)
 			return false;
 
-		if (width > target_width) {
+		if (width > target.width) {
 			ovi.base_width = width;
 			ovi.base_height = height;
-			ovi.output_width = target_width;
+			ovi.output_width = target.width;
 			ovi.output_height = new_height;
 		} else {
 			ovi.base_width = width;
@@ -1653,8 +1657,8 @@ struct CrucibleContext {
 			target_stream_bitrate = stream_rate;
 
 			auto scale = ovi.base_width / static_cast<float>(new_stream_width);
-			target_stream_width = new_stream_width;
-			target_stream_height = AlignX264Height(static_cast<uint32_t>(ovi.base_height / scale));
+			target_stream.width = new_stream_width;
+			target_stream.height = AlignX264Height(static_cast<uint32_t>(ovi.base_height / scale));
 			
 			if (stream_h264) {
 				auto vsettings = OBSDataCreate();
@@ -1664,16 +1668,16 @@ struct CrucibleContext {
 				obs_data_set_string(vsettings, "preset", "veryfast");
 				obs_data_set_string(vsettings, "x264opts", "keyint=30");
 				
-				obs_encoder_set_scaled_size(stream_h264, target_stream_width, target_stream_height);
+				obs_encoder_set_scaled_size(stream_h264, target_stream.width, target_stream.height);
 				obs_encoder_update(stream_h264, vsettings);
 			}
 		}
 
 		if (new_width) {
-			target_width = new_width;
+			target.width = new_width;
 
 			if (obs_output_active(output))
-				UpdateSize(game_width, game_height);
+				UpdateSize(game_res.width, game_res.height);
 		}
 	}
 
@@ -1716,8 +1720,8 @@ struct CrucibleContext {
 		output = nullptr;
 		buffer = nullptr;
 
-		game_width = 0;
-		game_height = 0;
+		game_res.width = 0;
+		game_res.height = 0;
 
 		ovi.fps_den = 0;
 		ResetVideo();
