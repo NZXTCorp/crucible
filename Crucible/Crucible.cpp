@@ -1148,11 +1148,14 @@ struct CrucibleContext {
 
 	void UpdateStreamSettings()
 	{
-		auto scale = ovi.base_width / static_cast<float>(target_stream.width);
-		target_stream.height = AlignX264Height(static_cast<uint32_t>(ovi.base_height / scale));
+		if (game_res.width && game_res.height) {
+			auto scaled = ScaleResolution(target_stream, game_res);
 
-		blog(LOG_INFO, "setting stream output size to %ux%u", target_stream.width, target_stream.height);
-		obs_encoder_set_scaled_size(stream_h264, target_stream.width, target_stream.height);
+			blog(LOG_INFO, "setting stream output size to %ux%u", scaled.width, scaled.height);
+			obs_encoder_set_scaled_size(stream_h264, scaled.width, scaled.height);
+		} else {
+			obs_encoder_set_scaled_size(stream_h264, target_stream.width, AlignX264Height(target_stream.height));
+		}
 
 		auto ssettings = OBSDataCreate();
 		obs_data_set_int(ssettings, "bitrate", target_stream_bitrate);
@@ -1635,25 +1638,17 @@ struct CrucibleContext {
 
 		ForgeEvents::SendBrowserSizeHint(width, height);
 
-		auto scale = width / static_cast<float>(target.width);
-		auto new_height = AlignX264Height(static_cast<decltype(ovi.output_height)>(height / scale));
+		auto scaled = ScaleResolution(target, game_res);
 
-		bool output_dimensions_changed = target.width != ovi.output_width || new_height != ovi.output_height;
+		bool output_dimensions_changed = scaled.width != ovi.output_width || scaled.height != ovi.output_height;
 
 		if (width == ovi.base_width && height == ovi.base_height && !output_dimensions_changed)
 			return false;
 
-		if (width > target.width) {
-			ovi.base_width = width;
-			ovi.base_height = height;
-			ovi.output_width = target.width;
-			ovi.output_height = new_height;
-		} else {
-			ovi.base_width = width;
-			ovi.base_height = height;
-			ovi.output_width = width;
-			ovi.output_height = height;
-		}
+		ovi.base_width = width;
+		ovi.base_height = height;
+		ovi.output_width = scaled.width;
+		ovi.output_height = scaled.height;
 
 		// TODO: this is probably not really safe, should introduce a command queue soon
 		if (restartThread.t.joinable())
@@ -1690,10 +1685,16 @@ struct CrucibleContext {
 		if (!settings)
 			return;
 
-		uint32_t new_width = static_cast<uint32_t>(obs_data_get_int(settings, "width"));
+		OutputResolution new_res{
+			static_cast<uint32_t>(obs_data_get_int(settings, "width")),
+			static_cast<uint32_t>(obs_data_get_int(settings, "height"))
+		};
 		uint32_t max_rate = static_cast<uint32_t>(obs_data_get_int(settings, "max_rate"));
 
-		uint32_t new_stream_width = static_cast<uint32_t>(obs_data_get_int(settings, "stream_width"));
+		OutputResolution new_stream_res{
+			static_cast<uint32_t>(obs_data_get_int(settings, "stream_width")),
+			static_cast<uint32_t>(obs_data_get_int(settings, "stream_height"))
+		};
 		uint32_t stream_rate = static_cast<uint32_t>(obs_data_get_int(settings, "stream_rate"));
 
 		LOCK(updateMutex);
@@ -1721,9 +1722,7 @@ struct CrucibleContext {
 		if (stream_rate) {
 			target_stream_bitrate = stream_rate;
 
-			auto scale = ovi.base_width / static_cast<float>(new_stream_width);
-			target_stream.width = new_stream_width;
-			target_stream.height = AlignX264Height(static_cast<uint32_t>(ovi.base_height / scale));
+			target_stream = new_stream_res;
 			
 			if (stream_h264) {
 				auto vsettings = OBSDataCreate();
@@ -1732,14 +1731,21 @@ struct CrucibleContext {
 				obs_data_set_string(vsettings, "profile", "high");
 				obs_data_set_string(vsettings, "preset", "veryfast");
 				obs_data_set_string(vsettings, "x264opts", "keyint=30");
-				
-				obs_encoder_set_scaled_size(stream_h264, target_stream.width, target_stream.height);
+
+				if (game_res.width && game_res.height) {
+					auto scaled = ScaleResolution(target_stream, game_res);
+
+					obs_encoder_set_scaled_size(stream_h264, scaled.width, scaled.height);
+				} else {
+					obs_encoder_set_scaled_size(stream_h264, target_stream.width, AlignX264Height(target_stream.height));
+				}
+
 				obs_encoder_update(stream_h264, vsettings);
 			}
 		}
 
-		if (new_width) {
-			target.width = new_width;
+		if (new_res.width && new_res.height) {
+			target = new_res;
 
 			if (obs_output_active(output))
 				UpdateSize(game_res.width, game_res.height);
