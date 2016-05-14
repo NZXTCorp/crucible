@@ -28,26 +28,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -72,24 +72,24 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(MinHook)\include;$(ProjectDir);$(OBSLib);$(OBSLib)\..\deps\ipc-util;$(ForgeLib)\open-steamworks\Open Steamworks;$(Boost);$(ForgeLib)\libcef-3.2526.1352.g61f7df0;$(OpenSSL)\include;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\include;$(ForgeLib)\cajun-2.0.2;$(IncludePath)</IncludePath>
-    <LibraryPath>$(MinHook)\build\VC12\lib\$(Configuration);$(OBSBuild)\..\deps\ipc-util\$(Configuration);$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(MinHook)\build\VC14\lib\$(Configuration);$(OBSBuild)\..\deps\ipc-util\$(Configuration);$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(MinHook)\include;$(ProjectDir);$(OBSLib);$(OBSLib)\..\deps\ipc-util;$(ForgeLib)\open-steamworks\Open Steamworks;$(Boost);$(ForgeLib)\libcef-3.2526.1352.g61f7df0;$(OpenSSL)\include;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\include;$(ForgeLib)\cajun-2.0.2;$(IncludePath)</IncludePath>
-    <LibraryPath>$(MinHook)\build\VC12\lib\$(Configuration);$(OBSBuild64)\..\deps\ipc-util\$(Configuration);$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(MinHook)\build\VC14\lib\$(Configuration);$(OBSBuild64)\..\deps\ipc-util\$(Configuration);$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)\$(Configuration)\</OutDir>
     <TargetName>$(ProjectName)64</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(MinHook)\include;$(ProjectDir);$(OBSLib);$(OBSLib)\..\deps\ipc-util;$(ForgeLib)\open-steamworks\Open Steamworks;$(Boost);$(ForgeLib)\libcef-3.2526.1352.g61f7df0;$(OpenSSL)\include;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\include;$(ForgeLib)\cajun-2.0.2;$(IncludePath)</IncludePath>
-    <LibraryPath>$(MinHook)\build\VC12\lib\$(Configuration);$(OBSBuild)\..\deps\ipc-util\RelWithDebInfo;$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(MinHook)\build\VC14\lib\$(Configuration);$(OBSBuild)\..\deps\ipc-util\RelWithDebInfo;$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(MinHook)\include;$(ProjectDir);$(OBSLib);$(OBSLib)\..\deps\ipc-util;$(ForgeLib)\open-steamworks\Open Steamworks;$(Boost);$(ForgeLib)\libcef-3.2526.1352.g61f7df0;$(OpenSSL)\include;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\include;$(ForgeLib)\cajun-2.0.2;$(IncludePath)</IncludePath>
-    <LibraryPath>$(MinHook)\build\VC12\lib\$(Configuration);$(OBSBuild64)\..\deps\ipc-util\RelWithDebInfo;$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(MinHook)\build\VC14\lib\$(Configuration);$(OBSBuild64)\..\deps\ipc-util\RelWithDebInfo;$(Boost)\stage\lib;$(OpenSSL)\lib;$(ForgeLib)\zlib-1.2.8;$(ForgeLib)\curl-7.45.0\lib;$(ForgeLib)\libcef-3.2526.1352.g61f7df0\$(Configuration);$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)\$(Configuration)\</OutDir>
     <TargetName>$(ProjectName)64</TargetName>
   </PropertyGroup>
