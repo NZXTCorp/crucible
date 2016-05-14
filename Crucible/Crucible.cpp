@@ -2023,8 +2023,15 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 	//       ...
 }
 
-auto FreeProcessHandle = [](HANDLE h) { CloseHandle(h); };
-using ProcessHandle = unique_ptr<void, decltype(FreeProcessHandle)>;
+
+struct FreeHandle
+{
+	void operator()(HANDLE h)
+	{
+		CloseHandle(h);
+	}
+};
+using ProcessHandle = unique_ptr<void, FreeHandle>;
 
 void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_event)
 {
@@ -2161,7 +2168,7 @@ static ProcessHandle HandleCLIArgs(HANDLE &start_event)
 	if (!(ss >> start_event))
 		throw make_pair("Couldn't read event id from argv", -3);
 
-	return ProcessHandle{OpenProcess(SYNCHRONIZE, false, pid), FreeProcessHandle};
+	return ProcessHandle{ OpenProcess(SYNCHRONIZE, false, pid) };
 }
 
 static DStr GetConfigDirectory(const char *subdir)
