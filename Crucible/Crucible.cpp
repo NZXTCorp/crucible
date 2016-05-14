@@ -1549,10 +1549,10 @@ struct CrucibleContext {
 
 		auto bookmark_key = OBSDataGetObj(settings, "bookmark_key");
 		obs_key_combination bookmark_combo = {
-			(obs_data_get_bool(bookmark_key, "shift") ? INTERACT_SHIFT_KEY : 0) |
-			(obs_data_get_bool(bookmark_key, "meta") ? INTERACT_COMMAND_KEY : 0) |
-			(obs_data_get_bool(bookmark_key, "ctrl") ? INTERACT_CONTROL_KEY : 0) |
-			(obs_data_get_bool(bookmark_key, "alt") ? INTERACT_ALT_KEY : 0),
+			(obs_data_get_bool(bookmark_key, "shift") ? INTERACT_SHIFT_KEY : 0u) |
+			(obs_data_get_bool(bookmark_key, "meta") ? INTERACT_COMMAND_KEY : 0u) |
+			(obs_data_get_bool(bookmark_key, "ctrl") ? INTERACT_CONTROL_KEY : 0u) |
+			(obs_data_get_bool(bookmark_key, "alt") ? INTERACT_ALT_KEY : 0u),
 			obs_key_from_virtual_key(static_cast<int>(obs_data_get_int(bookmark_key, "keycode")))
 		};
 
@@ -1584,10 +1584,10 @@ struct CrucibleContext {
 		ptt = enabled && ptt;
 
 		obs_key_combination combo = {
-			(obs_data_get_bool(ptt_key, "shift") ? INTERACT_SHIFT_KEY : 0) |
-			(obs_data_get_bool(ptt_key, "meta")  ? INTERACT_COMMAND_KEY : 0) |
-			(obs_data_get_bool(ptt_key, "ctrl")  ? INTERACT_CONTROL_KEY : 0) |
-			(obs_data_get_bool(ptt_key, "alt")   ? INTERACT_ALT_KEY : 0),
+			(obs_data_get_bool(ptt_key, "shift") ? INTERACT_SHIFT_KEY : 0u) |
+			(obs_data_get_bool(ptt_key, "meta")  ? INTERACT_COMMAND_KEY : 0u) |
+			(obs_data_get_bool(ptt_key, "ctrl")  ? INTERACT_CONTROL_KEY : 0u) |
+			(obs_data_get_bool(ptt_key, "alt")   ? INTERACT_ALT_KEY : 0u),
 			obs_key_from_virtual_key(static_cast<int>(obs_data_get_int(ptt_key, "keycode")))
 		};
 
