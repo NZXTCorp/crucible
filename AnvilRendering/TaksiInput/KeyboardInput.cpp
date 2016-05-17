@@ -141,7 +141,7 @@ static int Modifiers(T keys)
 {
 		return ((Pressed(keys, VK_CONTROL) || Pressed(keys, VK_LCONTROL) ? HOTKEYF_CONTROL : 0) |
 			(Pressed(keys, VK_MENU) || Pressed(keys, VK_LMENU) || Pressed(keys, VK_RMENU) ? HOTKEYF_ALT : 0) |
-			(Pressed(keys, VK_SHIFT) || Pressed(keys, VK_LSHIFT) || Pressed(keys, VK_RSHIFT) ? HOTKEYF_SHIFT : 0)) << 8;
+			(Pressed(keys, VK_SHIFT) || Pressed(keys, VK_LSHIFT) || Pressed(keys, VK_RSHIFT) ? HOTKEYF_SHIFT : 0));
 }
 
 template <typename T, typename U>
