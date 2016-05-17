@@ -210,10 +210,11 @@ static void HandleUpdateSettings(Object &obj)
 		Boolean alt = key_data["alt"];
 		Number code = key_data["keycode"];
 
-		hotkeys[hotkey] = (shift ? HOTKEYF_SHIFT : 0) |
+		WORD mods = ((shift ? HOTKEYF_SHIFT : 0) |
 			(ctrl ? HOTKEYF_CONTROL : 0) |
-			(alt ? HOTKEYF_ALT : 0) |
-			static_cast<int>(code.Value());
+			(alt ? HOTKEYF_ALT : 0)) << 8;
+
+		hotkeys[hotkey] =  mods | static_cast<int>(code.Value());
 
 		if (!hotkeys[hotkey])
 			return;
