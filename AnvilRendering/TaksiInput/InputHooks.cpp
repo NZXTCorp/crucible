@@ -93,10 +93,18 @@ static CHookJump s_HookGetCursor;
 #define DECLARE_HOOK_EXP(func, name, wrapper) static FuncHook<decltype(func)> name{ #func, (decltype(func)*)wrapper }
 #define DECLARE_HOOK(func, wrapper) DECLARE_HOOK_EXP(func, s_Hook ## func, wrapper)
 
+static struct cursor_info_ {
+	bool saved = false;
+	bool showing = false;
+} cursor_info;
+
 DECLARE_HOOK(ShowCursor, [](BOOL bShow)
 {
 	if (g_bBrowserShowing)
+	{
+		cursor_info.showing = !!bShow;
 		return bShow ? 0 : -1;
+	}
 
 	return s_HookShowCursor.Call(bShow);
 });
@@ -172,11 +180,6 @@ DECLARE_HOOK(PeekMessageW, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT w
 			break;
 	return res;
 });
-
-static struct cursor_info_ {
-	bool saved = false;
-	bool showing = false;
-} cursor_info;
 
 // GetCursorInfo seems to be buffered for DX9 somehow? doesn't seem to change state immediately; limiting the ShowCursor calls to 3 seems to be good enough for now
 void OverlaySaveShowCursor()
