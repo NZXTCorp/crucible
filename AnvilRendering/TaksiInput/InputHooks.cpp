@@ -178,6 +178,7 @@ static struct cursor_info_ {
 	bool showing = false;
 } cursor_info;
 
+// GetCursorInfo seems to be buffered for DX9 somehow? doesn't seem to change state immediately; limiting the ShowCursor calls to 3 seems to be good enough for now
 void OverlaySaveShowCursor()
 {
 	CURSORINFO info;
@@ -192,9 +193,11 @@ void OverlaySaveShowCursor()
 		return;
 
 	info.cbSize = sizeof(CURSORINFO);
-	for (; GetCursorInfo(&info) && !info.flags;)
+	for (size_t i = 0; i < 3 && GetCursorInfo(&info) && !info.flags; i++)
 	{
-		s_HookShowCursor.Call(true);
+		if (s_HookShowCursor.Call(true) >= 0)
+			break;
+
 		info.cbSize = sizeof(CURSORINFO);
 	}
 }
@@ -211,9 +214,11 @@ void OverlayRestoreShowCursor()
 
 	CURSORINFO info;
 	info.cbSize = sizeof(CURSORINFO);
-	for (; GetCursorInfo(&info) && info.flags == CURSOR_SHOWING;)
+	for (size_t i = 0; i < 3 && GetCursorInfo(&info) && info.flags == CURSOR_SHOWING; i++)
 	{
-		s_HookShowCursor.Call(false);
+		if (s_HookShowCursor.Call(false) < 0)
+			break;
+
 		info.cbSize = sizeof(CURSORINFO);
 	}
 }
