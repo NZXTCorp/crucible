@@ -209,6 +209,7 @@ void DX9Renderer::SetupRenderState( IDirect3DStateBlock9 **pStateBlock, DWORD vp
 	m_pDevice->SetRenderState( D3DRS_CLIPPING, true );
 	m_pDevice->SetRenderState( D3DRS_CLIPPLANEENABLE, false );
 	m_pDevice->SetRenderState( D3DRS_FOGENABLE, false );
+	m_pDevice->SetRenderState(D3DRS_LIGHTING, false);
 
 	m_pDevice->SetRenderState( D3DRS_SHADEMODE, D3DSHADE_GOURAUD );
 	m_pDevice->SetRenderState( D3DRS_ZWRITEENABLE, FALSE );
@@ -217,9 +218,12 @@ void DX9Renderer::SetupRenderState( IDirect3DStateBlock9 **pStateBlock, DWORD vp
 	// alpha/blending stuff (as given to us by half-life 2: lost cause - do we need to change them)
 	m_pDevice->SetRenderState( D3DRS_ALPHAFUNC, D3DCMP_GREATER );
 	m_pDevice->SetRenderState( D3DRS_SRCBLEND, D3DBLEND_SRCALPHA );
-	m_pDevice->SetRenderState( D3DRS_SRCBLENDALPHA, D3DBLEND_ONE );
 	m_pDevice->SetRenderState( D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA );
-	m_pDevice->SetRenderState( D3DRS_DESTBLENDALPHA, D3DBLEND_ZERO );
+
+	m_pDevice->SetRenderState(D3DRS_ALPHATESTENABLE, false);
+	m_pDevice->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, false); // this should make the next two obsolete according to the docs, but we'll keep them anyway
+	m_pDevice->SetRenderState(D3DRS_SRCBLENDALPHA, D3DBLEND_ONE);
+	m_pDevice->SetRenderState(D3DRS_DESTBLENDALPHA, D3DBLEND_ZERO);
 	
 	if ( textured )
 	{
