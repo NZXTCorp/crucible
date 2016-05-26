@@ -221,6 +221,7 @@ void DX9Renderer::SetupRenderState( IDirect3DStateBlock9 **pStateBlock, DWORD vp
 	m_pDevice->SetRenderState( D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA );
 
 	m_pDevice->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_ALPHA | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_RED);
+	m_pDevice->SetRenderState(D3DRS_SRGBWRITEENABLE, true);
 
 	m_pDevice->SetRenderState(D3DRS_ALPHATESTENABLE, false);
 	m_pDevice->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, false); // this should make the next two obsolete according to the docs, but we'll keep them anyway
@@ -372,6 +373,9 @@ bool DX9Renderer::RenderTex(Fun &&f)
 		return false;
 	}
 
+	DWORD srgb_state = 0;
+	bool reset_srgb_state = !FAILED(m_pDevice->GetSamplerState(0, D3DSAMP_SRGBTEXTURE, &srgb_state));
+
 	// save whatever the current texture is. not doing this can break video cutscenes and stuff
 	IDirect3DBaseTexture9 *pTexture;
 	m_pDevice->GetTexture(0, &pTexture); // note that it could be null
@@ -380,6 +384,8 @@ bool DX9Renderer::RenderTex(Fun &&f)
 	m_pDevice->SetVertexShader(nullptr);
 
 	hRes = m_pTexturedRenderState->Apply();
+
+	m_pDevice->SetSamplerState(0, D3DSAMP_SRGBTEXTURE, true);
 
 	// render
 	hRes = m_pDevice->BeginScene();
@@ -392,6 +398,9 @@ bool DX9Renderer::RenderTex(Fun &&f)
 		m_pDevice->SetTexture(0, pTexture);
 		pTexture->Release();
 	}
+
+	if (reset_srgb_state)
+		m_pDevice->SetSamplerState(0, D3DSAMP_SRGBTEXTURE, srgb_state);
 
 	if (vs)
 	{
