@@ -30,6 +30,9 @@ private:
 	void UpdateVB( IDirect3DVertexBuffer9 *pVB, int x, int y, int w, int h, DWORD color ); // update given vertex buffer position/size/color
 	void SetupRenderState( IDirect3DStateBlock9 **pStateBlock, DWORD vp_width, DWORD vp_height, bool textured ); // setup rendering state blocks. false = solid, true = textured
 	void InitIndicatorTextures( IndicatorManager &manager ); // helper to create indicator textures from the manager
+
+	template <typename Fun>
+	bool RenderTex(Fun &&f);
 public:
 	DX9Renderer( void );
 	~DX9Renderer( void );

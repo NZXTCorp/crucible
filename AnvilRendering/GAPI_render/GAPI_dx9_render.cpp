@@ -345,6 +345,41 @@ void DX9Renderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 	//LOGHR(hRes, "m_pCurrentRenderState->Apply" );
 }
 
+template <typename Fun>
+bool DX9Renderer::RenderTex(Fun &&f)
+{
+	// setup renderstate
+	HRESULT hRes = m_pCurrentRenderState->Capture();
+	if (FAILED(hRes))
+	{
+		LOG_WARN("RenderTex: capturing render state failed! 0x%x." LOG_CR, hRes);
+		return false;
+	}
+
+	// save whatever the current texture is. not doing this can break video cutscenes and stuff
+	IDirect3DBaseTexture9 *pTexture;
+	m_pDevice->GetTexture(0, &pTexture); // note that it could be null
+
+	hRes = m_pTexturedRenderState->Apply();
+
+	// render
+	hRes = m_pDevice->BeginScene();
+	if (SUCCEEDED(hRes))
+		f();
+
+	// restore current texture if one was set
+	if (pTexture)
+	{
+		m_pDevice->SetTexture(0, pTexture);
+		pTexture->Release();
+	}
+
+	// restore the modified renderstate
+	m_pCurrentRenderState->Apply();
+
+	return true;
+}
+
 void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color )
 {
 	if (eIndicatorEvent >= INDICATE_NONE)
@@ -359,23 +394,7 @@ void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color 
 
 	UpdateVB( m_pVBNotification, x, y, desc.Width, desc.Height, color );
 	
-	// setup renderstate
-	HRESULT hRes = m_pCurrentRenderState->Capture( );
-	if ( FAILED(hRes) )
-	{
-		LOG_WARN( "DrawNewIndicator: capturing render state failed! 0x%x." LOG_CR, hRes );
-		return;
-	}
-	
-	// save whatever the current texture is. not doing this can break video cutscenes and stuff
-	IDirect3DBaseTexture9 *pTexture;
-	m_pDevice->GetTexture( 0, &pTexture ); // note that it could be null
-	
-	hRes = m_pTexturedRenderState->Apply( );
-	
-	// render
-	hRes = m_pDevice->BeginScene();
-	if ( SUCCEEDED(hRes))
+	RenderTex([&]
 	{
 		m_pDevice->SetStreamSource( 0, m_pVBNotification, 0, sizeof(NEWVERTEX) );
 		m_pDevice->SetFVF( D3DFVF_NEWVERTEX );
@@ -383,40 +402,14 @@ void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color 
 		m_pDevice->DrawPrimitive( D3DPT_TRIANGLESTRIP, 0, 2 );
 
 		m_pDevice->EndScene();
-	}
-	
-	// restore the modified renderstate
-	m_pCurrentRenderState->Apply( );
-
-	// restore current texture if one was set
-	if ( pTexture )
-	{
-		m_pDevice->SetTexture( 0, pTexture );
-		pTexture->Release( );
-	}
+	});
 }
 
 bool DX9Renderer::DrawOverlay( void )
 {
 	return overlay_textures[active_overlay].Draw([&](OverlayTexture_t &tex)
 	{
-		// NOTE: there will be a separate function to call to update the overlay texture and vertex buffer
-		HRESULT hRes = m_pCurrentRenderState->Capture();
-		if (FAILED(hRes))
-		{
-			LOG_WARN("DrawOverlay: capturing render state failed! 0x%x." LOG_CR, hRes);
-			return false;
-		}
-
-		// save whatever the current texture is. not doing this will break video cutscenes and stuff
-		IDirect3DBaseTexture9 *pTexture;
-		m_pDevice->GetTexture(0, &pTexture);
-
-		hRes = m_pTexturedRenderState->Apply();
-
-		// render
-		hRes = m_pDevice->BeginScene();
-		if (SUCCEEDED(hRes))
+		if (!RenderTex([&]
 		{
 			m_pDevice->SetStreamSource(0, m_pVBOverlay, 0, sizeof(NEWVERTEX));
 			m_pDevice->SetFVF(D3DFVF_NEWVERTEX);
@@ -424,13 +417,8 @@ bool DX9Renderer::DrawOverlay( void )
 			m_pDevice->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
 
 			m_pDevice->EndScene();
-		}
-
-		// restore the modified renderstates and texture
-		m_pCurrentRenderState->Apply();
-		m_pDevice->SetTexture(0, pTexture);
-		if (pTexture)
-			pTexture->Release();
+		}))
+			return false;
 
 		return true;
 	});
