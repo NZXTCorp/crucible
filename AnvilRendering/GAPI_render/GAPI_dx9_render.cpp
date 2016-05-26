@@ -220,6 +220,8 @@ void DX9Renderer::SetupRenderState( IDirect3DStateBlock9 **pStateBlock, DWORD vp
 	m_pDevice->SetRenderState( D3DRS_SRCBLEND, D3DBLEND_SRCALPHA );
 	m_pDevice->SetRenderState( D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA );
 
+	m_pDevice->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_ALPHA | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_RED);
+
 	m_pDevice->SetRenderState(D3DRS_ALPHATESTENABLE, false);
 	m_pDevice->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, false); // this should make the next two obsolete according to the docs, but we'll keep them anyway
 	m_pDevice->SetRenderState(D3DRS_SRCBLENDALPHA, D3DBLEND_ONE);
