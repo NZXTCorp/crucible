@@ -356,9 +356,28 @@ bool DX9Renderer::RenderTex(Fun &&f)
 		return false;
 	}
 
+	IDirect3DPixelShader9 *ps = nullptr;
+	hRes = m_pDevice->GetPixelShader(&ps);
+	if (FAILED(hRes))
+	{
+		LOG_WARN("RenderTex: failed to get pixel shader: %#x\n", hRes);
+		return false;
+	}
+
+	IDirect3DVertexShader9 *vs = nullptr;
+	hRes = m_pDevice->GetVertexShader(&vs);
+	if (FAILED(hRes))
+	{
+		LOG_WARN("RenderTex: failed to get vertex shader: %#x\n", hRes);
+		return false;
+	}
+
 	// save whatever the current texture is. not doing this can break video cutscenes and stuff
 	IDirect3DBaseTexture9 *pTexture;
 	m_pDevice->GetTexture(0, &pTexture); // note that it could be null
+
+	m_pDevice->SetPixelShader(nullptr);
+	m_pDevice->SetVertexShader(nullptr);
 
 	hRes = m_pTexturedRenderState->Apply();
 
@@ -372,6 +391,18 @@ bool DX9Renderer::RenderTex(Fun &&f)
 	{
 		m_pDevice->SetTexture(0, pTexture);
 		pTexture->Release();
+	}
+
+	if (vs)
+	{
+		m_pDevice->SetVertexShader(vs);
+		vs->Release();
+	}
+
+	if (ps)
+	{
+		m_pDevice->SetPixelShader(ps);
+		ps->Release();
 	}
 
 	// restore the modified renderstate
