@@ -76,21 +76,27 @@ namespace ForgeEvent
 			.Set("lParam", lParam));
 	}
 
-	bool InitBrowser(const std::string &name, LONG width, LONG height)
+	bool InitBrowser(const std::array<BrowserConnectionDescription, OVERLAY_COUNT> &browsers, LONG width, LONG height)
 	{
+		Array servers;
+		for (const auto &browser : browsers)
+			servers.Append(Object()
+				.Set("server", browser.server)
+				.Set("name", browser.name));
+
 		return SendEvent(EventCreate("init_browser")
-			.Set("framebuffer_server", String(name))
+			.Set("servers", servers)
 			.Set("width", Number(width))
 			.Set("height", Number(height)));
 	}
 
-	bool ShowBrowser(const std::string &server_name, LONG width, LONG height, const std::string& name)
+	bool ShowBrowser(const BrowserConnectionDescription &server, LONG width, LONG height)
 	{
 		return SendEvent(EventCreate("show_browser")
-			.Set("framebuffer_server", String(server_name))
+			.Set("framebuffer_server", String(server.server))
 			.Set("width", Number(width))
 			.Set("height", Number(height))
-			.Set("name", String(name)));
+			.Set("name", String(server.name)));
 	}
 
 	bool HideBrowser()

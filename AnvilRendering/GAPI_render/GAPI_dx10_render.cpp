@@ -778,7 +778,7 @@ void DX10Renderer::UpdateOverlay()
 {
 	overlay_textures[active_overlay].Buffer([&](D3D10Texture &tex)
 	{
-		auto vec = ReadNewFramebuffer();
+		auto vec = ReadNewFramebuffer(active_overlay);
 		if (vec)
 			/*hlog("Got vec %p: %d vs %dx%dx4 = %d", vec, vec->size(), g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy,
 			g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;

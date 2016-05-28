@@ -6,6 +6,7 @@
 
 #include "../Crucible/IPC.hpp"
 
+#include <array>
 #include <atomic>
 #include <mutex>
 #include <thread>
@@ -110,7 +111,7 @@ void UpdateRawMouse(RAWMOUSE &event)
 #define CONCAT(x, y) CONCAT2(x, y)
 #define LOCK(x) lock_guard<decltype(x)> CONCAT(lockGuard, __LINE__){x}
 
-static struct ForgeFramebufferServer {
+struct ForgeFramebufferServer {
 	IPCServer server;
 
 	std::string name;
@@ -126,7 +127,7 @@ static struct ForgeFramebufferServer {
 
 	void Start()
 	{
-		static int restarts = 0;
+		static atomic<int> restarts = 0;
 		died = false;
 
 		name = "AnvilFramebufferServer" + to_string(GetCurrentProcessId()) + "-" + to_string(restarts++);
@@ -168,28 +169,43 @@ static struct ForgeFramebufferServer {
 		read_data.clear();
 		incoming_data.clear();
 	}
-} forgeFramebufferServer;
+};
+
+static std::array<ForgeFramebufferServer, OVERLAY_COUNT> forgeFramebufferServer;
+
+static const char *name_for_overlay[OVERLAY_COUNT] = {
+	"highlighter",
+	"streaming"
+};
 
 void StartFramebufferServer()
 {
-	if (forgeFramebufferServer.died)
-		forgeFramebufferServer.Start();
+	array<ForgeEvent::BrowserConnectionDescription, OVERLAY_COUNT> browsers;
+	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++) {
+		auto &fbs = forgeFramebufferServer[i];
+		if (fbs.died)
+			fbs.Start();
 
-	ForgeEvent::InitBrowser(forgeFramebufferServer.name, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
+		browsers[i].server = fbs.name;
+		browsers[i].name = name_for_overlay[i];
+	}
+
+	ForgeEvent::InitBrowser(browsers, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
 }
 
-vector<uint8_t> *ReadNewFramebuffer()
+vector<uint8_t> *ReadNewFramebuffer(ActiveOverlay ov)
 {
-	if (!forgeFramebufferServer.new_data)
+	auto &fbs = forgeFramebufferServer[ov];
+	if (!fbs.new_data)
 		return nullptr;
 
 	{
-		LOCK(forgeFramebufferServer.share_mutex);
-		swap(forgeFramebufferServer.shared_data, forgeFramebufferServer.read_data);
-		forgeFramebufferServer.new_data = false;
+		LOCK(fbs.share_mutex);
+		swap(fbs.shared_data, fbs.read_data);
+		fbs.new_data = false;
 	}
 
-	return &forgeFramebufferServer.read_data;
+	return &fbs.read_data;
 }
 
 extern void ResetOverlayCursor();
@@ -218,22 +234,18 @@ void DismissOverlay(bool from_remote)
 void OverlaySaveShowCursor();
 void OverlayUnclipCursor();
 
-static const char *name_for_overlay[OVERLAY_COUNT] = {
-	"highlighter",
-	"streaming"
-};
-
 void ToggleOverlay(ActiveOverlay overlay)
 {
-	if (g_bBrowserShowing && forgeFramebufferServer.died)
-		forgeFramebufferServer.Start();
+	auto &fbs = forgeFramebufferServer[overlay];
+	if (g_bBrowserShowing && fbs.died)
+		fbs.Start();
 
 	if (!g_bBrowserShowing) {
-		if (forgeFramebufferServer.died)
-			forgeFramebufferServer.Start();
+		if (fbs.died)
+			fbs.Start();
 
 		active_overlay = overlay;
-		ForgeEvent::ShowBrowser(forgeFramebufferServer.name, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, name_for_overlay[overlay]);
+		ForgeEvent::ShowBrowser({ fbs.name, name_for_overlay[overlay] }, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
 		hlog("Requesting browser");
 
 

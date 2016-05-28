@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <vector>
@@ -92,15 +93,20 @@ extern bool g_bBrowserShowing;
 
 namespace ForgeEvent
 {
+	struct BrowserConnectionDescription {
+		std::string server;
+		const char *name;
+	};
+
 	bool KeyEvent(UINT msg, WPARAM wParam, LPARAM lParam);
 	bool MouseEvent(UINT msg, WPARAM wParam, LPARAM lParam);
-	bool InitBrowser(const std::string &name, LONG width, LONG height);
-	bool ShowBrowser(const std::string &server_name, LONG width, LONG height, const std::string& name);
+	bool InitBrowser(const std::array<BrowserConnectionDescription, OVERLAY_COUNT> &browsers, LONG width, LONG height);
+	bool ShowBrowser(const BrowserConnectionDescription &server, LONG width, LONG height);
 	bool HideBrowser();
 	bool CreateBookmark();
 	bool StartStream();
 	bool StopStream();
 }
 
-std::vector<uint8_t> *ReadNewFramebuffer();
+std::vector<uint8_t> *ReadNewFramebuffer(ActiveOverlay ov);
 void StartFramebufferServer();

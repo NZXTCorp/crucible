@@ -455,7 +455,7 @@ static void update_overlay()
 
 	overlay_textures[active_overlay].Buffer([&](GLuint &tex)
 	{
-		auto vec = ReadNewFramebuffer();
+		auto vec = ReadNewFramebuffer(active_overlay);
 		if (!vec || vec->size() != g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)
 			return false;
 
