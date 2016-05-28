@@ -453,27 +453,28 @@ static void update_overlay()
 		overlay_tex_initialized = true;
 	}
 
-	overlay_textures[active_overlay].Buffer([&](GLuint &tex)
-	{
-		auto vec = ReadNewFramebuffer(active_overlay);
-		if (!vec || vec->size() != g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)
-			return false;
+	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++)
+		overlay_textures[i].Buffer([&](GLuint &tex)
+		{
+			auto vec = ReadNewFramebuffer(static_cast<ActiveOverlay>(i));
+			if (!vec || vec->size() != g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)
+				return false;
 
-		s_glBindTexture(GL_TEXTURE_2D, tex);
-		s_glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-		s_glPixelStorei(GL_UNPACK_ROW_LENGTH, g_Proc.m_Stats.m_SizeWnd.cx);
-		s_glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-		s_glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-		s_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_Proc.m_Stats.m_SizeWnd.cx,
-			g_Proc.m_Stats.m_SizeWnd.cy, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, vec->data());
-		auto err = s_glGetError();
-		if (err) {
-			LOG_WARN("update_overlay: unable to update OpenGL texture (%d)" LOG_CR, err);
-			return false;
-		}
+			s_glBindTexture(GL_TEXTURE_2D, tex);
+			s_glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+			s_glPixelStorei(GL_UNPACK_ROW_LENGTH, g_Proc.m_Stats.m_SizeWnd.cx);
+			s_glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+			s_glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+			s_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_Proc.m_Stats.m_SizeWnd.cx,
+				g_Proc.m_Stats.m_SizeWnd.cy, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, vec->data());
+			auto err = s_glGetError();
+			if (err) {
+				LOG_WARN("update_overlay: unable to update OpenGL texture %d (%d)" LOG_CR, i, err);
+				return false;
+			}
 
-		return true;
-	});
+			return true;
+		});
 	s_glPopAttrib();
 }
 

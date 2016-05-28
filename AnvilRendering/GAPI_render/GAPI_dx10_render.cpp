@@ -776,32 +776,33 @@ bool DX10Renderer::DrawOverlay(IDXGISwapChain *pSwapChain)
 
 void DX10Renderer::UpdateOverlay()
 {
-	overlay_textures[active_overlay].Buffer([&](D3D10Texture &tex)
-	{
-		auto vec = ReadNewFramebuffer(active_overlay);
-		if (vec)
-			/*hlog("Got vec %p: %d vs %dx%dx4 = %d", vec, vec->size(), g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy,
-			g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;
-		else
-			return false;
-
-		D3D10_MAPPED_TEXTURE2D mt;
-		auto hr = tex.tex->Map(0, D3D10_MAP_WRITE_DISCARD, 0, &mt);
-		if (FAILED(hr))
+	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++)
+		overlay_textures[i].Buffer([&](D3D10Texture &tex)
 		{
-			LOG_MSG("UpdateOverlay: texture data lock failed!" LOG_CR);
-			return false;
-		}
+			auto vec = ReadNewFramebuffer(static_cast<ActiveOverlay>(i));
+			if (vec)
+				/*hlog("Got vec %p: %d vs %dx%dx4 = %d", vec, vec->size(), g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy,
+				g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;
+			else
+				return false;
 
-		// these probably won't match, gpus are fussy about even dimensions and stuff. we have to copy line by line to compensate
-		//LOG_MSG("InitIndicatorTextures: d3d surface pitch is %d, image stride is %d" LOG_CR, lr.Pitch, data.Stride);
-		for (UINT y = 0; y < g_Proc.m_Stats.m_SizeWnd.cy; y++)
-			memcpy((BYTE *)mt.pData + (y * mt.RowPitch), (BYTE *)vec->data() + (y * g_Proc.m_Stats.m_SizeWnd.cx * 4), g_Proc.m_Stats.m_SizeWnd.cx * 4);
+			D3D10_MAPPED_TEXTURE2D mt;
+			auto hr = tex.tex->Map(0, D3D10_MAP_WRITE_DISCARD, 0, &mt);
+			if (FAILED(hr))
+			{
+				LOG_MSG("UpdateOverlay: texture data lock (%d) failed!" LOG_CR, i);
+				return false;
+			}
 
-		tex.tex->Unmap(0);
+			// these probably won't match, gpus are fussy about even dimensions and stuff. we have to copy line by line to compensate
+			//LOG_MSG("InitIndicatorTextures: d3d surface pitch is %d, image stride is %d" LOG_CR, lr.Pitch, data.Stride);
+			for (UINT y = 0; y < g_Proc.m_Stats.m_SizeWnd.cy; y++)
+				memcpy((BYTE *)mt.pData + (y * mt.RowPitch), (BYTE *)vec->data() + (y * g_Proc.m_Stats.m_SizeWnd.cx * 4), g_Proc.m_Stats.m_SizeWnd.cx * 4);
 
-		return true;
-	});
+			tex.tex->Unmap(0);
+
+			return true;
+		});
 }
 
 

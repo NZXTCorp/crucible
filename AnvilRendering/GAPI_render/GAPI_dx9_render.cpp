@@ -466,32 +466,33 @@ bool DX9Renderer::DrawOverlay( void )
 
 void DX9Renderer::UpdateOverlay()
 {
-	overlay_textures[active_overlay].Buffer([&](OverlayTexture_t &tex)
-	{
-		auto vec = ReadNewFramebuffer(active_overlay);
-		if (vec)
-			/*hlog("Got vec %p: %d vs %dx%dx4 = %d", vec, vec->size(), g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy,
-				g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;
-		else
-			return false;
-
-		D3DLOCKED_RECT lr;
-		HRESULT hr = tex->LockRect(0, &lr, NULL, D3DLOCK_DISCARD);
-		if (FAILED(hr))
+	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++)
+		overlay_textures[i].Buffer([&](OverlayTexture_t &tex)
 		{
-			LOG_MSG("InitIndicatorTextures: texture data lock failed!" LOG_CR);
-			return false;
-		}
+			auto vec = ReadNewFramebuffer(static_cast<ActiveOverlay>(i));
+			if (vec)
+				/*hlog("Got vec %p: %d vs %dx%dx4 = %d", vec, vec->size(), g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy,
+					g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;
+			else
+				return false;
 
-		// these probably won't match, gpus are fussy about even dimensions and stuff. we have to copy line by line to compensate
-		//LOG_MSG("InitIndicatorTextures: d3d surface pitch is %d, image stride is %d" LOG_CR, lr.Pitch, data.Stride);
-		for (UINT y = 0; y < g_Proc.m_Stats.m_SizeWnd.cy; y++)
-			memcpy((BYTE *)lr.pBits + (y * lr.Pitch), (BYTE *)vec->data() + (y * g_Proc.m_Stats.m_SizeWnd.cx * 4), g_Proc.m_Stats.m_SizeWnd.cx * 4);
+			D3DLOCKED_RECT lr;
+			HRESULT hr = tex->LockRect(0, &lr, NULL, D3DLOCK_DISCARD);
+			if (FAILED(hr))
+			{
+				LOG_MSG("InitIndicatorTextures: texture data lock (%d) failed!" LOG_CR, i);
+				return false;
+			}
+
+			// these probably won't match, gpus are fussy about even dimensions and stuff. we have to copy line by line to compensate
+			//LOG_MSG("InitIndicatorTextures: d3d surface pitch is %d, image stride is %d" LOG_CR, lr.Pitch, data.Stride);
+			for (UINT y = 0; y < g_Proc.m_Stats.m_SizeWnd.cy; y++)
+				memcpy((BYTE *)lr.pBits + (y * lr.Pitch), (BYTE *)vec->data() + (y * g_Proc.m_Stats.m_SizeWnd.cx * 4), g_Proc.m_Stats.m_SizeWnd.cx * 4);
 
 
-		tex->UnlockRect(0);
-		return true;
-	});
+			tex->UnlockRect(0);
+			return true;
+		});
 }
 
 static bool get_back_buffer_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
