@@ -231,6 +231,21 @@ void DismissOverlay(bool from_remote)
 			SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER);
 }
 
+void DismissNamedOverlay(const string &name)
+{
+	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++)
+	{
+		if (active_overlay != static_cast<ActiveOverlay>(i))
+			continue;
+
+		if (name_for_overlay[i] != name)
+			continue;
+
+		hlog("Hiding named overlay '%s' from remote", name.c_str());
+		DismissOverlay(true);
+	}
+}
+
 void OverlaySaveShowCursor();
 void OverlayUnclipCursor();
 

@@ -149,6 +149,7 @@ static WORD hotkeys[HOTKEY_QTY] = { 0 };
 ProtectedObject<HCURSOR> overlay_cursor;
 
 extern void DismissOverlay(bool);
+extern void DismissNamedOverlay(const string &name);
 
 static void RestartCrucibleServer();
 
@@ -253,6 +254,11 @@ static void HandleStreamStatus(Object &)
 {
 }
 
+static void HandleDismissOverlay(Object &obj)
+{
+	DismissNamedOverlay(String(obj["name"]));
+}
+
 static void HandleCommands(uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(Object&)> handlers = {
@@ -260,7 +266,7 @@ static void HandleCommands(uint8_t *data, size_t size)
 		{ "forge_info", HandleForgeInfo },
 		{ "update_settings", HandleUpdateSettings },
 		{ "set_cursor", HandleSetCursor },
-		{ "dismiss_overlay", [](Object&) { DismissOverlay(true); } },
+		{ "dismiss_overlay", HandleDismissOverlay },
 		{ "stream_status", HandleStreamStatus }
 	};
 
