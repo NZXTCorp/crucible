@@ -255,9 +255,12 @@ void ToggleOverlay(ActiveOverlay overlay)
 	if (g_bBrowserShowing && fbs.died)
 		fbs.Start();
 
-	if (!g_bBrowserShowing) {
+	if (!g_bBrowserShowing || active_overlay != overlay) {
 		if (fbs.died)
 			fbs.Start();
+
+		if (overlay != active_overlay)
+			ForgeEvent::HideBrowser();
 
 		active_overlay = overlay;
 		ForgeEvent::ShowBrowser({ fbs.name, name_for_overlay[overlay] }, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
