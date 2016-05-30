@@ -660,9 +660,12 @@ namespace AnvilCommands {
 			SendCommand(cursor);
 	}
 
-	void DismissOverlay()
+	void DismissOverlay(OBSData &data)
 	{
 		auto cmd = CommandCreate("dismiss_overlay");
+
+		if (obs_data_has_user_value(data, "name"))
+			obs_data_set_string(cmd, "name", obs_data_get_string(data, "name"));
 
 		LOCK(commandMutex);
 
@@ -1983,7 +1986,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "monitored_process_exit", HandleMonitoredProcessExit },
 		{ "update_video_settings", HandleUpdateVideoSettingsCommand },
 		{ "set_cursor", HandleSetCursor },
-		{ "dismiss_overlay", [](CrucibleContext&, OBSData&) { AnvilCommands::DismissOverlay(); } },
+		{ "dismiss_overlay", [](CrucibleContext&, OBSData &data) { AnvilCommands::DismissOverlay(data); } },
 		{ "clip_accepted", [](CrucibleContext&, OBSData&) { AnvilCommands::ShowClipping(); } },
 		{ "clip_finished", HandleClipFinished },
 		{ "forge_will_close", HandleForgeWillClose },
