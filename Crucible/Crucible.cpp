@@ -755,8 +755,8 @@ static OutputResolution ScaleResolution(const OutputResolution &target, const Ou
 
 	auto pixel_ratio = min(target.pixels() / static_cast<double>(source.pixels()), 1.0);
 	OutputResolution res{
-		static_cast<uint32_t>(source.width * pixel_ratio),
-		static_cast<uint32_t>(source.height * pixel_ratio)
+		static_cast<uint32_t>(source.width * sqrt(pixel_ratio)),
+		static_cast<uint32_t>(source.height * sqrt(pixel_ratio))
 	};
 
 	//libobs enforces multiple of 4 width and multiple of 2 height
