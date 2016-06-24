@@ -733,7 +733,7 @@ static boost::optional<OutputResolution> ScaleResolutionInteger(const OutputReso
 
 	for (auto i : { 0, 1, -1 }) {
 		auto target_segments = max(static_cast<uint32_t>(1), min(aspect_segments, target_aspect_segments + i));
-		OutputResolution res{ aspect_width * target_aspect_segments, aspect_height * target_aspect_segments };
+		OutputResolution res{ aspect_width * target_segments, aspect_height * target_segments };
 
 		if (res.width > source.width || res.height > source.height)
 			continue;
