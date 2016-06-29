@@ -13,7 +13,7 @@
 
 #include "../../Crucible/ProtectedObject.hpp"
 
-//#define HOOK_REGISTER_RAW_DEVICES
+#define HOOK_REGISTER_RAW_DEVICES
 
 #ifdef USE_DIRECTI
 #define DIRECTINPUT_VERSION 0x0800
