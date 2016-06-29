@@ -470,7 +470,7 @@ DECLARE_HOOK(GetRegisteredRawInputDevices, [](PRAWINPUTDEVICE pRawInputDevices, 
 		{
 			*puiNumDevices = prev_devices.size();
 			SetLastError(ERROR_INSUFFICIENT_BUFFER);
-			return -1;
+			return 0;
 		}
 
 		for (size_t i = 0, end_ = prev_devices.size(); i < end_; i++)
