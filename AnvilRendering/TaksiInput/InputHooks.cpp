@@ -84,9 +84,6 @@ static CHookJump s_HookSetCursorPos;
 static CHookJump s_HookGetRawInputData;
 static CHookJump s_HookGetRawInputBuffer;
 
-static CHookJump s_HookGetRegisteredRawInputDevices;
-static CHookJump s_HookRegisterRawInputDevices;
-
 static CHookJump s_HookSetCursor;
 static CHookJump s_HookGetCursor;
 
@@ -465,7 +462,7 @@ UINT WINAPI Hook_GetRawInputBuffer( PRAWINPUT pData, PUINT pcbSize, UINT cbSizeH
 
 static std::vector<RAWINPUTDEVICE> prev_devices;
 
-UINT WINAPI Hook_GetRegisteredRawInputDevices(PRAWINPUTDEVICE pRawInputDevices, PUINT puiNumDevices, UINT cbSize)
+DECLARE_HOOK(GetRegisteredRawInputDevices, [](PRAWINPUTDEVICE pRawInputDevices, PUINT puiNumDevices, UINT cbSize) -> UINT
 {
 	if (g_bBrowserShowing)
 	{
@@ -482,20 +479,13 @@ UINT WINAPI Hook_GetRegisteredRawInputDevices(PRAWINPUTDEVICE pRawInputDevices, 
 		return prev_devices.size();
 	}
 
-	s_HookGetRegisteredRawInputDevices.SwapOld(s_GetRegisteredRawInputDevices);
-orig:
-	auto res = s_GetRegisteredRawInputDevices(pRawInputDevices, puiNumDevices, cbSize);
-	s_HookGetRegisteredRawInputDevices.SwapReset(s_GetRegisteredRawInputDevices);
-	return res;
-}
+	return s_HookGetRegisteredRawInputDevices.Call(pRawInputDevices, puiNumDevices, cbSize);
+});
 
-BOOL WINAPI Hook_RegisterRawInputDevices(PCRAWINPUTDEVICE pRawInputDevices, UINT uiNumDevices, UINT cbSize)
+DECLARE_HOOK(RegisterRawInputDevices, [](PCRAWINPUTDEVICE pRawInputDevices, UINT uiNumDevices, UINT cbSize) -> BOOL
 {
-	s_HookRegisterRawInputDevices.SwapOld(s_RegisterRawInputDevices);
-	auto res = s_HookRegisterRawInputDevices.Call(s_RegisterRawInputDevices, pRawInputDevices, uiNumDevices, cbSize);
-	s_HookRegisterRawInputDevices.SwapReset(s_RegisterRawInputDevices);
-	return res;
-}
+	return s_HookRegisterRawInputDevices.Call(pRawInputDevices, uiNumDevices, cbSize);
+});
 
 extern ProtectedObject<HCURSOR> overlay_cursor;
 
@@ -666,10 +656,10 @@ static bool InitHooks()
 			}
 
 #ifdef HOOK_REGISTER_RAW_DEVICES
-			if (!InitHook(dll, s_GetRegisteredRawInputDevices, Hook_GetRegisteredRawInputDevices, "GetRegisteredRawInputDevices", s_HookGetRegisteredRawInputDevices))
+			if (!InitHook(dll, s_HookGetRegisteredRawInputDevices))
 				return false;
 
-			if (!InitHook(dll, s_RegisterRawInputDevices, Hook_RegisterRawInputDevices, "RegisterRawInputDevices", s_HookRegisterRawInputDevices))
+			if (!InitHook(dll, s_HookRegisterRawInputDevices))
 				return false;
 #endif
 
