@@ -464,32 +464,11 @@ UINT WINAPI Hook_GetRawInputBuffer( PRAWINPUT pData, PUINT pcbSize, UINT cbSizeH
 }
 
 static std::vector<RAWINPUTDEVICE> prev_devices;
-static bool devices_saved = false;
 
 UINT WINAPI Hook_GetRegisteredRawInputDevices(PRAWINPUTDEVICE pRawInputDevices, PUINT puiNumDevices, UINT cbSize)
 {
 	if (g_bBrowserShowing)
 	{
-		if (!devices_saved)
-		{
-			s_HookGetRegisteredRawInputDevices.SwapOld(s_GetRegisteredRawInputDevices);
-			prev_devices.resize(0);
-			UINT num = 0;
-			auto res = s_HookGetRegisteredRawInputDevices.Call(s_GetRegisteredRawInputDevices, nullptr, &num, sizeof(RAWINPUTDEVICE));
-			if (res < 0)
-			{
-				prev_devices.resize(num);
-				res = s_GetRegisteredRawInputDevices(prev_devices.data(), &num, sizeof(RAWINPUTDEVICE));
-				if (res < 0)
-					goto orig;
-				prev_devices.resize(res);
-
-				hlog("Saved %d (%d) devices", res, num);
-			}
-			devices_saved = true;
-			s_HookGetRegisteredRawInputDevices.SwapReset(s_GetRegisteredRawInputDevices);
-		}
-
 		if (!pRawInputDevices || *puiNumDevices < prev_devices.size())
 		{
 			*puiNumDevices = prev_devices.size();
@@ -501,12 +480,6 @@ UINT WINAPI Hook_GetRegisteredRawInputDevices(PRAWINPUTDEVICE pRawInputDevices, 
 			pRawInputDevices[i] = prev_devices[i];
 
 		return prev_devices.size();
-	}
-	else if (devices_saved)
-	{
-		RegisterRawInputDevices(prev_devices.data(), prev_devices.size(), sizeof(RAWINPUTDEVICE));
-		prev_devices.resize(0);
-		devices_saved = false;
 	}
 
 	s_HookGetRegisteredRawInputDevices.SwapOld(s_GetRegisteredRawInputDevices);
@@ -847,17 +820,12 @@ void HookWndProc()
 void DisableRawInput()
 {
 #ifdef HOOK_REGISTER_RAW_DEVICES
-	UINT num = 0;
-	s_GetRegisteredRawInputDevices(nullptr, &num, sizeof(RAWINPUTDEVICE));
 
-	RegisterRawInputDevices(nullptr, 0, sizeof(RAWINPUTDEVICE));
 #endif
 }
 
 void RestoreRawInput()
 {
 #ifdef HOOK_REGISTER_RAW_DEVICES
-	UINT num = 0;
-	s_GetRegisteredRawInputDevices(nullptr, &num, sizeof(RAWINPUTDEVICE));
 #endif
 }
