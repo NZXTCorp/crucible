@@ -484,6 +484,12 @@ DECLARE_HOOK(GetRegisteredRawInputDevices, [](PRAWINPUTDEVICE pRawInputDevices, 
 
 DECLARE_HOOK(RegisterRawInputDevices, [](PCRAWINPUTDEVICE pRawInputDevices, UINT uiNumDevices, UINT cbSize) -> BOOL
 {
+	if (g_bBrowserShowing)
+	{
+		prev_devices.insert(end(prev_devices), pRawInputDevices, pRawInputDevices + uiNumDevices);
+		return true;
+	}
+
 	return s_HookRegisterRawInputDevices.Call(pRawInputDevices, uiNumDevices, cbSize);
 });
 
