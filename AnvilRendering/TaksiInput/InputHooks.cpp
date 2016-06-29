@@ -766,10 +766,13 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LPMSG lpM
 			return handleKey(KEY_CHAR);
 		case WM_SETCURSOR:
 			return UpdateCursorState();
+
+#ifdef HOOK_REGISTER_RAW_DEVICES
 		case WM_INPUT:
 			if (g_bBrowserShowing)
 				return DefWindowProc(hWnd, uMsg, wParam, lParam);
 			return false;
+#endif
 	}
 
 	return false;
