@@ -816,12 +816,34 @@ void HookWndProc()
 void DisableRawInput()
 {
 #ifdef HOOK_REGISTER_RAW_DEVICES
+	UINT num = prev_devices.size();
+	if (s_HookGetRegisteredRawInputDevices.Call(prev_devices.data(), &num, sizeof(RAWINPUTDEVICE)) != num || num != prev_devices.size())
+	{
+		prev_devices.resize(num);
+		s_HookGetRegisteredRawInputDevices.Call(prev_devices.data(), &num, sizeof(RAWINPUTDEVICE));
+	}
 
+	if (!prev_devices.size())
+		return;
+
+	auto devices = prev_devices;
+	for (auto &dev : devices)
+	{
+		dev.hwndTarget = nullptr;
+		dev.dwFlags = RIDEV_REMOVE;
+	}
+
+	s_HookRegisterRawInputDevices.Call(devices.data(), devices.size(), sizeof(RAWINPUTDEVICE));
 #endif
 }
 
 void RestoreRawInput()
 {
 #ifdef HOOK_REGISTER_RAW_DEVICES
+	if (!prev_devices.size())
+		return;
+
+	s_HookRegisterRawInputDevices.Call(prev_devices.data(), prev_devices.size(), sizeof(RAWINPUTDEVICE));
+	prev_devices.resize(0);
 #endif
 }
