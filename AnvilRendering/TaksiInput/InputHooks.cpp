@@ -486,7 +486,29 @@ DECLARE_HOOK(RegisterRawInputDevices, [](PCRAWINPUTDEVICE pRawInputDevices, UINT
 {
 	if (g_bBrowserShowing)
 	{
-		prev_devices.insert(end(prev_devices), pRawInputDevices, pRawInputDevices + uiNumDevices);
+		prev_devices.erase(std::remove_if(begin(prev_devices), end(prev_devices), [&](const auto &dev)
+		{
+			for (auto i = 0u; i < uiNumDevices; i++)
+			{
+				auto &reg_dev = pRawInputDevices[i];
+				if (reg_dev.usUsage != dev.usUsage || reg_dev.usUsagePage != dev.usUsagePage)
+					continue;
+
+				if ((reg_dev.dwFlags & RIDEV_REMOVE) && !reg_dev.hwndTarget)
+					return true;
+			}
+
+			return false;
+		}), end(prev_devices));
+
+		for (auto i = 0u; i < uiNumDevices; i++)
+		{
+			auto &reg_dev = pRawInputDevices[i];
+			if (reg_dev.dwFlags & RIDEV_REMOVE)
+				continue;
+
+			prev_devices.push_back(reg_dev);
+		}
 		return true;
 	}
 
