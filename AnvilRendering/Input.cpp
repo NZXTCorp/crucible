@@ -249,6 +249,7 @@ void DismissNamedOverlay(const string &name)
 
 void OverlaySaveShowCursor();
 void OverlayUnclipCursor();
+void ShowOverlayCursor();
 
 void ToggleOverlay(ActiveOverlay overlay)
 {
@@ -274,6 +275,7 @@ void ToggleOverlay(ActiveOverlay overlay)
 		{
 			DisableRawInput();
 			OverlaySaveShowCursor();
+			ShowOverlayCursor();
 			OverlayUnclipCursor();
 		}
 

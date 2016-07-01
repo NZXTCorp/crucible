@@ -534,6 +534,16 @@ DECLARE_HOOK_EX(SetCursor) (HCURSOR hCursor)
 void ShowOverlayCursor()
 {
 	old_cursor = s_HookSetCursor.Call(*overlay_cursor.Lock());
+
+	CURSORINFO info;
+	info.cbSize = sizeof(CURSORINFO);
+	for (size_t i = 0; i < 3 && GetCursorInfo(&info) && !info.flags; i++)
+	{
+		if (s_HookShowCursor.Call(true) >= 0)
+			break;
+
+		info.cbSize = sizeof(CURSORINFO);
+	}
 }
 
 void RestoreCursor()
