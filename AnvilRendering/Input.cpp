@@ -215,9 +215,13 @@ void DisableRawInput();
 void RestoreRawInput();
 void RestoreCursor();
 
+bool SendDismissOverlay();
 void DismissOverlay(bool from_remote)
 {
 	if (!g_bBrowserShowing)
+		return;
+
+	if (from_remote && SendDismissOverlay())
 		return;
 
 	ForgeEvent::HideBrowser();

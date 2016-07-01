@@ -714,6 +714,18 @@ void UnhookInput( void )
 	MH_DisableHook(MH_ALL_HOOKS);
 }
 
+#define DISMISS_OVERLAY WM_USER + 2016
+
+bool SendDismissOverlay()
+{
+	if (!g_Proc.m_Stats.m_hWndCap)
+		return false;
+
+	SendMessage(g_Proc.m_Stats.m_hWndCap, DISMISS_OVERLAY, 0, 0);
+	return true;
+}
+void DismissOverlay(bool from_remote);
+
 // handle any input events sent to game's window. return true if we're eating them (ie: showing overlay)
 // we should try to keep this code simple and pass messages off to appropriate handler functions.
 bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LPMSG lpMsg=nullptr)
@@ -757,6 +769,14 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LPMSG lpM
 		case WM_SETCURSOR:
 			if (LOWORD(lParam) == HTCLIENT)
 				return UpdateCursor();
+			return false;
+
+		case DISMISS_OVERLAY:
+			if (g_bBrowserShowing)
+			{
+				DismissOverlay(false);
+				return true;
+			}
 			return false;
 
 #ifdef HOOK_REGISTER_RAW_DEVICES
