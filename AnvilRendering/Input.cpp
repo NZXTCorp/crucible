@@ -213,6 +213,7 @@ extern void ResetOverlayCursor();
 
 void DisableRawInput();
 void RestoreRawInput();
+void RestoreCursor();
 
 void DismissOverlay(bool from_remote)
 {
@@ -225,6 +226,7 @@ void DismissOverlay(bool from_remote)
 
 	g_bBrowserShowing = false;
 
+	RestoreCursor();
 	RestoreRawInput();
 
 	if (g_Proc.m_Stats.m_hWndCap && !from_remote)
