@@ -125,6 +125,7 @@ struct ForgeFramebufferServer {
 	mutex share_mutex;
 	vector<uint8_t> shared_data;
 
+#pragma optimize("tsg", on)
 	void Start()
 	{
 		static atomic<int> restarts = 0;
