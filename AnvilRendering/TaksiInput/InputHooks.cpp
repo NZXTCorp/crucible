@@ -561,22 +561,8 @@ HCURSOR WINAPI Hook_GetCursor(VOID)
 	return res;
 }
 
-static bool UpdateCursorState()
+static bool UpdateCursor()
 {
-	static bool was_showing = false;
-
-	if (was_showing != g_bBrowserShowing)
-	{
-		if (g_bBrowserShowing)
-			ShowOverlayCursor();
-		else
-			RestoreCursor();
-
-		was_showing = g_bBrowserShowing;
-
-		return true;
-	}
-
 	if (!g_bBrowserShowing)
 		return false;
 
@@ -769,7 +755,9 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LPMSG lpM
 		case WM_CHAR:
 			return handleKey(KEY_CHAR);
 		case WM_SETCURSOR:
-			return UpdateCursorState();
+			if (LOWORD(lParam) == HTCLIENT)
+				return UpdateCursor();
+			return false;
 
 #ifdef HOOK_REGISTER_RAW_DEVICES
 		case WM_INPUT:
