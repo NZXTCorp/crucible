@@ -179,7 +179,6 @@ DECLARE_HOOK(PeekMessageW, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT w
 	return res;
 });
 
-// GetCursorInfo seems to be buffered for DX9 somehow? doesn't seem to change state immediately; limiting the ShowCursor calls to 3 seems to be good enough for now
 void OverlaySaveShowCursor()
 {
 	CURSORINFO info;
@@ -189,18 +188,6 @@ void OverlaySaveShowCursor()
 
 	cursor_info.saved = true;
 	cursor_info.showing = info.flags == CURSOR_SHOWING;
-
-	if (!s_HookShowCursor.hook.IsHookInstalled())
-		return;
-
-	info.cbSize = sizeof(CURSORINFO);
-	for (size_t i = 0; i < 3 && GetCursorInfo(&info) && !info.flags; i++)
-	{
-		if (s_HookShowCursor.Call(true) >= 0)
-			break;
-
-		info.cbSize = sizeof(CURSORINFO);
-	}
 }
 
 void OverlayRestoreShowCursor()
