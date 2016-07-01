@@ -523,6 +523,8 @@ DECLARE_HOOK_EX(SetCursor) (HCURSOR hCursor)
 {
 	if (g_bBrowserShowing)
 	{
+		s_HookSetCursor.Call(*overlay_cursor.Lock());
+
 		auto res = old_cursor;
 		old_cursor = hCursor;
 		return res;
