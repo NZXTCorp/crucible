@@ -97,7 +97,7 @@ static struct cursor_info_ {
 	bool showing = false;
 } cursor_info;
 
-DECLARE_HOOK(ShowCursor, [](BOOL bShow)
+DECLARE_HOOK_EX(ShowCursor) (BOOL bShow)
 {
 	if (g_bBrowserShowing)
 	{
@@ -106,7 +106,7 @@ DECLARE_HOOK(ShowCursor, [](BOOL bShow)
 	}
 
 	return s_HookShowCursor.Call(bShow);
-});
+};
 
 DECLARE_HOOK(SetPhysicalCursorPos, [](int X, int Y)
 {
