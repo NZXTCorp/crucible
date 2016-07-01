@@ -89,6 +89,8 @@ static CHookJump s_HookGetCursor;
 
 #define DECLARE_HOOK_EXP(func, name, wrapper) static FuncHook<decltype(func)> name{ #func, (decltype(func)*)wrapper }
 #define DECLARE_HOOK(func, wrapper) DECLARE_HOOK_EXP(func, s_Hook ## func, wrapper)
+#define DECLARE_HOOK_EX_(func, name) static FuncHook<decltype(func)> name = FuncHook<decltype(func)>{ #func, nullptr } + []
+#define DECLARE_HOOK_EX(func) DECLARE_HOOK_EX_(func, s_Hook ## func)
 
 static struct cursor_info_ {
 	bool saved = false;

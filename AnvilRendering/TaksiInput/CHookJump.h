@@ -59,6 +59,12 @@ struct FuncHook
 		  wrapper(wrapper)
 	{}
 
+	FuncHook &operator+(Func *wrapper_)
+	{
+		wrapper = wrapper_;
+		return *this;
+	}
+
 	bool Install(Func *original_)
 	{
 		original = original_;
