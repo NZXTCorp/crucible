@@ -84,7 +84,6 @@ static CHookJump s_HookSetCursorPos;
 static CHookJump s_HookGetRawInputData;
 static CHookJump s_HookGetRawInputBuffer;
 
-static CHookJump s_HookSetCursor;
 static CHookJump s_HookGetCursor;
 
 #define DECLARE_HOOK_EXP(func, name, wrapper) static FuncHook<decltype(func)> name{ #func, (decltype(func)*)wrapper }
@@ -518,44 +517,9 @@ DECLARE_HOOK(RegisterRawInputDevices, [](PCRAWINPUTDEVICE pRawInputDevices, UINT
 });
 
 extern ProtectedObject<HCURSOR> overlay_cursor;
-
 static HCURSOR old_cursor = nullptr;
-void ShowOverlayCursor()
-{
-	if (!s_HookSetCursor.IsHookInstalled())
-		return;
 
-	s_HookSetCursor.SwapOld(s_SetCursor);
-	old_cursor = s_HookSetCursor.Call(s_SetCursor, *overlay_cursor.Lock());
-	s_HookSetCursor.SwapReset(s_SetCursor);
-}
-
-void RestoreCursor()
-{
-	if (!s_HookSetCursor.IsHookInstalled())
-		return;
-
-	OverlayRestoreClipCursor();
-	OverlayRestoreShowCursor();
-	s_HookSetCursor.SwapOld(s_SetCursor);
-	s_HookSetCursor.Call(s_SetCursor, old_cursor);
-	s_HookSetCursor.SwapReset(s_SetCursor);
-}
-
-void ResetOverlayCursor()
-{
-	if (!s_HookSetCursor.IsHookInstalled())
-		return;
-
-	if (!g_bBrowserShowing)
-		return;
-
-	s_HookSetCursor.SwapOld(s_SetCursor);
-	s_HookSetCursor.Call(s_SetCursor, *overlay_cursor.Lock());
-	s_HookSetCursor.SwapReset(s_SetCursor);
-}
-
-HCURSOR WINAPI Hook_SetCursor(HCURSOR hCursor)
+DECLARE_HOOK_EX(SetCursor) (HCURSOR hCursor)
 {
 	if (g_bBrowserShowing)
 	{
@@ -564,10 +528,27 @@ HCURSOR WINAPI Hook_SetCursor(HCURSOR hCursor)
 		return res;
 	}
 
-	s_HookSetCursor.SwapOld(s_SetCursor);
-	auto res = s_HookSetCursor.Call(s_SetCursor, hCursor);
-	s_HookSetCursor.SwapReset(s_SetCursor);
-	return res;
+	return s_HookSetCursor.Call(hCursor);
+};
+
+void ShowOverlayCursor()
+{
+	old_cursor = s_HookSetCursor.Call(*overlay_cursor.Lock());
+}
+
+void RestoreCursor()
+{
+	OverlayRestoreClipCursor();
+	OverlayRestoreShowCursor();
+	s_HookSetCursor.Call(old_cursor);
+}
+
+void ResetOverlayCursor()
+{
+	if (!g_bBrowserShowing)
+		return;
+
+	s_HookSetCursor.Call(*overlay_cursor.Lock());
 }
 
 HCURSOR WINAPI Hook_GetCursor(VOID)
@@ -693,7 +674,7 @@ static bool InitHooks()
 				return false;
 #endif
 
-			if (!InitHook(dll, s_SetCursor, Hook_SetCursor, "SetCursor", s_HookSetCursor))
+			if (!InitHook(dll, s_HookSetCursor))
 				return false;
 
 			if (!InitHook(dll, s_GetCursor, Hook_GetCursor, "GetCursor", s_HookGetCursor))
