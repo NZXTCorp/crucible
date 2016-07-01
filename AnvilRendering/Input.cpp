@@ -267,12 +267,16 @@ void ToggleOverlay(ActiveOverlay overlay)
 		ForgeEvent::ShowBrowser({ fbs.name, name_for_overlay[overlay] }, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
 		hlog("Requesting browser");
 
-
+		bool browser_was_active = g_bBrowserShowing;
 		g_bBrowserShowing = true;
 
-		DisableRawInput();
-		OverlaySaveShowCursor();
-		OverlayUnclipCursor();
+		if (!browser_was_active)
+		{
+			DisableRawInput();
+			OverlaySaveShowCursor();
+			OverlayUnclipCursor();
+		}
+
 		mouse_position.x = g_Proc.m_Stats.m_SizeWnd.cx / 2;
 		mouse_position.y = g_Proc.m_Stats.m_SizeWnd.cy / 2;
 	} else {
