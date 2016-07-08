@@ -15,6 +15,8 @@
 
 #define HOOK_REGISTER_RAW_DEVICES
 
+//#define CURSOR_VISIBILITY_VIA_SHOW_CURSOR
+
 #ifdef USE_DIRECTI
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
@@ -197,6 +199,7 @@ void OverlayRestoreShowCursor()
 
 	cursor_info.saved = false;
 
+#ifdef CURSOR_VISIBILITY_VIA_SHOW_CURSOR
 	if (!s_HookShowCursor.hook.IsHookInstalled())
 		return;
 
@@ -209,6 +212,7 @@ void OverlayRestoreShowCursor()
 
 		info.cbSize = sizeof(CURSORINFO);
 	}
+#endif
 }
 
 void OverlayUnclipCursor()
@@ -524,6 +528,7 @@ void ShowOverlayCursor()
 {
 	old_cursor = s_HookSetCursor.Call(*overlay_cursor.Lock());
 
+#ifdef CURSOR_VISIBILITY_VIA_SHOW_CURSOR
 	CURSORINFO info;
 	info.cbSize = sizeof(CURSORINFO);
 	for (size_t i = 0; i < 3 && GetCursorInfo(&info) && !info.flags; i++)
@@ -533,6 +538,7 @@ void ShowOverlayCursor()
 
 		info.cbSize = sizeof(CURSORINFO);
 	}
+#endif
 }
 
 void RestoreCursor()
