@@ -32,6 +32,8 @@ using namespace std;
 
 #include "../AnvilRendering/AnvilRendering.h"
 
+#include "RemoteDisplay.h"
+
 #include "IPC.hpp"
 #include "ProtectedObject.hpp"
 #include "ThreadTools.hpp"
@@ -1820,6 +1822,8 @@ struct CrucibleContext {
 		obs_encoder_set_audio(aac, obs_get_audio());
 		
 		CreateOutput();
+
+		Display::SetSource("preview", gameCapture);
 	}
 
 	void StartVideoCapture()
@@ -2037,6 +2041,8 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 {
 	try
 	{
+		Display::SetEnabled("preview", false);
+
 		CrucibleContext crucibleContext;
 
 		{
@@ -2134,6 +2140,7 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 		}
 
 		crucibleContext.StopVideo();
+		Display::StopAll();
 	}
 	catch (const char *err)
 	{
