@@ -1976,6 +1976,15 @@ static void HandleGameScreenshot(CrucibleContext &cc, OBSData &obj)
 	cc.SaveGameScreenshot(obs_data_get_string(obj, "filename"));
 }
 
+static void HandleConnectDisplay(CrucibleContext&, OBSData &obj)
+{
+	auto name = obs_data_get_string(obj, "name");
+	auto channel = obs_data_get_string(obj, "server");
+
+	Display::Connect(name, channel);
+	Display::SetEnabled(name, true);
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -1997,6 +2006,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "start_streaming", HandleStartStreaming },
 		{ "stop_streaming", HandleStopStreaming },
 		{ "save_game_screenshot", HandleGameScreenshot },
+		{ "connect_display", HandleConnectDisplay },
 	};
 	if (!data)
 		return;
