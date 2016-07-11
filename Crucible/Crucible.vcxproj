@@ -80,12 +80,14 @@
   <ItemGroup>
     <ClCompile Include="AudioEncoderSelection.cpp" />
     <ClCompile Include="Crucible.cpp" />
+    <ClCompile Include="RemoteDisplay.cpp" />
     <ClCompile Include="TestWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="IPC.hpp" />
     <ClInclude Include="OBSHelpers.hpp" />
     <ClInclude Include="ProtectedObject.hpp" />
+    <ClInclude Include="scopeguard.hpp" />
     <ClInclude Include="TestWindow.h" />
     <ClInclude Include="ThreadTools.hpp" />
   </ItemGroup>
