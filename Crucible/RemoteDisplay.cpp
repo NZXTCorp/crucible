@@ -330,3 +330,53 @@ protected:
 		}
 	}
 };
+
+
+static std::map<std::string, RemoteDisplay> displays;
+
+namespace Display {
+	void SetSource(const char *name, obs_source_t *source)
+	{
+		auto &display = displays[name];
+		display.remote_display_name = name;
+		display.Display(source);
+	}
+
+	bool Connect(const char *name, const char *server)
+	{
+		auto &display = displays[name];
+		display.remote_display_name = name;
+		return display.Connect(server);
+	}
+
+	void SetEnabled(const char *name, bool enable)
+	{
+		auto &display = displays[name];
+		display.remote_display_name = name;
+		display.Enable(enable);
+	}
+
+	std::vector<std::string> List()
+	{
+		std::vector<std::string> result;
+		result.reserve(displays.size());
+		for (auto &display : displays)
+			result.push_back(display.first);
+
+		return result;
+	}
+
+	void Stop(const char *name)
+	{
+		auto it = displays.find(name);
+		if (it == end(displays))
+			return;
+
+		displays.erase(it);
+	}
+
+	void StopAll()
+	{
+		displays.clear();
+	}
+}

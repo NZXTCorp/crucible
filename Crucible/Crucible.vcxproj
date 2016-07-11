@@ -87,6 +87,7 @@
     <ClInclude Include="IPC.hpp" />
     <ClInclude Include="OBSHelpers.hpp" />
     <ClInclude Include="ProtectedObject.hpp" />
+    <ClInclude Include="RemoteDisplay.h" />
     <ClInclude Include="scopeguard.hpp" />
     <ClInclude Include="TestWindow.h" />
     <ClInclude Include="ThreadTools.hpp" />

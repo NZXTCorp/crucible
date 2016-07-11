@@ -47,5 +47,8 @@
     <ClInclude Include="scopeguard.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="RemoteDisplay.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
