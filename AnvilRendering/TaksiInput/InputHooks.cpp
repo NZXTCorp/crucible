@@ -58,9 +58,6 @@ static GETASYNCKEYSTATE s_GetAsyncKeyState = NULL;
 typedef BOOL (WINAPI *GETCURSORPOS)(LPPOINT);
 static GETCURSORPOS s_GetCursorPos = NULL;
 
-typedef BOOL (WINAPI *SETCURSORPOS)(INT, INT);
-static SETCURSORPOS s_SetCursorPos = NULL;
-
 typedef UINT (WINAPI *GETRAWINPUTDATA)(HRAWINPUT, UINT, LPVOID, PUINT, UINT);
 static GETRAWINPUTDATA s_GetRawInputData = NULL;
 
@@ -82,7 +79,6 @@ static GETCURSOR s_GetCursor = nullptr;
 static CHookJump s_HookGetKeyboardState;
 static CHookJump s_HookGetAsyncKeyState;
 static CHookJump s_HookGetCursorPos;
-static CHookJump s_HookSetCursorPos;
 static CHookJump s_HookGetRawInputData;
 static CHookJump s_HookGetRawInputBuffer;
 
@@ -405,10 +401,8 @@ BOOL WINAPI Hook_GetCursorPos( LPPOINT lpPoint )
 	return res;
 }
 
-BOOL WINAPI Hook_SetCursorPos( INT x, INT y )
+DECLARE_HOOK_EX(SetCursorPos) (INT x, INT y) -> BOOL
 {
-	s_HookSetCursorPos.SwapOld( s_SetCursorPos );
-
 	BOOL res = true;
 	if (g_bBrowserShowing)
 	{
@@ -417,13 +411,12 @@ BOOL WINAPI Hook_SetCursorPos( INT x, INT y )
 		mouse_pos_saved = true;
 	}
 	else
-		res = s_HookSetCursorPos.Call(s_SetCursorPos, x, y);
+		res = s_HookSetCursorPos.Call(x, y);
 
 	// mess with it here
 	//LOG_MSG( "Hook_SetCursorPos: setting pos to [%u, %u]"LOG_CR, x, y );
-	s_HookSetCursorPos.SwapReset( s_SetCursorPos );
 	return res;
-}
+};
 
 void UpdateRawMouse(RAWMOUSE &event);
 UINT WINAPI Hook_GetRawInputData( HRAWINPUT hRawInput, UINT uiCommand, LPVOID pData, PUINT pcbSize, UINT cbSizeHeader )
@@ -636,12 +629,8 @@ static bool InitHooks()
 				return false;
 			}
 
-			s_SetCursorPos = (SETCURSORPOS)GetProcAddress(dll, "SetCursorPos");
-			if (!s_HookSetCursorPos.InstallHook(s_SetCursorPos, Hook_SetCursorPos))
-			{
-				LOG_MSG("HookInput: unable to hook function SetCursorPos" LOG_CR);
+			if (!InitHook(dll, s_HookSetCursorPos))
 				return false;
-			}
 
 			s_GetRawInputData = (GETRAWINPUTDATA)GetProcAddress(dll, "GetRawInputData");
 			if (!s_HookGetRawInputData.InstallHook(s_GetRawInputData, Hook_GetRawInputData))
