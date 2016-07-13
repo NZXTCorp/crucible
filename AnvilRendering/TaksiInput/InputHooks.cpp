@@ -15,8 +15,6 @@
 
 #define HOOK_REGISTER_RAW_DEVICES
 
-//#define CURSOR_VISIBILITY_VIA_SHOW_CURSOR
-
 #ifdef USE_DIRECTI
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
@@ -89,16 +87,15 @@ static CHookJump s_HookGetCursor;
 #define DECLARE_HOOK_EX_(func, name) static FuncHook<decltype(func)> name = FuncHook<decltype(func)>{ #func, nullptr } + []
 #define DECLARE_HOOK_EX(func) DECLARE_HOOK_EX_(func, s_Hook ## func)
 
-static struct cursor_info_ {
-	bool saved = false;
-	bool showing = false;
-} cursor_info;
+static int show_cursor_calls = 0;
+static bool cursor_showing = false;
 
 DECLARE_HOOK_EX(ShowCursor) (BOOL bShow)
 {
 	if (g_bBrowserShowing)
 	{
-		cursor_info.showing = !!bShow;
+		show_cursor_calls += bShow ? -1 : 1;
+		cursor_showing = !!bShow;
 		return bShow ? 0 : -1;
 	}
 
@@ -176,40 +173,6 @@ DECLARE_HOOK(PeekMessageW, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT w
 			break;
 	return res;
 });
-
-void OverlaySaveShowCursor()
-{
-	CURSORINFO info;
-	info.cbSize = sizeof(CURSORINFO);
-	if (!GetCursorInfo(&info))
-		return;
-
-	cursor_info.saved = true;
-	cursor_info.showing = info.flags == CURSOR_SHOWING;
-}
-
-void OverlayRestoreShowCursor()
-{
-	if (!cursor_info.saved || cursor_info.showing)
-		return;
-
-	cursor_info.saved = false;
-
-#ifdef CURSOR_VISIBILITY_VIA_SHOW_CURSOR
-	if (!s_HookShowCursor.hook.IsHookInstalled())
-		return;
-
-	CURSORINFO info;
-	info.cbSize = sizeof(CURSORINFO);
-	for (size_t i = 0; i < 3 && GetCursorInfo(&info) && info.flags == CURSOR_SHOWING; i++)
-	{
-		if (s_HookShowCursor.Call(false) < 0)
-			break;
-
-		info.cbSize = sizeof(CURSORINFO);
-	}
-#endif
-}
 
 void OverlayUnclipCursor()
 {
@@ -519,6 +482,26 @@ DECLARE_HOOK_EX(SetCursor) (HCURSOR hCursor)
 
 DECLARE_HOOK_EX(GetCursorInfo) (PCURSORINFO pci) -> BOOL
 {
+	if (g_bBrowserShowing)
+	{
+		if (!pci || pci->cbSize != sizeof(CURSORINFO))
+			return false;
+
+		auto ret = s_HookGetCursorInfo.Call(pci);
+		if (!ret)
+			return ret;
+
+		pci->flags &= ~CURSOR_SHOWING;
+		if (cursor_showing)
+			pci->flags |= CURSOR_SHOWING;
+
+		pci->hCursor = old_cursor;
+		if (mouse_pos_saved)
+			pci->ptScreenPos = saved_mouse_pos;
+
+		return ret;
+	}
+
 	return s_HookGetCursorInfo.Call(pci);
 };
 
@@ -526,24 +509,31 @@ void ShowOverlayCursor()
 {
 	old_cursor = s_HookSetCursor.Call(*overlay_cursor.Lock());
 
-#ifdef CURSOR_VISIBILITY_VIA_SHOW_CURSOR
-	CURSORINFO info;
-	info.cbSize = sizeof(CURSORINFO);
-	for (size_t i = 0; i < 3 && GetCursorInfo(&info) && !info.flags; i++)
-	{
-		if (s_HookShowCursor.Call(true) >= 0)
-			break;
 
-		info.cbSize = sizeof(CURSORINFO);
+	int res = 0;
+	for (auto i = 0; i < 1000; i++) {
+		res = s_HookShowCursor.Call(true);
+		show_cursor_calls += 1;
+		if (res >= 0)
+			break;
 	}
-#endif
+
+	if (res < 0)
+		hlog("ShowOverlayCursor: failed to make cursor visible (%d)", res);
 }
 
 void RestoreCursor()
 {
 	OverlayRestoreClipCursor();
-	OverlayRestoreShowCursor();
 	s_HookSetCursor.Call(old_cursor);
+
+	do {
+		auto res = s_HookShowCursor.Call(false);
+		if (res < 0)
+			break;
+	} while (show_cursor_calls > 0);
+
+	show_cursor_calls = 0;
 }
 
 void ResetOverlayCursor()

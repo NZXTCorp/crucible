@@ -228,10 +228,10 @@ void DismissOverlay(bool from_remote)
 	hlog("Hiding browser");
 	//forgeFramebufferServer.Stop();
 
-	g_bBrowserShowing = false;
-
 	RestoreCursor();
 	RestoreRawInput();
+
+	g_bBrowserShowing = false;
 
 	if (g_Proc.m_Stats.m_hWndCap && !from_remote)
 		SetWindowPos(g_Proc.m_Stats.m_hWndCap, 0, 0, 0, 0, 0,
@@ -253,7 +253,6 @@ void DismissNamedOverlay(const string &name)
 	}
 }
 
-void OverlaySaveShowCursor();
 void OverlayUnclipCursor();
 void ShowOverlayCursor();
 
@@ -280,7 +279,6 @@ void ToggleOverlay(ActiveOverlay overlay)
 		if (!browser_was_active)
 		{
 			DisableRawInput();
-			OverlaySaveShowCursor();
 			ShowOverlayCursor();
 			OverlayUnclipCursor();
 		}
