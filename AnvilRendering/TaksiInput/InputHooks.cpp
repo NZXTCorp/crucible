@@ -87,14 +87,12 @@ static CHookJump s_HookGetCursor;
 #define DECLARE_HOOK_EX_(func, name) static FuncHook<decltype(func)> name = FuncHook<decltype(func)>{ #func, nullptr } + []
 #define DECLARE_HOOK_EX(func) DECLARE_HOOK_EX_(func, s_Hook ## func)
 
-static int show_cursor_calls = 0;
 static bool cursor_showing = false;
 
 DECLARE_HOOK_EX(ShowCursor) (BOOL bShow)
 {
 	if (g_bBrowserShowing)
 	{
-		show_cursor_calls += bShow ? -1 : 1;
 		cursor_showing = !!bShow;
 		return bShow ? 0 : -1;
 	}
@@ -509,12 +507,12 @@ void ShowOverlayCursor()
 	if (s_HookGetCursorInfo.Call(&info)) {
 		mouse_pos_saved = true;
 		saved_mouse_pos = info.ptScreenPos;
+		cursor_showing = (info.flags & CURSOR_SHOWING);
 	}
 
 	int res = 0;
 	for (auto i = 0; i < 1000; i++) {
 		res = s_HookShowCursor.Call(true);
-		show_cursor_calls += 1;
 		if (res >= 0)
 			break;
 	}
@@ -532,9 +530,7 @@ void RestoreCursor()
 		auto res = s_HookShowCursor.Call(false);
 		if (res < 0)
 			break;
-	} while (show_cursor_calls > 0);
-
-	show_cursor_calls = 0;
+	} while (!cursor_showing);
 
 	s_HookSetCursorPos.Call(saved_mouse_pos.x, saved_mouse_pos.y);
 	mouse_pos_saved = false;
