@@ -341,9 +341,6 @@ BOOL WINAPI Hook_GetCursorPos( LPPOINT lpPoint )
 
 	if (g_bBrowserShowing)
 	{
-		if (!mouse_pos_saved && lpPoint)
-			saved_mouse_pos = *lpPoint;
-
 		if (mouse_pos_saved && lpPoint)
 			*lpPoint = saved_mouse_pos;
 	}
@@ -371,7 +368,6 @@ DECLARE_HOOK_EX(SetCursorPos) (INT x, INT y) -> BOOL
 	{
 		saved_mouse_pos.x = x;
 		saved_mouse_pos.y = y;
-		mouse_pos_saved = true;
 	}
 	else
 		res = s_HookSetCursorPos.Call(x, y);
@@ -509,6 +505,11 @@ void ShowOverlayCursor()
 {
 	old_cursor = s_HookSetCursor.Call(*overlay_cursor.Lock());
 
+	CURSORINFO info = { sizeof(CURSORINFO) };
+	if (s_HookGetCursorInfo.Call(&info)) {
+		mouse_pos_saved = true;
+		saved_mouse_pos = info.ptScreenPos;
+	}
 
 	int res = 0;
 	for (auto i = 0; i < 1000; i++) {
@@ -534,6 +535,9 @@ void RestoreCursor()
 	} while (show_cursor_calls > 0);
 
 	show_cursor_calls = 0;
+
+	s_HookSetCursorPos.Call(saved_mouse_pos.x, saved_mouse_pos.y);
+	mouse_pos_saved = false;
 }
 
 void ResetOverlayCursor()
