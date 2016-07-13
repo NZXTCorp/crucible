@@ -517,6 +517,11 @@ DECLARE_HOOK_EX(SetCursor) (HCURSOR hCursor)
 	return s_HookSetCursor.Call(hCursor);
 };
 
+DECLARE_HOOK_EX(GetCursorInfo) (PCURSORINFO pci) -> BOOL
+{
+	return s_HookGetCursorInfo.Call(pci);
+};
+
 void ShowOverlayCursor()
 {
 	old_cursor = s_HookSetCursor.Call(*overlay_cursor.Lock());
@@ -658,6 +663,9 @@ static bool InitHooks()
 				return false;
 
 			if (!InitHook(dll, s_GetCursor, Hook_GetCursor, "GetCursor", s_HookGetCursor))
+				return false;
+
+			if (!InitHook(dll, s_HookGetCursorInfo))
 				return false;
 
 			if (!InitHook(dll, s_HookShowCursor))
