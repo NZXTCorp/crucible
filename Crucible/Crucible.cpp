@@ -77,7 +77,7 @@ void do_log(int log_level, const char *msg, va_list args, void *param)
 		startup_logs.push_back(bla);
 	}
 
-	if (log_level < LOG_WARNING)
+	if (log_level < LOG_WARNING && IsDebuggerPresent())
 		__debugbreak();
 
 	UNUSED_PARAMETER(param);
