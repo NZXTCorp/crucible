@@ -47,7 +47,7 @@ public:
 	// draw the new indicator images
 	void DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color );
 	// draw overlay
-	bool DrawOverlay( void );
+	bool DrawOverlay(ActiveOverlay active_overlay);
 	void UpdateOverlay();
 };
 

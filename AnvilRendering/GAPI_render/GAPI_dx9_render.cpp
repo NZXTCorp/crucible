@@ -445,7 +445,7 @@ void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color 
 	});
 }
 
-bool DX9Renderer::DrawOverlay( void )
+bool DX9Renderer::DrawOverlay(ActiveOverlay active_overlay)
 {
 	return overlay_textures[active_overlay].Draw([&](OverlayTexture_t &tex)
 	{
@@ -572,9 +572,9 @@ void overlay_d3d9_free()
 	initialized = false;
 }
 
-static bool show_browser_tex()
+static bool show_browser_tex(const ActiveOverlay &active_overlay = ::active_overlay)
 {
-	return renderer->DrawOverlay();
+	return renderer->DrawOverlay(active_overlay);
 }
 
 C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
@@ -602,9 +602,12 @@ C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 
 	renderer->UpdateOverlay();
 
-	if (!g_bBrowserShowing || !show_browser_tex())
+	if (g_bBrowserShowing && show_browser_tex())
+		return;
+
 	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)
 	{
+		show_browser_tex(OVERLAY_NOTIFICATIONS);
 		renderer->DrawNewIndicator(indicator, D3DCOLOR_ARGB(alpha, 255, 255, 255));
 	});
 }
