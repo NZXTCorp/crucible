@@ -366,6 +366,16 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendFramebufferConnectionInfo(const char *id, const char *name)
+	{
+		auto event = EventCreate("framebuffer_connection_info");
+
+		obs_data_set_string(event, "id", id);
+		obs_data_set_string(event, "name", name);
+
+		SendEvent(event);
+	}
 }
 
 namespace AnvilCommands {
@@ -804,9 +814,9 @@ struct CrucibleContext {
 	obs_video_info ovi;
 	uint32_t fps_den;
 	OBSScene game_and_webcam;
-	OBSSceneItem game_item, webcam_item;
+	OBSSceneItem game_item, webcam_item, theme_item;
 	std::string webcam_device;
-	OBSSource tunes, mic, gameCapture, webcam;
+	OBSSource tunes, mic, gameCapture, webcam, theme;
 	OBSSourceSignal micMuted, pttActive;
 	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess, screenshotSaved;
 	OBSEncoder h264, aac, stream_h264;
@@ -927,6 +937,23 @@ struct CrucibleContext {
 
 		InitRef(game_and_webcam, "Couldn't create game_and_webcam scene", obs_scene_release,
 				obs_scene_create("game_and_webcam"));
+
+		InitRef(theme, "Couldn't create theme source", obs_source_release,
+				obs_source_create(OBS_SOURCE_TYPE_INPUT, "FramebufferSource", "theme overlay", nullptr, nullptr));
+
+		theme_item = obs_scene_add(game_and_webcam, theme);
+
+		{
+			auto proc = obs_source_get_proc_handler(theme);
+			calldata_t data = {};
+			proc_handler_call(proc, "get_server_name", &data);
+
+			if (auto name = calldata_string(&data, "name")) {
+				ForgeEvents::SendFramebufferConnectionInfo("theme", name);
+			} else {
+				blog(LOG_WARNING, "CrucibleContext::InitSources: failed to get framebuffer name");
+			}
+		}
 	}
 
 	void InitEncoders()
@@ -1548,6 +1575,7 @@ struct CrucibleContext {
 		if (!webcam)
 			obs_set_output_source(0, gameCapture);
 		else {
+			obs_sceneitem_set_order(theme_item, OBS_ORDER_MOVE_TOP);
 			obs_sceneitem_set_order(game_item, OBS_ORDER_MOVE_BOTTOM);
 
 			auto source = obs_scene_get_source(game_and_webcam);
