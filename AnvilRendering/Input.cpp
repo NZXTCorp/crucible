@@ -176,7 +176,8 @@ static std::array<ForgeFramebufferServer, OVERLAY_COUNT> forgeFramebufferServer;
 
 static const char *name_for_overlay[OVERLAY_COUNT] = {
 	"highlighter",
-	"streaming"
+	"streaming",
+	"notifications",
 };
 
 void StartFramebufferServer()
