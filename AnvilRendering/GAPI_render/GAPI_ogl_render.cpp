@@ -10,6 +10,8 @@
 //#include "TaksiDll.h"
 //#include "GAPI_Base.h"
 
+#include "../../Crucible/scopeguard.hpp"
+
 #include <GL/gl.h>
 #include "glext.h"
 
@@ -581,6 +583,9 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 	auto current_context = s_wglGetCurrentContext();
 
 	s_wglMakeCurrent(hdc, render_context);
+	DEFER {
+		s_wglMakeCurrent(hdc, current_context);
+	};
 
 	if (!initialized)
 		initialized = render.InitRenderer(indicatorManager);
@@ -604,6 +609,4 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 	{
 		render.DrawNewIndicator(indicator, alpha);
 	});
-
-	s_wglMakeCurrent(hdc, current_context);
 }
