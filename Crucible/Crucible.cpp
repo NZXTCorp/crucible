@@ -48,6 +48,7 @@ extern "C" {
 }
 
 extern OBSEncoder CreateAudioEncoder(const char *name);
+extern void RegisterFramebufferSource();
 
 static IPCClient event_client, log_client;
 
@@ -880,6 +881,8 @@ struct CrucibleContext {
 		ai.buffer_ms = 1000;
 		if (!obs_reset_audio(&ai))
 			throw "Couldn't initialize audio";
+
+		RegisterFramebufferSource();
 
 		if (standalone)
 		{

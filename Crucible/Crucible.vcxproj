@@ -80,6 +80,7 @@
   <ItemGroup>
     <ClCompile Include="AudioEncoderSelection.cpp" />
     <ClCompile Include="Crucible.cpp" />
+    <ClCompile Include="FramebufferSource.cpp" />
     <ClCompile Include="TestWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
