@@ -376,6 +376,15 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendQueryDesktopAudioDevicesResponse(const OBSDataArray &arr)
+	{
+		auto event = EventCreate("query_desktop_audio_devices_response");
+
+		obs_data_set_array(event, "devices", arr);
+
+		SendEvent(event);
+	}
 }
 
 namespace AnvilCommands {
@@ -2117,6 +2126,36 @@ static void HandleQueryWebcams(CrucibleContext&, OBSData&)
 	}
 }
 
+static void HandleQueryDesktopAudioDevices(CrucibleContext&, OBSData&)
+{
+	auto props = obs_get_source_properties(OBS_SOURCE_TYPE_INPUT, "wasapi_output_capture");
+
+	DEFER {
+		obs_properties_destroy(props);
+	};
+
+	auto result = OBSDataArrayCreate();
+
+	DEFER {
+		ForgeEvents::SendQueryDesktopAudioDevicesResponse(result);
+	};
+
+	auto prop = obs_properties_get(props, "device_id");
+	if (prop) {
+		auto count = obs_property_list_item_count(prop);
+		for (decltype(count) i = 0; i < count; i++) {
+			if (obs_property_list_item_disabled(prop, i))
+				continue;
+
+			auto data = OBSDataCreate();
+			obs_data_set_string(data, "name", obs_property_list_item_name(prop, i));
+			obs_data_set_string(data, "device", obs_property_list_item_string(prop, i));
+
+			obs_data_array_push_back(result, data);
+		}
+	}
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -2139,6 +2178,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "stop_streaming", HandleStopStreaming },
 		{ "save_game_screenshot", HandleGameScreenshot },
 		{ "query_webcams", HandleQueryWebcams },
+		{ "query_desktop_audio_devices", HandleQueryDesktopAudioDevices },
 	};
 	if (!data)
 		return;
