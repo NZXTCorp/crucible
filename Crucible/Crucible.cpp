@@ -1669,7 +1669,10 @@ struct CrucibleContext {
 		obs_key_combination_to_str(combo, str);
 		blog(LOG_INFO, "mic hotkey uses '%s'", str->array);
 
+		auto desktop_audio_settings = OBSDataGetObj(settings, "desktop_audio");
+
 		LOCK(updateMutex);
+		obs_source_update(tunes, desktop_audio_settings);
 		obs_source_update(mic, source_settings);
 		obs_source_set_muted(mic, false);
 		obs_source_enable_push_to_talk(mic, ptt);
