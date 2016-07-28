@@ -385,6 +385,15 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendQueryWindowsResponse(const OBSDataArray &arr)
+	{
+		auto event = EventCreate("query_windows_response");
+
+		obs_data_set_array(event, "windows", arr);
+
+		SendEvent(event);
+	}
 }
 
 namespace AnvilCommands {
@@ -2159,6 +2168,36 @@ static void HandleQueryDesktopAudioDevices(CrucibleContext&, OBSData&)
 	}
 }
 
+static void HandleQueryWindows(CrucibleContext&, OBSData&)
+{
+	auto props = obs_get_source_properties(OBS_SOURCE_TYPE_INPUT, "window_capture");
+
+	DEFER{
+		obs_properties_destroy(props);
+	};
+
+	auto result = OBSDataArrayCreate();
+
+	DEFER{
+		ForgeEvents::SendQueryWindowsResponse(result);
+	};
+
+	auto prop = obs_properties_get(props, "window");
+	if (prop) {
+		auto count = obs_property_list_item_count(prop);
+		for (decltype(count) i = 0; i < count; i++) {
+			if (obs_property_list_item_disabled(prop, i))
+				continue;
+
+			auto data = OBSDataCreate();
+			obs_data_set_string(data, "name", obs_property_list_item_name(prop, i));
+			obs_data_set_string(data, "window", obs_property_list_item_string(prop, i));
+
+			obs_data_array_push_back(result, data);
+		}
+	}
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -2182,6 +2221,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "save_game_screenshot", HandleGameScreenshot },
 		{ "query_webcams", HandleQueryWebcams },
 		{ "query_desktop_audio_devices", HandleQueryDesktopAudioDevices },
+		{ "query_windows", HandleQueryWindows },
 	};
 	if (!data)
 		return;
