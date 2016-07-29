@@ -1695,13 +1695,14 @@ struct CrucibleContext {
 		obs_set_output_source(2, enabled ? mic : nullptr);
 
 		auto webcam_ = OBSDataGetObj(settings, "webcam");
-		if (!obs_data_has_user_value(webcam_, "device")) {
-			auto remove_from_scene = [&](auto &container)
-			{
-				obs_sceneitem_remove(container.webcam);
-				container.webcam = nullptr;
-			};
 
+		auto remove_from_scene = [&](auto &container)
+		{
+			obs_sceneitem_remove(container.webcam);
+			container.webcam = nullptr;
+		};
+
+		if (!obs_data_has_user_value(webcam_, "device")) {
 			remove_from_scene(game_and_webcam);
 
 			webcam = nullptr;
@@ -1718,9 +1719,12 @@ struct CrucibleContext {
 
 			if (webcam && webcam_device == dev)
 				obs_source_update(webcam, webcam_settings);
-			else
+			else {
+				remove_from_scene(game_and_webcam);
+
 				InitRef(webcam, "Couldn't create webcam source", obs_source_release,
 					obs_source_create(OBS_SOURCE_TYPE_INPUT, "dshow_input", "webcam", webcam_settings, nullptr));
+			}
 
 			webcam_device = dev;
 
