@@ -190,20 +190,6 @@ protected:
 	std::recursive_mutex draw_mutex;
 	void Draw()
 	{
-		uint32_t cx = 0;
-		uint32_t cy = 0;
-		{
-			LOCK(draw_mutex);
-			if (!view || !source)
-				return;
-
-			cx = obs_source_get_width(source);
-			cy = obs_source_get_height(source);
-		}
-
-		if (!cx || !cy)
-			return;
-
 		std::vector<gs_texrender_t*> almost_idle_texrender;
 		std::vector<gs_stagesurf_t*> almost_idle_stagesurface;
 
@@ -292,6 +278,20 @@ protected:
 				idle_stagesurface.pop_front();
 			}
 		} while (false);
+
+		uint32_t cx = 0;
+		uint32_t cy = 0;
+		{
+			LOCK(draw_mutex);
+			if (!view || !source)
+				return;
+
+			cx = obs_source_get_width(source);
+			cy = obs_source_get_height(source);
+		}
+
+		if (!cx || !cy)
+			return;
 
 		do {
 			if (idle_texrender.empty()) {
