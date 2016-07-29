@@ -1693,6 +1693,7 @@ struct CrucibleContext {
 
 		auto webcam_ = OBSDataGetObj(settings, "webcam");
 		if (!obs_data_has_user_value(webcam_, "device")) {
+			obs_sceneitem_remove(webcam_item);
 			webcam_item = nullptr;
 			webcam = nullptr;
 
