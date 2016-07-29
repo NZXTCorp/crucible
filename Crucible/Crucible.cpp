@@ -1745,12 +1745,12 @@ struct CrucibleContext {
 
 		add_to_scene(game_and_webcam);
 
-		UpdateWebcamBounds();
+		UpdateSourceBounds();
 
 		ResetVisibleSource();
 	}
 
-	void UpdateWebcamBounds()
+	void UpdateSourceBounds()
 	{
 		if (ovi.base_height && ovi.base_width) {
 			auto vec = vec2{ ovi.base_width / 6.f, ovi.base_height / 6.f };
@@ -1975,7 +1975,7 @@ struct CrucibleContext {
 		ovi.fps_den = fps_den;
 		ResetVideo();
 
-		UpdateWebcamBounds();
+		UpdateSourceBounds();
 
 		obs_encoder_set_video(h264, obs_get_video());
 		obs_encoder_set_video(stream_h264, obs_get_video());
