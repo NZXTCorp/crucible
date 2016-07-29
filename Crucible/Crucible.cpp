@@ -834,10 +834,15 @@ struct CrucibleContext {
 		OBSSceneItem game, webcam, theme;
 	} game_and_webcam;
 
+	struct {
+		OBSScene scene;
+		OBSSceneItem window, webcam, theme;
+	} window_and_webcam;
+
 	obs_video_info ovi;
 	uint32_t fps_den;
 	std::string webcam_device;
-	OBSSource tunes, mic, gameCapture, webcam, theme;
+	OBSSource tunes, mic, gameCapture, webcam, theme, window;
 	OBSSourceSignal micMuted, pttActive;
 	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess, screenshotSaved;
 	OBSEncoder h264, aac, stream_h264;
@@ -959,10 +964,14 @@ struct CrucibleContext {
 		InitRef(game_and_webcam.scene, "Couldn't create game_and_webcam scene", obs_scene_release,
 				obs_scene_create("game_and_webcam"));
 
+		InitRef(window_and_webcam.scene, "Couldn't create window_and_webcam scene", obs_scene_release,
+				obs_scene_create("window_and_webcam"));
+
 		InitRef(theme, "Couldn't create theme source", obs_source_release,
 				obs_source_create(OBS_SOURCE_TYPE_INPUT, "FramebufferSource", "theme overlay", nullptr, nullptr));
 
 		game_and_webcam.theme = obs_scene_add(game_and_webcam.scene, theme);
+		window_and_webcam.theme = obs_scene_add(window_and_webcam.scene, theme);
 
 		{
 			auto proc = obs_source_get_proc_handler(theme);
@@ -1591,11 +1600,50 @@ struct CrucibleContext {
 		ResetVisibleSource();
 	}
 
+	void ResetWindowCapture(obs_data_t *settings)
+	{
+		if (!settings) {
+			obs_sceneitem_remove(window_and_webcam.window);
+			window_and_webcam.window = nullptr;
+			window = nullptr;
+
+			return;
+		}
+
+		if (window) {
+			obs_source_update(window, settings);
+			return;
+		}
+
+		InitRef(window, "Couldn't create window capture source", obs_source_release,
+			obs_source_create(OBS_SOURCE_TYPE_INPUT, "window_capture", "window capture", settings, nullptr));
+
+		if (!window)
+			return;
+
+		window_and_webcam.window = obs_scene_add(window_and_webcam.scene, window);
+		obs_sceneitem_set_order(window_and_webcam.window, OBS_ORDER_MOVE_BOTTOM);
+
+		obs_sceneitem_set_bounds_type(window_and_webcam.window, OBS_BOUNDS_MAX_ONLY);
+		obs_sceneitem_set_bounds_alignment(window_and_webcam.window, OBS_ALIGN_CENTER);
+
+		UpdateSourceBounds();
+
+		ResetVisibleSource();
+	}
+
 	void ResetVisibleSource()
 	{
-		if (!webcam)
+		if (!webcam && !window)
 			obs_set_output_source(0, gameCapture);
-		else {
+
+		else if (window) {
+			obs_sceneitem_set_order(window_and_webcam.theme, OBS_ORDER_MOVE_TOP);
+			obs_sceneitem_set_order(window_and_webcam.window, OBS_ORDER_MOVE_BOTTOM);
+
+			obs_set_output_source(0, obs_scene_get_source(window_and_webcam.scene));
+
+		} else {
 			obs_sceneitem_set_order(game_and_webcam.theme, OBS_ORDER_MOVE_TOP);
 			obs_sceneitem_set_order(game_and_webcam.game, OBS_ORDER_MOVE_BOTTOM);
 
@@ -1704,6 +1752,7 @@ struct CrucibleContext {
 
 		if (!obs_data_has_user_value(webcam_, "device")) {
 			remove_from_scene(game_and_webcam);
+			remove_from_scene(window_and_webcam);
 
 			webcam = nullptr;
 
@@ -1721,6 +1770,7 @@ struct CrucibleContext {
 				obs_source_update(webcam, webcam_settings);
 			else {
 				remove_from_scene(game_and_webcam);
+				remove_from_scene(window_and_webcam);
 
 				InitRef(webcam, "Couldn't create webcam source", obs_source_release,
 					obs_source_create(OBS_SOURCE_TYPE_INPUT, "dshow_input", "webcam", webcam_settings, nullptr));
@@ -1744,6 +1794,7 @@ struct CrucibleContext {
 		};
 
 		add_to_scene(game_and_webcam);
+		add_to_scene(window_and_webcam);
 
 		UpdateSourceBounds();
 
@@ -1763,6 +1814,10 @@ struct CrucibleContext {
 			};
 
 			update_scene(game_and_webcam);
+			update_scene(window_and_webcam);
+
+			auto full = vec2{ ovi.base_width / 1.f, ovi.base_height / 1.f };
+			obs_sceneitem_set_bounds(window_and_webcam.window, &full);
 		}
 	}
 
@@ -2225,6 +2280,11 @@ static void HandleQueryWindows(CrucibleContext&, OBSData&)
 	}
 }
 
+static void HandleCaptureWindow(CrucibleContext &cc, OBSData &data)
+{
+	cc.ResetWindowCapture(OBSDataGetObj(data, "window"));
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -2249,6 +2309,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "query_webcams", HandleQueryWebcams },
 		{ "query_desktop_audio_devices", HandleQueryDesktopAudioDevices },
 		{ "query_windows", HandleQueryWindows },
+		{ "capture_window", HandleCaptureWindow },
 	};
 	if (!data)
 		return;
