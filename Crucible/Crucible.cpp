@@ -1726,6 +1726,7 @@ struct CrucibleContext {
 
 		obs_sceneitem_set_bounds_type(game_and_webcam.webcam, OBS_BOUNDS_SCALE_INNER);
 		obs_sceneitem_set_bounds_alignment(game_and_webcam.webcam, OBS_ALIGN_BOTTOM);
+		obs_sceneitem_set_alignment(game_and_webcam.webcam, OBS_ALIGN_BOTTOM | OBS_ALIGN_LEFT);
 
 		UpdateWebcamBounds();
 
@@ -1737,7 +1738,6 @@ struct CrucibleContext {
 		if (ovi.base_height && ovi.base_width) {
 			auto vec = vec2{ ovi.base_width / 6.f, ovi.base_height / 6.f };
 			obs_sceneitem_set_bounds(game_and_webcam.webcam, &vec);
-			obs_sceneitem_set_alignment(game_and_webcam.webcam, OBS_ALIGN_BOTTOM | OBS_ALIGN_LEFT);
 			auto pos = vec2{ 0.f, static_cast<float>(ovi.base_height) };
 			obs_sceneitem_set_pos(game_and_webcam.webcam, &pos);
 		}
