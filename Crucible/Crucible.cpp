@@ -1696,8 +1696,14 @@ struct CrucibleContext {
 
 		auto webcam_ = OBSDataGetObj(settings, "webcam");
 		if (!obs_data_has_user_value(webcam_, "device")) {
-			obs_sceneitem_remove(game_and_webcam.webcam);
-			game_and_webcam.webcam = nullptr;
+			auto remove_from_scene = [&](auto &container)
+			{
+				obs_sceneitem_remove(container.webcam);
+				container.webcam = nullptr;
+			};
+
+			remove_from_scene(game_and_webcam);
+
 			webcam = nullptr;
 
 			ResetVisibleSource();
@@ -1721,12 +1727,19 @@ struct CrucibleContext {
 			obs_source_set_muted(webcam, true); // webcams can have mics attached to them that dshow_input will pick up sometimes
 		}
 
-		if (!game_and_webcam.webcam)
-			game_and_webcam.webcam = obs_scene_add(game_and_webcam.scene, webcam);
+		auto add_to_scene = [&](auto &container)
+		{
+			if (container.webcam)
+				return;
 
-		obs_sceneitem_set_bounds_type(game_and_webcam.webcam, OBS_BOUNDS_SCALE_INNER);
-		obs_sceneitem_set_bounds_alignment(game_and_webcam.webcam, OBS_ALIGN_BOTTOM);
-		obs_sceneitem_set_alignment(game_and_webcam.webcam, OBS_ALIGN_BOTTOM | OBS_ALIGN_LEFT);
+			container.webcam = obs_scene_add(container.scene, webcam);
+
+			obs_sceneitem_set_bounds_type(container.webcam, OBS_BOUNDS_SCALE_INNER);
+			obs_sceneitem_set_bounds_alignment(container.webcam, OBS_ALIGN_BOTTOM);
+			obs_sceneitem_set_alignment(container.webcam, OBS_ALIGN_BOTTOM | OBS_ALIGN_LEFT);
+		};
+
+		add_to_scene(game_and_webcam);
 
 		UpdateWebcamBounds();
 
@@ -1737,9 +1750,15 @@ struct CrucibleContext {
 	{
 		if (ovi.base_height && ovi.base_width) {
 			auto vec = vec2{ ovi.base_width / 6.f, ovi.base_height / 6.f };
-			obs_sceneitem_set_bounds(game_and_webcam.webcam, &vec);
 			auto pos = vec2{ 0.f, static_cast<float>(ovi.base_height) };
-			obs_sceneitem_set_pos(game_and_webcam.webcam, &pos);
+
+			auto update_scene = [&](auto &container)
+			{
+				obs_sceneitem_set_bounds(container.webcam, &vec);
+				obs_sceneitem_set_pos(container.webcam, &pos);
+			};
+
+			update_scene(game_and_webcam);
 		}
 	}
 
