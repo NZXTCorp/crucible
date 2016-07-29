@@ -149,7 +149,7 @@ protected:
 				}
 
 				auto &info = mapped.second;
-				
+
 				obs_data_set_int(data, "line_size", info.line_size);
 				obs_data_set_int(data, "width", info.width);
 				obs_data_set_int(data, "height", info.height);
