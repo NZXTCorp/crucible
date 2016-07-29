@@ -256,6 +256,12 @@ protected:
 
 		do {
 			if (!rendering_texrender.empty()) {
+				auto tr = rendering_texrender.front();
+				auto tex = gs_texrender_get_texture(tr);
+
+				auto cx = gs_texture_get_width(tex);
+				auto cy = gs_texture_get_height(tex);
+
 				while (!idle_stagesurface.empty()) {
 					auto sf = idle_stagesurface.front();
 					if (cx == gs_stagesurface_get_width(sf) || cy == gs_stagesurface_get_height(sf))
@@ -276,10 +282,9 @@ protected:
 					idle_stagesurface.push_back(sf);
 				}
 
-				auto tr = rendering_texrender.front();
 				auto sf = idle_stagesurface.front();
 
-				gs_stage_texture(sf, gs_texrender_get_texture(tr));
+				gs_stage_texture(sf, tex);
 
 				staging_texrender.emplace_back(tr, sf);
 
