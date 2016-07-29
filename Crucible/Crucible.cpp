@@ -829,10 +829,13 @@ struct CrucibleContext {
 	bool recordingStartSent = false;
 	bool sendRecordingStop = true;
 
+	struct {
+		OBSScene scene;
+		OBSSceneItem game, webcam, theme;
+	} game_and_webcam;
+
 	obs_video_info ovi;
 	uint32_t fps_den;
-	OBSScene game_and_webcam;
-	OBSSceneItem game_item, webcam_item, theme_item;
 	std::string webcam_device;
 	OBSSource tunes, mic, gameCapture, webcam, theme;
 	OBSSourceSignal micMuted, pttActive;
@@ -953,13 +956,13 @@ struct CrucibleContext {
 
 		obs_set_output_source(1, tunes);
 
-		InitRef(game_and_webcam, "Couldn't create game_and_webcam scene", obs_scene_release,
+		InitRef(game_and_webcam.scene, "Couldn't create game_and_webcam scene", obs_scene_release,
 				obs_scene_create("game_and_webcam"));
 
 		InitRef(theme, "Couldn't create theme source", obs_source_release,
 				obs_source_create(OBS_SOURCE_TYPE_INPUT, "FramebufferSource", "theme overlay", nullptr, nullptr));
 
-		theme_item = obs_scene_add(game_and_webcam, theme);
+		game_and_webcam.theme = obs_scene_add(game_and_webcam.scene, theme);
 
 		{
 			auto proc = obs_source_get_proc_handler(theme);
@@ -1534,8 +1537,8 @@ struct CrucibleContext {
 
 		gameCapture = nullptr;
 
-		obs_sceneitem_remove(game_item);
-		game_item = nullptr;
+		obs_sceneitem_remove(game_and_webcam.game);
+		game_and_webcam.game = nullptr;
 	}
 
 	void CreateGameCapture(obs_data_t *settings)
@@ -1581,9 +1584,9 @@ struct CrucibleContext {
 			.SetOwner(gameCapture)
 			.Connect();
 
-		if (game_item)
-			obs_sceneitem_remove(game_item);
-		game_item = obs_scene_add(game_and_webcam, gameCapture);
+		if (game_and_webcam.game)
+			obs_sceneitem_remove(game_and_webcam.game);
+		game_and_webcam.game = obs_scene_add(game_and_webcam.scene, gameCapture);
 
 		ResetVisibleSource();
 	}
@@ -1593,10 +1596,10 @@ struct CrucibleContext {
 		if (!webcam)
 			obs_set_output_source(0, gameCapture);
 		else {
-			obs_sceneitem_set_order(theme_item, OBS_ORDER_MOVE_TOP);
-			obs_sceneitem_set_order(game_item, OBS_ORDER_MOVE_BOTTOM);
+			obs_sceneitem_set_order(game_and_webcam.theme, OBS_ORDER_MOVE_TOP);
+			obs_sceneitem_set_order(game_and_webcam.game, OBS_ORDER_MOVE_BOTTOM);
 
-			auto source = obs_scene_get_source(game_and_webcam);
+			auto source = obs_scene_get_source(game_and_webcam.scene);
 			obs_set_output_source(0, source);
 		}
 	}
@@ -1693,8 +1696,8 @@ struct CrucibleContext {
 
 		auto webcam_ = OBSDataGetObj(settings, "webcam");
 		if (!obs_data_has_user_value(webcam_, "device")) {
-			obs_sceneitem_remove(webcam_item);
-			webcam_item = nullptr;
+			obs_sceneitem_remove(game_and_webcam.webcam);
+			game_and_webcam.webcam = nullptr;
 			webcam = nullptr;
 
 			ResetVisibleSource();
@@ -1718,11 +1721,11 @@ struct CrucibleContext {
 			obs_source_set_muted(webcam, true); // webcams can have mics attached to them that dshow_input will pick up sometimes
 		}
 
-		if (!webcam_item)
-			webcam_item = obs_scene_add(game_and_webcam, webcam);
+		if (!game_and_webcam.webcam)
+			game_and_webcam.webcam = obs_scene_add(game_and_webcam.scene, webcam);
 
-		obs_sceneitem_set_bounds_type(webcam_item, OBS_BOUNDS_SCALE_INNER);
-		obs_sceneitem_set_bounds_alignment(webcam_item, OBS_ALIGN_BOTTOM);
+		obs_sceneitem_set_bounds_type(game_and_webcam.webcam, OBS_BOUNDS_SCALE_INNER);
+		obs_sceneitem_set_bounds_alignment(game_and_webcam.webcam, OBS_ALIGN_BOTTOM);
 
 		UpdateWebcamBounds();
 
@@ -1733,10 +1736,10 @@ struct CrucibleContext {
 	{
 		if (ovi.base_height && ovi.base_width) {
 			auto vec = vec2{ ovi.base_width / 6.f, ovi.base_height / 6.f };
-			obs_sceneitem_set_bounds(webcam_item, &vec);
-			obs_sceneitem_set_alignment(webcam_item, OBS_ALIGN_BOTTOM | OBS_ALIGN_LEFT);
+			obs_sceneitem_set_bounds(game_and_webcam.webcam, &vec);
+			obs_sceneitem_set_alignment(game_and_webcam.webcam, OBS_ALIGN_BOTTOM | OBS_ALIGN_LEFT);
 			auto pos = vec2{ 0.f, static_cast<float>(ovi.base_height) };
-			obs_sceneitem_set_pos(webcam_item, &pos);
+			obs_sceneitem_set_pos(game_and_webcam.webcam, &pos);
 		}
 	}
 
