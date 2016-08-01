@@ -63,6 +63,13 @@ inline OBSDataArray OBSTransferOwned(obs_data_array_t *data)
 	return obj;
 }
 
+inline OBSSource OBSTransferOwned(obs_source_t *source)
+{
+	OBSSource src = source;
+	obs_source_release(source);
+	return src;
+}
+
 inline OBSDataArray OBSDataArrayCreate()
 {
 	return OBSTransferOwned(obs_data_array_create());
@@ -91,4 +98,9 @@ inline void OBSEnumHotkeys(Fun &&fun)
 inline std::unique_ptr<profiler_snapshot_t> ProfileSnapshotCreate()
 {
 	return std::unique_ptr<profiler_snapshot_t>{profile_snapshot_create()};
+}
+
+inline OBSSource OBSGetOutputSource(uint32_t channel)
+{
+	return OBSTransferOwned(obs_get_output_source(channel));
 }
