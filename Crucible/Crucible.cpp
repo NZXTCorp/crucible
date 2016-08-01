@@ -394,6 +394,17 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendSelectSceneResult(const string &scene, const string &current_scene, bool success)
+	{
+		auto event = EventCreate("select_scene_result");
+
+		obs_data_set_string(event, "scene", scene.c_str());
+		obs_data_set_string(event, "current_scene", current_scene.c_str());
+		obs_data_set_bool(event, "success", success);
+
+		SendEvent(event);
+	}
 }
 
 namespace AnvilCommands {
@@ -1554,7 +1565,9 @@ struct CrucibleContext {
 	void DeleteGameCapture()
 	{
 		LOCK(updateMutex);
-		obs_set_output_source(0, nullptr);
+		auto source = OBSGetOutputSource(0);
+		if (source == gameCapture)
+			obs_set_output_source(0, nullptr);
 
 		gameCapture = nullptr;
 
@@ -1609,7 +1622,8 @@ struct CrucibleContext {
 			obs_sceneitem_remove(game_and_webcam.game);
 		game_and_webcam.game = obs_scene_add(game_and_webcam.scene, gameCapture);
 
-		ResetVisibleSource();
+		if (!OBSGetOutputSource(0))
+			obs_set_output_source(0, gameCapture);
 	}
 
 	void ResetWindowCapture(obs_data_t *settings)
@@ -1641,25 +1655,45 @@ struct CrucibleContext {
 
 		UpdateSourceBounds();
 
-		ResetVisibleSource();
+		window_and_webcam.MakePresentable();
 	}
 
-	void ResetVisibleSource()
+	void SetOutputScene(string scene_name)
 	{
-		if (!webcam && !window)
-			obs_set_output_source(0, gameCapture);
+		obs_source_t *source = nullptr;
 
-		else if (window) {
-			window_and_webcam.MakePresentable();
+		auto source_from_scene = [&](auto &container)
+		{
+			container.MakePresentable();
+			return obs_scene_get_source(container.scene);
+		};
 
-			obs_set_output_source(0, obs_scene_get_source(window_and_webcam.scene));
+		auto current_scene_name = [&]()
+		{
+			auto cur = OBSGetOutputSource(0);
+			if (!cur || cur == gameCapture)
+				return "game_only";
+			if (cur == source_from_scene(game_and_webcam))
+				return "game";
+			if (cur == source_from_scene(window_and_webcam))
+				return "window";
 
+			return "unknown";
+		};
+
+		if (scene_name == "game_only") {
+			source = gameCapture;
+		} else if (scene_name == "game") {
+			source = source_from_scene(game_and_webcam);
+		} else if (scene_name == "window") {
+			source = source_from_scene(window_and_webcam);
 		} else {
-			game_and_webcam.MakePresentable();
-
-			auto source = obs_scene_get_source(game_and_webcam.scene);
-			obs_set_output_source(0, source);
+			ForgeEvents::SendSelectSceneResult(scene_name, current_scene_name(), false);
+			return;
 		}
+
+		obs_set_output_source(0, source);
+		ForgeEvents::SendSelectSceneResult(scene_name, scene_name, true);
 	}
 
 	void StartStreaming(const char *server, const char *key, const char *version)
@@ -1760,13 +1794,17 @@ struct CrucibleContext {
 			container.webcam = nullptr;
 		};
 
+		DEFER {
+			game_and_webcam.MakePresentable();
+			window_and_webcam.MakePresentable();
+		};
+
 		if (!obs_data_has_user_value(webcam_, "device")) {
 			remove_from_scene(game_and_webcam);
 			remove_from_scene(window_and_webcam);
 
 			webcam = nullptr;
 
-			ResetVisibleSource();
 			return;
 		}
 
@@ -1807,8 +1845,6 @@ struct CrucibleContext {
 		add_to_scene(window_and_webcam);
 
 		UpdateSourceBounds();
-
-		ResetVisibleSource();
 	}
 
 	void UpdateSourceBounds()
@@ -2295,6 +2331,11 @@ static void HandleCaptureWindow(CrucibleContext &cc, OBSData &data)
 	cc.ResetWindowCapture(OBSDataGetObj(data, "window"));
 }
 
+static void HandleSelectScene(CrucibleContext &cc, OBSData &data)
+{
+	cc.SetOutputScene(obs_data_get_string(data, "scene"));
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -2320,6 +2361,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "query_desktop_audio_devices", HandleQueryDesktopAudioDevices },
 		{ "query_windows", HandleQueryWindows },
 		{ "capture_window", HandleCaptureWindow },
+		{ "select_scene", HandleSelectScene },
 	};
 	if (!data)
 		return;
