@@ -832,11 +832,23 @@ struct CrucibleContext {
 	struct {
 		OBSScene scene;
 		OBSSceneItem game, webcam, theme;
+
+		void MakePresentable()
+		{
+			obs_sceneitem_set_order(theme, OBS_ORDER_MOVE_TOP);
+			obs_sceneitem_set_order(game, OBS_ORDER_MOVE_BOTTOM);
+		}
 	} game_and_webcam;
 
 	struct {
 		OBSScene scene;
 		OBSSceneItem window, webcam, theme;
+		
+		void MakePresentable()
+		{
+			obs_sceneitem_set_order(theme, OBS_ORDER_MOVE_TOP);
+			obs_sceneitem_set_order(window, OBS_ORDER_MOVE_BOTTOM);
+		}
 	} window_and_webcam;
 
 	obs_video_info ovi;
@@ -1638,14 +1650,12 @@ struct CrucibleContext {
 			obs_set_output_source(0, gameCapture);
 
 		else if (window) {
-			obs_sceneitem_set_order(window_and_webcam.theme, OBS_ORDER_MOVE_TOP);
-			obs_sceneitem_set_order(window_and_webcam.window, OBS_ORDER_MOVE_BOTTOM);
+			window_and_webcam.MakePresentable();
 
 			obs_set_output_source(0, obs_scene_get_source(window_and_webcam.scene));
 
 		} else {
-			obs_sceneitem_set_order(game_and_webcam.theme, OBS_ORDER_MOVE_TOP);
-			obs_sceneitem_set_order(game_and_webcam.game, OBS_ORDER_MOVE_BOTTOM);
+			game_and_webcam.MakePresentable();
 
 			auto source = obs_scene_get_source(game_and_webcam.scene);
 			obs_set_output_source(0, source);
