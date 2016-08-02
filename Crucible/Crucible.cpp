@@ -341,9 +341,30 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
-	void SendStreamingStop()
+	void SendStreamingStop(long long code)
 	{
+#define EXPAND2(x) x
+#define EXPAND(x) x, EXPAND2(#x)
+		static const map<long long, const char*> known_code = {
+			{EXPAND(OBS_OUTPUT_SUCCESS)},
+			{EXPAND(OBS_OUTPUT_BAD_PATH)},
+			{EXPAND(OBS_OUTPUT_CONNECT_FAILED)},
+			{EXPAND(OBS_OUTPUT_INVALID_STREAM)},
+			{EXPAND(OBS_OUTPUT_ERROR)},
+			{EXPAND(OBS_OUTPUT_DISCONNECTED)},
+			{EXPAND(OBS_OUTPUT_UNSUPPORTED)},
+			{EXPAND(OBS_OUTPUT_NO_SPACE)},
+		};
+#undef EXPAND
+#undef EXPAND2
+
 		auto event = EventCreate("stopped_streaming");
+
+		obs_data_set_int(event, "code", code);
+
+		auto it = known_code.find(code);
+		if (it != end(known_code))
+			obs_data_set_string(event, "name", it->second);
 
 		SendEvent(event);
 	}
@@ -1220,11 +1241,11 @@ struct CrucibleContext {
 
 		stopStreaming
 			.SetSignal("stop")
-			.SetFunc([=](calldata*)
+			.SetFunc([=](calldata *data)
 		{
 			streaming = false;
 			AnvilCommands::StreamStatus(streaming);
-			ForgeEvents::SendStreamingStop();
+			ForgeEvents::SendStreamingStop(calldata_int(data, "code"));
 		});
 
 	}
