@@ -1346,6 +1346,7 @@ struct CrucibleContext {
 			.SetOwner(buffer)
 			.Connect();
 
+		auto weakGameCapture = OBSGetWeakRef(gameCapture);
 		auto weakOutput = OBSGetWeakRef(output);
 		auto weakBuffer = OBSGetWeakRef(buffer);
 		auto weakStream = OBSGetWeakRef(stream);
@@ -1355,6 +1356,16 @@ struct CrucibleContext {
 			.SetOwner(gameCapture)
 			.SetFunc([=](calldata_t*)
 		{
+			if (auto ref = OBSGetStrongRef(weakGameCapture)) {
+				auto settings = OBSTransferOwned(obs_source_get_settings(ref));
+				obs_data_set_int(settings, "process_id", 0);
+				obs_data_set_int(settings, "thread_id", 0);
+				obs_source_update(ref, settings);
+
+				if (OBSGetOutputSource(0) == ref)
+					obs_set_output_source(0, nullptr);
+			}
+
 			auto ref = OBSGetStrongRef(weakOutput);
 			if (ref)
 				obs_output_stop(ref);
