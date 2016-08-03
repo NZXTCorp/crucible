@@ -1985,6 +1985,15 @@ static void HandleConnectDisplay(CrucibleContext&, OBSData &obj)
 	Display::SetEnabled(name, true);
 }
 
+static void HandleResizeDisplay(CrucibleContext&, OBSData &obj)
+{
+	auto name = obs_data_get_string(obj, "name");
+	auto cx = obs_data_get_int(obj, "width");
+	auto cy = obs_data_get_int(obj, "height");
+
+	Display::Resize(name, cx, cy);
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -2007,6 +2016,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "stop_streaming", HandleStopStreaming },
 		{ "save_game_screenshot", HandleGameScreenshot },
 		{ "connect_display", HandleConnectDisplay },
+		{ "resize_display", HandleResizeDisplay },
 	};
 	if (!data)
 		return;

@@ -6,6 +6,8 @@ namespace Display {
 
 	void SetEnabled(const char *name, bool enable);
 
+	void Resize(const char *name, uint32_t cx, uint32_t cy);
+
 	std::vector<std::string> List();
 
 	void Stop(const char *name);

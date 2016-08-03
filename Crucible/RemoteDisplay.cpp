@@ -84,6 +84,13 @@ struct RemoteDisplay {
 		obs_leave_graphics();
 	}
 
+	void Resize(uint32_t cx, uint32_t cy)
+	{
+		LOCK(draw_mutex);
+		draw_cx = cx;
+		draw_cy = cy;
+	}
+
 protected:
 	std::vector<gs_texrender_t*> texrender;
 	std::vector<gs_stagesurf_t*> stagesurf;
@@ -114,6 +121,9 @@ protected:
 	IPCClient framebuffer_client;
 
 	JoiningThread send_thread;
+
+	uint32_t draw_cx = 0;
+	uint32_t draw_cy = 0;
 
 	void StartSendThread()
 	{
@@ -306,9 +316,9 @@ protected:
 			auto tr = idle_texrender.front();
 
 			gs_texrender_reset(tr);
-			if (gs_texrender_begin(tr, cx, cy)) {
+			if (gs_texrender_begin(tr, draw_cx, draw_cy)) {
 				gs_ortho(0.0f, (float)cx, 0.0f, (float)cy, -100.0f, 100.0f);
-				gs_set_viewport(0, 0, cx, cy);
+				gs_set_viewport(0, 0, draw_cx, draw_cy);
 
 				obs_view_render(view);
 
@@ -359,6 +369,13 @@ namespace Display {
 		auto &display = displays[name];
 		display.remote_display_name = name;
 		display.Enable(enable);
+	}
+
+	void Resize(const char *name, uint32_t cx, uint32_t cy)
+	{
+		auto &display = displays[name];
+		display.remote_display_name = name;
+		display.Resize(cx, cy);
 	}
 
 	std::vector<std::string> List()
