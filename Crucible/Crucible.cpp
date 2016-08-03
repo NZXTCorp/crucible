@@ -1981,7 +1981,13 @@ static void HandleConnectDisplay(CrucibleContext&, OBSData &obj)
 	auto name = obs_data_get_string(obj, "name");
 	auto channel = obs_data_get_string(obj, "server");
 
+	auto cx = obs_data_get_int(obj, "width");
+	auto cy = obs_data_get_int(obj, "height");
+
 	Display::Connect(name, channel);
+	if (cx && cy)
+		Display::Resize(name, cx, cy);
+
 	Display::SetEnabled(name, true);
 }
 
