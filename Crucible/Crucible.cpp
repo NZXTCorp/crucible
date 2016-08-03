@@ -1307,13 +1307,6 @@ struct CrucibleContext {
 
 		obs_output_set_video_encoder(buffer, h264);
 		obs_output_set_audio_encoder(buffer, aac, 0);
-
-		InitRef(stream, "Couldn't create stream output", obs_output_release,
-			obs_output_create("rtmp_output", "rtmp streaming", nullptr, nullptr));
-
-		obs_output_set_video_encoder(stream, stream_h264);
-		obs_output_set_audio_encoder(stream, aac, 0);
-		obs_output_set_service(stream, stream_service);
 		
 		
 		stopRecording
@@ -1349,7 +1342,6 @@ struct CrucibleContext {
 		auto weakGameCapture = OBSGetWeakRef(gameCapture);
 		auto weakOutput = OBSGetWeakRef(output);
 		auto weakBuffer = OBSGetWeakRef(buffer);
-		auto weakStream = OBSGetWeakRef(stream);
 
 		stopCapture
 			.Disconnect()
@@ -1373,10 +1365,6 @@ struct CrucibleContext {
 			ref = OBSGetStrongRef(weakBuffer);
 			if (ref)
 				obs_output_stop(ref);
-
-			ref = OBSGetStrongRef(weakStream);
-			if (ref)
-				obs_output_stop(ref);
 		}).Connect();
 
 		startCapture
@@ -1397,13 +1385,17 @@ struct CrucibleContext {
 			ref = OBSGetStrongRef(weakBuffer);
 			if (ref)
 				obs_output_start(ref);
-
-			if (streaming) {
-				ref = OBSGetStrongRef(weakStream);
-				if (ref)
-					obs_output_start(ref);
-			}
 		}).Connect();
+	}
+
+	void CreateStreamOutput()
+	{
+		InitRef(stream, "Couldn't create stream output", obs_output_release,
+			obs_output_create("rtmp_output", "rtmp streaming", nullptr, nullptr));
+
+		obs_output_set_video_encoder(stream, stream_h264);
+		obs_output_set_audio_encoder(stream, aac, 0);
+		obs_output_set_service(stream, stream_service);
 
 		stopStreaming
 			.Disconnect()
@@ -1947,6 +1939,8 @@ struct CrucibleContext {
 		if (restartThread.t.joinable())
 			restartThread.t.join();
 
+		bool streaming = obs_output_active(stream);
+
 		restartThread.t = thread{[=]()
 		{
 			{
@@ -1954,8 +1948,10 @@ struct CrucibleContext {
 				sendRecordingStop = false;
 			}
 
-			if (output_dimensions_changed)
+			if (output_dimensions_changed) {
+				obs_output_stop(stream);
 				StopVideo();
+			}
 			
 			StartVideo();
 
@@ -2078,8 +2074,6 @@ struct CrucibleContext {
 			obs_output_stop(output);
 		if (obs_output_active(buffer))
 			obs_output_stop(buffer);
-		if (obs_output_active(stream))
-			obs_output_stop(stream);
 
 		output = nullptr;
 		buffer = nullptr;
@@ -2249,6 +2243,7 @@ static void HandleForgeWillClose(CrucibleContext &cc, OBSData&)
 
 static void HandleStartStreaming(CrucibleContext &cc, OBSData& obj)
 {
+	cc.CreateStreamOutput();
 	cc.StartStreaming(obs_data_get_string(obj, "server"), obs_data_get_string(obj, "key"), obs_data_get_string(obj, "version"));
 }
 
