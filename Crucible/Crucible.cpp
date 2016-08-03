@@ -1094,12 +1094,8 @@ struct CrucibleContext {
 			.SetFunc([=](calldata*)
 		{
 			string profiler_path;
-			DWORD pid = 0;
 			{
 				LOCK(updateMutex);
-				auto data = OBSTransferOwned(obs_source_get_settings(gameCapture));
-				pid = static_cast<DWORD>(obs_data_get_int(data, "process_id"));
-
 				if (sendRecordingStop) {
 					profiler_path = profiler_filename;
 					auto data = OBSTransferOwned(obs_output_get_settings(output));
@@ -1111,7 +1107,7 @@ struct CrucibleContext {
 					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
 						obs_output_get_total_frames(output),
 						obs_output_get_output_duration(output),
-						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, pid, full_bookmarks);
+						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, game_pid, full_bookmarks);
 					AnvilCommands::ShowIdle();
 				}
 			}
@@ -1132,7 +1128,7 @@ struct CrucibleContext {
 
 			last_session = move(snap);
 
-			ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, pid);
+			ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, game_pid);
 		});
 
 		startRecording
