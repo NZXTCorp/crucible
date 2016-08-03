@@ -298,6 +298,12 @@ protected:
 
 			cx = obs_source_get_width(source);
 			cy = obs_source_get_height(source);
+
+			if (!draw_cx || !draw_cy)
+			{
+				draw_cx = cx;
+				draw_cy = cy;
+			}
 		}
 
 		if (!cx || !cy)
