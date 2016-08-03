@@ -2087,8 +2087,6 @@ struct CrucibleContext {
 		game_res.width = 0;
 		game_res.height = 0;
 
-		ovi.fps_den = 0;
-		ResetVideo();
 		stopping = false;
 	}
 
