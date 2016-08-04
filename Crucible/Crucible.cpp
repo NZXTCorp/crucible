@@ -1641,6 +1641,7 @@ struct CrucibleContext {
 		if (game_and_webcam.game)
 			obs_sceneitem_remove(game_and_webcam.game);
 		game_and_webcam.game = obs_scene_add(game_and_webcam.scene, gameCapture);
+		game_and_webcam.MakePresentable();
 
 		if (!OBSGetOutputSource(0))
 			obs_set_output_source(0, gameCapture);
