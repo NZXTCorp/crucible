@@ -32,6 +32,8 @@ private:
 	void InitIndicatorTextures( IndicatorManager &manager ); // helper to create indicator textures from the manager
 
 	template <typename Fun>
+	bool ProtectState(Fun &&f);
+	template <typename Fun>
 	bool RenderTex(Fun &&f);
 public:
 	DX9Renderer( void );

@@ -379,7 +379,7 @@ void DX9Renderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 }
 
 template <typename Fun>
-bool DX9Renderer::RenderTex(Fun &&f)
+bool DX9Renderer::ProtectState(Fun &&f)
 {
 	HRESULT hRes;
 
@@ -428,15 +428,7 @@ bool DX9Renderer::RenderTex(Fun &&f)
 	UINT stream_stride;
 	CHEK(m_pDevice->GetStreamSource(0, stream_data.get_PPtr(), &stream_offset, &stream_stride));
 
-	m_pDevice->SetPixelShader(nullptr);
-	m_pDevice->SetVertexShader(nullptr);
-
-	hRes = m_pTexturedRenderState->Apply();
-
-	// render
-	hRes = m_pDevice->BeginScene();
-	if (SUCCEEDED(hRes))
-		f();
+	auto res = f();
 
 	if (stream_data)
 		m_pDevice->SetStreamSource(0, stream_data, stream_offset, stream_stride);
@@ -469,8 +461,28 @@ bool DX9Renderer::RenderTex(Fun &&f)
 
 	// restore the modified renderstate
 	m_pCurrentRenderState->Apply();
+	return res;
+}
 
-	return true;
+template <typename Fun>
+bool DX9Renderer::RenderTex(Fun &&f)
+{
+	return ProtectState([&]
+	{
+		HRESULT hRes;
+
+		m_pDevice->SetPixelShader(nullptr);
+		m_pDevice->SetVertexShader(nullptr);
+
+		m_pTexturedRenderState->Apply();
+
+		// render
+		hRes = m_pDevice->BeginScene();
+		if (SUCCEEDED(hRes))
+			f();
+
+		return true;
+	});
 }
 
 void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color )
