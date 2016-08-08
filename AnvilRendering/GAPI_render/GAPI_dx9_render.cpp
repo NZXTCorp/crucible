@@ -408,6 +408,29 @@ bool DX9Renderer::RenderTex(Fun &&f)
 	IDirect3DBaseTexture9 *pTexture;
 	m_pDevice->GetTexture(0, &pTexture); // note that it could be null
 
+	for (auto &rs : render_states)
+		CHEK(m_pDevice->GetRenderState(rs.state, &rs.backup));
+
+	for (auto &ts : texture_states)
+		CHEK(m_pDevice->GetTextureStageState(0, ts.state, &ts.backup));
+
+	for (auto &nts : no_texture_states)
+		CHEK(m_pDevice->GetTextureStageState(0, nts.state, &nts.backup));
+
+	for (auto &ss : sampler_states)
+		CHEK(m_pDevice->GetSamplerState(0, ss.state, &ss.backup));
+
+	D3DVIEWPORT9 viewport;
+	CHEK(m_pDevice->GetViewport(&viewport));
+
+	DWORD fvf;
+	CHEK(m_pDevice->GetFVF(&fvf));
+
+	IRefPtr<IDirect3DVertexBuffer9> stream_data;
+	UINT stream_offset;
+	UINT stream_stride;
+	CHEK(m_pDevice->GetStreamSource(0, stream_data.get_PPtr(), &stream_offset, &stream_stride));
+
 	m_pDevice->SetPixelShader(nullptr);
 	m_pDevice->SetVertexShader(nullptr);
 
@@ -419,6 +442,25 @@ bool DX9Renderer::RenderTex(Fun &&f)
 	hRes = m_pDevice->BeginScene();
 	if (SUCCEEDED(hRes))
 		f();
+
+	if (stream_data)
+		m_pDevice->SetStreamSource(0, stream_data, stream_offset, stream_stride);
+
+	m_pDevice->SetFVF(fvf);
+
+	m_pDevice->SetViewport(&viewport);
+
+	for (auto &ss : sampler_states)
+		m_pDevice->SetSamplerState(0, ss.state, ss.backup);
+
+	for (auto &nts : no_texture_states)
+		m_pDevice->SetTextureStageState(0, nts.state, nts.backup);
+
+	for (auto &ts : texture_states)
+		m_pDevice->SetTextureStageState(0, ts.state, ts.backup);
+
+	for (auto &rs : render_states)
+		m_pDevice->SetRenderState(rs.state, rs.backup);
 
 	// restore current texture if one was set
 	if (pTexture)
