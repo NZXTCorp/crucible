@@ -188,70 +188,107 @@ void DX9Renderer::UpdateVB( IDirect3DVertexBuffer9 *pVB, int x, int y, int w, in
 	pVB->Unlock( );
 }
 
-void DX9Renderer::SetupRenderState( IDirect3DStateBlock9 **pStateBlock, DWORD vp_width, DWORD vp_height, bool textured )
-{
-	D3DVIEWPORT9 vp;
-	HRESULT hRes = m_pDevice->BeginStateBlock( );
+static struct {
+	const D3DRENDERSTATETYPE state;
+	const DWORD desired;
+	DWORD backup;
+} render_states[] = {
+	{D3DRS_ZENABLE, D3DZB_FALSE},
+	{D3DRS_ALPHABLENDENABLE, true},
+	{D3DRS_FILLMODE, D3DFILL_SOLID},
+	{D3DRS_CULLMODE, D3DCULL_NONE},
+	{D3DRS_STENCILENABLE, false},
+	{D3DRS_CLIPPING, true},
+	{D3DRS_CLIPPLANEENABLE, false},
+	{D3DRS_FOGENABLE, false},
+	{D3DRS_LIGHTING, false},
 	
-	vp.X      = 0;
-	vp.Y      = 0;
-	vp.Width  = vp_width;
-	vp.Height = vp_height;
-	vp.MinZ   = 0.0f;
-	vp.MaxZ   = 1.0f;
-	
-	m_pDevice->SetViewport( &vp );
-	m_pDevice->SetRenderState( D3DRS_ZENABLE, D3DZB_FALSE );
-	m_pDevice->SetRenderState( D3DRS_ALPHABLENDENABLE, true );
-	m_pDevice->SetRenderState( D3DRS_FILLMODE, D3DFILL_SOLID );
-	m_pDevice->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
-	m_pDevice->SetRenderState( D3DRS_STENCILENABLE, false );
-	m_pDevice->SetRenderState( D3DRS_CLIPPING, true );
-	m_pDevice->SetRenderState( D3DRS_CLIPPLANEENABLE, false );
-	m_pDevice->SetRenderState( D3DRS_FOGENABLE, false );
-	m_pDevice->SetRenderState(D3DRS_LIGHTING, false);
-
-	m_pDevice->SetRenderState( D3DRS_SHADEMODE, D3DSHADE_GOURAUD );
-	m_pDevice->SetRenderState( D3DRS_ZWRITEENABLE, FALSE );
-	m_pDevice->SetRenderState( D3DRS_ZFUNC, D3DCMP_ALWAYS );
+	{D3DRS_SHADEMODE, D3DSHADE_GOURAUD},
+	{D3DRS_ZWRITEENABLE, FALSE},
+	{D3DRS_ZFUNC, D3DCMP_ALWAYS},
 	
 	// alpha/blending stuff (as given to us by half-life 2: lost cause - do we need to change them)
-	m_pDevice->SetRenderState( D3DRS_ALPHAFUNC, D3DCMP_GREATER );
-	m_pDevice->SetRenderState( D3DRS_SRCBLEND, D3DBLEND_SRCALPHA );
-	m_pDevice->SetRenderState( D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA );
-
-	m_pDevice->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_ALPHA | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_RED);
-	m_pDevice->SetRenderState(D3DRS_SRGBWRITEENABLE, true);
-
-	m_pDevice->SetRenderState(D3DRS_ALPHATESTENABLE, false);
-	m_pDevice->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, false); // this should make the next two obsolete according to the docs, but we'll keep them anyway
-	m_pDevice->SetRenderState(D3DRS_SRCBLENDALPHA, D3DBLEND_ONE);
-	m_pDevice->SetRenderState(D3DRS_DESTBLENDALPHA, D3DBLEND_ZERO);
+	{D3DRS_ALPHAFUNC, D3DCMP_GREATER},
+	{D3DRS_SRCBLEND, D3DBLEND_SRCALPHA},
+	{D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA},
 	
-	if ( textured )
-	{
-		m_pDevice->SetTextureStageState( 0, D3DTSS_COLOROP,   D3DTOP_MODULATE );
-		m_pDevice->SetTextureStageState( 0, D3DTSS_COLORARG1, D3DTA_TEXTURE );
-		m_pDevice->SetTextureStageState( 0, D3DTSS_COLORARG2, D3DTA_DIFFUSE );
-		m_pDevice->SetTextureStageState( 0, D3DTSS_ALPHAOP,   D3DTOP_MODULATE );
-		m_pDevice->SetTextureStageState( 0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE );
-		m_pDevice->SetTextureStageState( 0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE );
+	{D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_ALPHA | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_RED},
+	{D3DRS_SRGBWRITEENABLE, true},
+	
+	{D3DRS_ALPHATESTENABLE, false},
+	{D3DRS_SEPARATEALPHABLENDENABLE, false}, // this should make the next two obsolete according to the docs, but we'll keep them anyway
+	{D3DRS_SRCBLENDALPHA, D3DBLEND_ONE},
+	{D3DRS_DESTBLENDALPHA, D3DBLEND_ZERO},
+};
 
-		m_pDevice->SetSamplerState( 0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR );
-		m_pDevice->SetSamplerState( 0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR );
-		m_pDevice->SetSamplerState( 0, D3DSAMP_MIPFILTER, D3DTEXF_NONE );
-	}
-	else
-	{
-		m_pDevice->SetTextureStageState( 0, D3DTSS_COLOROP,   D3DTOP_DISABLE );
-		m_pDevice->SetTextureStageState( 0, D3DTSS_ALPHAOP,   D3DTOP_DISABLE );
-	}
+static struct {
+	const D3DTEXTURESTAGESTATETYPE state;
+	const DWORD desired;
+	DWORD backup;
+} texture_states[] = {
+	{D3DTSS_COLOROP,   D3DTOP_MODULATE},
+	{D3DTSS_COLORARG1, D3DTA_TEXTURE},
+	{D3DTSS_COLORARG2, D3DTA_DIFFUSE},
+	{D3DTSS_ALPHAOP,   D3DTOP_MODULATE},
+	{D3DTSS_ALPHAARG1, D3DTA_TEXTURE},
+	{D3DTSS_ALPHAARG2, D3DTA_DIFFUSE},
+}, no_texture_states[] = {
+	{D3DTSS_COLOROP, D3DTOP_DISABLE},
+	{D3DTSS_ALPHAOP, D3DTOP_DISABLE},
+};
 
-	m_pDevice->SetVertexShader( NULL );
-	m_pDevice->SetFVF( D3DFVF_NEWVERTEX );
-	m_pDevice->SetPixelShader( NULL );
-	m_pDevice->SetStreamSource( 0, m_pVBSquareBorder, 0, sizeof(NEWVERTEX) );
-	m_pDevice->EndStateBlock( pStateBlock );
+static struct {
+	const D3DSAMPLERSTATETYPE state;
+	const DWORD desired;
+	DWORD backup;
+} sampler_states[] = {
+	{D3DSAMP_MAGFILTER, D3DTEXF_LINEAR},
+	{D3DSAMP_MINFILTER, D3DTEXF_LINEAR},
+	{D3DSAMP_MIPFILTER, D3DTEXF_NONE},
+	{D3DSAMP_SRGBTEXTURE, true},
+};
+
+void DX9Renderer::SetupRenderState( IDirect3DStateBlock9 **pStateBlock, DWORD vp_width, DWORD vp_height, bool textured )
+{
+	ProtectState([&]
+	{
+		D3DVIEWPORT9 vp;
+		HRESULT hRes = m_pDevice->BeginStateBlock();
+
+		vp.X = 0;
+		vp.Y = 0;
+		vp.Width = vp_width;
+		vp.Height = vp_height;
+		vp.MinZ = 0.0f;
+		vp.MaxZ = 1.0f;
+
+		m_pDevice->SetViewport(&vp);
+
+		for (auto &rs : render_states)
+			m_pDevice->SetRenderState(rs.state, rs.desired);
+
+		if (textured)
+		{
+			for (auto &ts : texture_states)
+				m_pDevice->SetTextureStageState(0, ts.state, ts.desired);
+
+			for (auto &ss : sampler_states)
+				m_pDevice->SetSamplerState(0, ss.state, ss.desired);
+		}
+		else
+		{
+			for (auto &nts : no_texture_states)
+				m_pDevice->SetTextureStageState(0, nts.state, nts.desired);
+		}
+
+		m_pDevice->SetVertexShader(NULL);
+		m_pDevice->SetFVF(D3DFVF_NEWVERTEX);
+		m_pDevice->SetPixelShader(NULL);
+		m_pDevice->SetStreamSource(0, m_pVBSquareBorder, 0, sizeof(NEWVERTEX));
+		m_pDevice->EndStateBlock(pStateBlock);
+
+		return true;
+	});
 }
 
 void DX9Renderer::InitIndicatorTextures( IndicatorManager &manager )
@@ -347,77 +384,111 @@ void DX9Renderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 }
 
 template <typename Fun>
-bool DX9Renderer::RenderTex(Fun &&f)
+bool DX9Renderer::ProtectState(Fun &&f)
 {
+	HRESULT hRes;
+
+#undef CHEK
+#define CHEK(x) \
+    hRes = x; \
+	if (FAILED(hRes)) \
+	{ \
+		LOG_WARN("RenderTex: " #x " failed! 0x%x", hRes); \
+		return false; \
+	}
+
 	// setup renderstate
-	HRESULT hRes = m_pCurrentRenderState->Capture();
-	if (FAILED(hRes))
-	{
-		LOG_WARN("RenderTex: capturing render state failed! 0x%x." LOG_CR, hRes);
-		return false;
-	}
+	CHEK(m_pCurrentRenderState->Capture());
 
-	IDirect3DPixelShader9 *ps = nullptr;
-	hRes = m_pDevice->GetPixelShader(&ps);
-	if (FAILED(hRes))
-	{
-		LOG_WARN("RenderTex: failed to get pixel shader: %#x\n", hRes);
-		return false;
-	}
+	IRefPtr<IDirect3DPixelShader9> ps;
+	CHEK(m_pDevice->GetPixelShader(ps.get_PPtr()));
 
-	IDirect3DVertexShader9 *vs = nullptr;
-	hRes = m_pDevice->GetVertexShader(&vs);
-	if (FAILED(hRes))
-	{
-		LOG_WARN("RenderTex: failed to get vertex shader: %#x\n", hRes);
-		return false;
-	}
-
-	DWORD srgb_state = 0;
-	bool reset_srgb_state = !FAILED(m_pDevice->GetSamplerState(0, D3DSAMP_SRGBTEXTURE, &srgb_state));
+	IRefPtr<IDirect3DVertexShader9> vs;
+	CHEK(m_pDevice->GetVertexShader(vs.get_PPtr()));
 
 	// save whatever the current texture is. not doing this can break video cutscenes and stuff
-	IDirect3DBaseTexture9 *pTexture;
-	m_pDevice->GetTexture(0, &pTexture); // note that it could be null
+	IRefPtr<IDirect3DBaseTexture9> pTexture;
+	m_pDevice->GetTexture(0, pTexture.get_PPtr()); // note that it could be null
 
-	m_pDevice->SetPixelShader(nullptr);
-	m_pDevice->SetVertexShader(nullptr);
+	for (auto &rs : render_states)
+		CHEK(m_pDevice->GetRenderState(rs.state, &rs.backup));
 
-	hRes = m_pTexturedRenderState->Apply();
+	for (auto &ts : texture_states)
+		CHEK(m_pDevice->GetTextureStageState(0, ts.state, &ts.backup));
 
-	m_pDevice->SetSamplerState(0, D3DSAMP_SRGBTEXTURE, true);
+	for (auto &nts : no_texture_states)
+		CHEK(m_pDevice->GetTextureStageState(0, nts.state, &nts.backup));
 
-	// render
-	hRes = m_pDevice->BeginScene();
-	if (SUCCEEDED(hRes))
-		f();
+	for (auto &ss : sampler_states)
+		CHEK(m_pDevice->GetSamplerState(0, ss.state, &ss.backup));
+
+	D3DVIEWPORT9 viewport;
+	CHEK(m_pDevice->GetViewport(&viewport));
+
+	DWORD fvf;
+	CHEK(m_pDevice->GetFVF(&fvf));
+
+	IRefPtr<IDirect3DVertexBuffer9> stream_data;
+	UINT stream_offset;
+	UINT stream_stride;
+	CHEK(m_pDevice->GetStreamSource(0, stream_data.get_PPtr(), &stream_offset, &stream_stride));
+
+	auto res = f();
+
+	if (stream_data)
+		m_pDevice->SetStreamSource(0, stream_data, stream_offset, stream_stride);
+
+	m_pDevice->SetFVF(fvf);
+
+	m_pDevice->SetViewport(&viewport);
+
+	for (auto &ss : sampler_states)
+		m_pDevice->SetSamplerState(0, ss.state, ss.backup);
+
+	for (auto &nts : no_texture_states)
+		m_pDevice->SetTextureStageState(0, nts.state, nts.backup);
+
+	for (auto &ts : texture_states)
+		m_pDevice->SetTextureStageState(0, ts.state, ts.backup);
+
+	for (auto &rs : render_states)
+		m_pDevice->SetRenderState(rs.state, rs.backup);
 
 	// restore current texture if one was set
 	if (pTexture)
-	{
 		m_pDevice->SetTexture(0, pTexture);
-		pTexture->Release();
-	}
-
-	if (reset_srgb_state)
-		m_pDevice->SetSamplerState(0, D3DSAMP_SRGBTEXTURE, srgb_state);
 
 	if (vs)
-	{
 		m_pDevice->SetVertexShader(vs);
-		vs->Release();
-	}
 
 	if (ps)
-	{
 		m_pDevice->SetPixelShader(ps);
-		ps->Release();
-	}
 
 	// restore the modified renderstate
 	m_pCurrentRenderState->Apply();
+	return res;
+}
 
-	return true;
+template <typename Fun>
+bool DX9Renderer::RenderTex(Fun &&f)
+{
+	return ProtectState([&]
+	{
+		HRESULT hRes;
+
+		m_pDevice->SetPixelShader(nullptr);
+		m_pDevice->SetVertexShader(nullptr);
+
+		if (m_pTexturedRenderState)
+			m_pTexturedRenderState->Apply();
+
+		// render
+		hRes = m_pDevice->BeginScene();
+		if (SUCCEEDED(hRes))
+			f();
+
+		return true;
+	});
 }
 
 void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color )
