@@ -188,6 +188,66 @@ void DX9Renderer::UpdateVB( IDirect3DVertexBuffer9 *pVB, int x, int y, int w, in
 	pVB->Unlock( );
 }
 
+static struct {
+	const D3DRENDERSTATETYPE state;
+	const DWORD desired;
+	DWORD backup;
+} render_states[] = {
+	{D3DRS_ZENABLE, D3DZB_FALSE},
+	{D3DRS_ALPHABLENDENABLE, true},
+	{D3DRS_FILLMODE, D3DFILL_SOLID},
+	{D3DRS_CULLMODE, D3DCULL_NONE},
+	{D3DRS_STENCILENABLE, false},
+	{D3DRS_CLIPPING, true},
+	{D3DRS_CLIPPLANEENABLE, false},
+	{D3DRS_FOGENABLE, false},
+	{D3DRS_LIGHTING, false},
+	
+	{D3DRS_SHADEMODE, D3DSHADE_GOURAUD},
+	{D3DRS_ZWRITEENABLE, FALSE},
+	{D3DRS_ZFUNC, D3DCMP_ALWAYS},
+	
+	// alpha/blending stuff (as given to us by half-life 2: lost cause - do we need to change them)
+	{D3DRS_ALPHAFUNC, D3DCMP_GREATER},
+	{D3DRS_SRCBLEND, D3DBLEND_SRCALPHA},
+	{D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA},
+	
+	{D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_ALPHA | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_RED},
+	{D3DRS_SRGBWRITEENABLE, true},
+	
+	{D3DRS_ALPHATESTENABLE, false},
+	{D3DRS_SEPARATEALPHABLENDENABLE, false}, // this should make the next two obsolete according to the docs, but we'll keep them anyway
+	{D3DRS_SRCBLENDALPHA, D3DBLEND_ONE},
+	{D3DRS_DESTBLENDALPHA, D3DBLEND_ZERO},
+};
+
+static struct {
+	const D3DTEXTURESTAGESTATETYPE state;
+	const DWORD desired;
+	DWORD backup;
+} texture_states[] = {
+	{D3DTSS_COLOROP,   D3DTOP_MODULATE},
+	{D3DTSS_COLORARG1, D3DTA_TEXTURE},
+	{D3DTSS_COLORARG2, D3DTA_DIFFUSE},
+	{D3DTSS_ALPHAOP,   D3DTOP_MODULATE},
+	{D3DTSS_ALPHAARG1, D3DTA_TEXTURE},
+	{D3DTSS_ALPHAARG2, D3DTA_DIFFUSE},
+}, no_texture_states[] = {
+	{D3DTSS_COLOROP, D3DTOP_DISABLE},
+	{D3DTSS_ALPHAOP, D3DTOP_DISABLE},
+};
+
+static struct {
+	const D3DSAMPLERSTATETYPE state;
+	const DWORD desired;
+	DWORD backup;
+} sampler_states[] = {
+	{D3DSAMP_MAGFILTER, D3DTEXF_LINEAR},
+	{D3DSAMP_MINFILTER, D3DTEXF_LINEAR},
+	{D3DSAMP_MIPFILTER, D3DTEXF_NONE},
+	{D3DSAMP_SRGBTEXTURE, true},
+};
+
 void DX9Renderer::SetupRenderState( IDirect3DStateBlock9 **pStateBlock, DWORD vp_width, DWORD vp_height, bool textured )
 {
 	D3DVIEWPORT9 vp;
@@ -201,50 +261,22 @@ void DX9Renderer::SetupRenderState( IDirect3DStateBlock9 **pStateBlock, DWORD vp
 	vp.MaxZ   = 1.0f;
 	
 	m_pDevice->SetViewport( &vp );
-	m_pDevice->SetRenderState( D3DRS_ZENABLE, D3DZB_FALSE );
-	m_pDevice->SetRenderState( D3DRS_ALPHABLENDENABLE, true );
-	m_pDevice->SetRenderState( D3DRS_FILLMODE, D3DFILL_SOLID );
-	m_pDevice->SetRenderState( D3DRS_CULLMODE, D3DCULL_NONE );
-	m_pDevice->SetRenderState( D3DRS_STENCILENABLE, false );
-	m_pDevice->SetRenderState( D3DRS_CLIPPING, true );
-	m_pDevice->SetRenderState( D3DRS_CLIPPLANEENABLE, false );
-	m_pDevice->SetRenderState( D3DRS_FOGENABLE, false );
-	m_pDevice->SetRenderState(D3DRS_LIGHTING, false);
 
-	m_pDevice->SetRenderState( D3DRS_SHADEMODE, D3DSHADE_GOURAUD );
-	m_pDevice->SetRenderState( D3DRS_ZWRITEENABLE, FALSE );
-	m_pDevice->SetRenderState( D3DRS_ZFUNC, D3DCMP_ALWAYS );
-	
-	// alpha/blending stuff (as given to us by half-life 2: lost cause - do we need to change them)
-	m_pDevice->SetRenderState( D3DRS_ALPHAFUNC, D3DCMP_GREATER );
-	m_pDevice->SetRenderState( D3DRS_SRCBLEND, D3DBLEND_SRCALPHA );
-	m_pDevice->SetRenderState( D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA );
-
-	m_pDevice->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_ALPHA | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_RED);
-	m_pDevice->SetRenderState(D3DRS_SRGBWRITEENABLE, true);
-
-	m_pDevice->SetRenderState(D3DRS_ALPHATESTENABLE, false);
-	m_pDevice->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, false); // this should make the next two obsolete according to the docs, but we'll keep them anyway
-	m_pDevice->SetRenderState(D3DRS_SRCBLENDALPHA, D3DBLEND_ONE);
-	m_pDevice->SetRenderState(D3DRS_DESTBLENDALPHA, D3DBLEND_ZERO);
+	for (auto &rs : render_states)
+		m_pDevice->SetRenderState(rs.state, rs.desired);
 	
 	if ( textured )
 	{
-		m_pDevice->SetTextureStageState( 0, D3DTSS_COLOROP,   D3DTOP_MODULATE );
-		m_pDevice->SetTextureStageState( 0, D3DTSS_COLORARG1, D3DTA_TEXTURE );
-		m_pDevice->SetTextureStageState( 0, D3DTSS_COLORARG2, D3DTA_DIFFUSE );
-		m_pDevice->SetTextureStageState( 0, D3DTSS_ALPHAOP,   D3DTOP_MODULATE );
-		m_pDevice->SetTextureStageState( 0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE );
-		m_pDevice->SetTextureStageState( 0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE );
+		for (auto &ts : texture_states)
+			m_pDevice->SetTextureStageState(0, ts.state, ts.desired);
 
-		m_pDevice->SetSamplerState( 0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR );
-		m_pDevice->SetSamplerState( 0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR );
-		m_pDevice->SetSamplerState( 0, D3DSAMP_MIPFILTER, D3DTEXF_NONE );
+		for (auto &ss : sampler_states)
+			m_pDevice->SetSamplerState(0, ss.state, ss.desired);
 	}
 	else
 	{
-		m_pDevice->SetTextureStageState( 0, D3DTSS_COLOROP,   D3DTOP_DISABLE );
-		m_pDevice->SetTextureStageState( 0, D3DTSS_ALPHAOP,   D3DTOP_DISABLE );
+		for (auto &nts : no_texture_states)
+			m_pDevice->SetTextureStageState(0, nts.state, nts.desired);
 	}
 
 	m_pDevice->SetVertexShader( NULL );
