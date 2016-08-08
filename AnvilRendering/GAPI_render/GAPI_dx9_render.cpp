@@ -349,29 +349,25 @@ void DX9Renderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 template <typename Fun>
 bool DX9Renderer::RenderTex(Fun &&f)
 {
-	// setup renderstate
-	HRESULT hRes = m_pCurrentRenderState->Capture();
-	if (FAILED(hRes))
-	{
-		LOG_WARN("RenderTex: capturing render state failed! 0x%x." LOG_CR, hRes);
-		return false;
+	HRESULT hRes;
+
+#undef CHEK
+#define CHEK(x) \
+    hRes = x; \
+	if (FAILED(hRes)) \
+	{ \
+		LOG_WARN("RenderTex: " #x " failed! 0x%x", hRes); \
+		return false; \
 	}
+
+	// setup renderstate
+	CHEK(m_pCurrentRenderState->Capture());
 
 	IDirect3DPixelShader9 *ps = nullptr;
-	hRes = m_pDevice->GetPixelShader(&ps);
-	if (FAILED(hRes))
-	{
-		LOG_WARN("RenderTex: failed to get pixel shader: %#x\n", hRes);
-		return false;
-	}
+	CHEK(m_pDevice->GetPixelShader(&ps));
 
 	IDirect3DVertexShader9 *vs = nullptr;
-	hRes = m_pDevice->GetVertexShader(&vs);
-	if (FAILED(hRes))
-	{
-		LOG_WARN("RenderTex: failed to get vertex shader: %#x\n", hRes);
-		return false;
-	}
+	CHEK(m_pDevice->GetVertexShader(&vs));
 
 	DWORD srgb_state = 0;
 	bool reset_srgb_state = !FAILED(m_pDevice->GetSamplerState(0, D3DSAMP_SRGBTEXTURE, &srgb_state));
