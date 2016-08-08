@@ -250,40 +250,45 @@ static struct {
 
 void DX9Renderer::SetupRenderState( IDirect3DStateBlock9 **pStateBlock, DWORD vp_width, DWORD vp_height, bool textured )
 {
-	D3DVIEWPORT9 vp;
-	HRESULT hRes = m_pDevice->BeginStateBlock( );
-	
-	vp.X      = 0;
-	vp.Y      = 0;
-	vp.Width  = vp_width;
-	vp.Height = vp_height;
-	vp.MinZ   = 0.0f;
-	vp.MaxZ   = 1.0f;
-	
-	m_pDevice->SetViewport( &vp );
-
-	for (auto &rs : render_states)
-		m_pDevice->SetRenderState(rs.state, rs.desired);
-	
-	if ( textured )
+	ProtectState([&]
 	{
-		for (auto &ts : texture_states)
-			m_pDevice->SetTextureStageState(0, ts.state, ts.desired);
+		D3DVIEWPORT9 vp;
+		HRESULT hRes = m_pDevice->BeginStateBlock();
 
-		for (auto &ss : sampler_states)
-			m_pDevice->SetSamplerState(0, ss.state, ss.desired);
-	}
-	else
-	{
-		for (auto &nts : no_texture_states)
-			m_pDevice->SetTextureStageState(0, nts.state, nts.desired);
-	}
+		vp.X = 0;
+		vp.Y = 0;
+		vp.Width = vp_width;
+		vp.Height = vp_height;
+		vp.MinZ = 0.0f;
+		vp.MaxZ = 1.0f;
 
-	m_pDevice->SetVertexShader( NULL );
-	m_pDevice->SetFVF( D3DFVF_NEWVERTEX );
-	m_pDevice->SetPixelShader( NULL );
-	m_pDevice->SetStreamSource( 0, m_pVBSquareBorder, 0, sizeof(NEWVERTEX) );
-	m_pDevice->EndStateBlock( pStateBlock );
+		m_pDevice->SetViewport(&vp);
+
+		for (auto &rs : render_states)
+			m_pDevice->SetRenderState(rs.state, rs.desired);
+
+		if (textured)
+		{
+			for (auto &ts : texture_states)
+				m_pDevice->SetTextureStageState(0, ts.state, ts.desired);
+
+			for (auto &ss : sampler_states)
+				m_pDevice->SetSamplerState(0, ss.state, ss.desired);
+		}
+		else
+		{
+			for (auto &nts : no_texture_states)
+				m_pDevice->SetTextureStageState(0, nts.state, nts.desired);
+		}
+
+		m_pDevice->SetVertexShader(NULL);
+		m_pDevice->SetFVF(D3DFVF_NEWVERTEX);
+		m_pDevice->SetPixelShader(NULL);
+		m_pDevice->SetStreamSource(0, m_pVBSquareBorder, 0, sizeof(NEWVERTEX));
+		m_pDevice->EndStateBlock(pStateBlock);
+
+		return true;
+	});
 }
 
 void DX9Renderer::InitIndicatorTextures( IndicatorManager &manager )
@@ -474,7 +479,8 @@ bool DX9Renderer::RenderTex(Fun &&f)
 		m_pDevice->SetPixelShader(nullptr);
 		m_pDevice->SetVertexShader(nullptr);
 
-		m_pTexturedRenderState->Apply();
+		if (m_pTexturedRenderState)
+			m_pTexturedRenderState->Apply();
 
 		// render
 		hRes = m_pDevice->BeginScene();
