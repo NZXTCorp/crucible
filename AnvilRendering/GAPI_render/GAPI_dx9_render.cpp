@@ -401,9 +401,6 @@ bool DX9Renderer::RenderTex(Fun &&f)
 	IDirect3DVertexShader9 *vs = nullptr;
 	CHEK(m_pDevice->GetVertexShader(&vs));
 
-	DWORD srgb_state = 0;
-	bool reset_srgb_state = !FAILED(m_pDevice->GetSamplerState(0, D3DSAMP_SRGBTEXTURE, &srgb_state));
-
 	// save whatever the current texture is. not doing this can break video cutscenes and stuff
 	IDirect3DBaseTexture9 *pTexture;
 	m_pDevice->GetTexture(0, &pTexture); // note that it could be null
@@ -436,8 +433,6 @@ bool DX9Renderer::RenderTex(Fun &&f)
 
 	hRes = m_pTexturedRenderState->Apply();
 
-	m_pDevice->SetSamplerState(0, D3DSAMP_SRGBTEXTURE, true);
-
 	// render
 	hRes = m_pDevice->BeginScene();
 	if (SUCCEEDED(hRes))
@@ -468,9 +463,6 @@ bool DX9Renderer::RenderTex(Fun &&f)
 		m_pDevice->SetTexture(0, pTexture);
 		pTexture->Release();
 	}
-
-	if (reset_srgb_state)
-		m_pDevice->SetSamplerState(0, D3DSAMP_SRGBTEXTURE, srgb_state);
 
 	if (vs)
 	{
