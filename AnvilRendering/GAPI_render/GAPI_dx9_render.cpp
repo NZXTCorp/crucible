@@ -395,15 +395,15 @@ bool DX9Renderer::RenderTex(Fun &&f)
 	// setup renderstate
 	CHEK(m_pCurrentRenderState->Capture());
 
-	IDirect3DPixelShader9 *ps = nullptr;
-	CHEK(m_pDevice->GetPixelShader(&ps));
+	IRefPtr<IDirect3DPixelShader9> ps;
+	CHEK(m_pDevice->GetPixelShader(ps.get_PPtr()));
 
-	IDirect3DVertexShader9 *vs = nullptr;
-	CHEK(m_pDevice->GetVertexShader(&vs));
+	IRefPtr<IDirect3DVertexShader9> vs;
+	CHEK(m_pDevice->GetVertexShader(vs.get_PPtr()));
 
 	// save whatever the current texture is. not doing this can break video cutscenes and stuff
-	IDirect3DBaseTexture9 *pTexture;
-	m_pDevice->GetTexture(0, &pTexture); // note that it could be null
+	IRefPtr<IDirect3DBaseTexture9> pTexture;
+	m_pDevice->GetTexture(0, pTexture.get_PPtr()); // note that it could be null
 
 	for (auto &rs : render_states)
 		CHEK(m_pDevice->GetRenderState(rs.state, &rs.backup));
@@ -459,22 +459,13 @@ bool DX9Renderer::RenderTex(Fun &&f)
 
 	// restore current texture if one was set
 	if (pTexture)
-	{
 		m_pDevice->SetTexture(0, pTexture);
-		pTexture->Release();
-	}
 
 	if (vs)
-	{
 		m_pDevice->SetVertexShader(vs);
-		vs->Release();
-	}
 
 	if (ps)
-	{
 		m_pDevice->SetPixelShader(ps);
-		ps->Release();
-	}
 
 	// restore the modified renderstate
 	m_pCurrentRenderState->Apply();
