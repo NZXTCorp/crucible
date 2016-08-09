@@ -771,6 +771,97 @@ namespace AnvilCommands {
 	}
 }
 
+static const struct {
+	uint32_t alignment;
+	string name;
+} alignment_names[] = {
+#define ALIGNMENT_(x) { OBS_ALIGN_ ## x, #x }
+	ALIGNMENT_(CENTER),
+	ALIGNMENT_(LEFT),
+	ALIGNMENT_(RIGHT),
+	ALIGNMENT_(TOP),
+	ALIGNMENT_(BOTTOM),
+#undef ALIGNMENT_
+};
+
+static uint32_t OBSDataGetAlignment(obs_data_t *data, const char *name)
+{
+	auto alignment = OBSDataGetObj(data, name);
+	auto item = obs_data_first(alignment);
+	DEFER {
+		obs_data_item_release(&item);
+	};
+
+	uint32_t result = 0;
+	for (; item; obs_data_item_next(&item)) {
+		string name = obs_data_item_get_name(item);
+		std::transform(begin(name), end(name), begin(name), toupper);
+		for (auto &item : alignment_names)
+			if (name == item.name)
+				result |= item.alignment;
+	}
+
+	return result;
+}
+
+static OBSData OBSDataFromAlignment(uint32_t alignment)
+{
+	auto result = OBSDataCreate();
+	if (!alignment) {
+		obs_data_set_int(result, "center", OBS_ALIGN_CENTER);
+		return result;
+	}
+
+	for (auto &item : alignment_names)
+		if (alignment & item.alignment) {
+			auto name = item.name;
+			std::transform(begin(name), end(name), begin(name), tolower);
+			obs_data_set_int(result, name.c_str(), item.alignment);
+		}
+
+	return result;
+}
+
+static const struct {
+	obs_bounds_type type;
+	string name;
+} bounds_names[] = {
+#define BOUNDS_(x) { OBS_BOUNDS_ ## x, #x }
+	BOUNDS_(NONE),
+	BOUNDS_(STRETCH),
+	BOUNDS_(SCALE_INNER),
+	BOUNDS_(SCALE_OUTER),
+	BOUNDS_(SCALE_TO_WIDTH),
+	BOUNDS_(SCALE_TO_HEIGHT),
+	BOUNDS_(MAX_ONLY),
+#undef BOUNDS_
+};
+
+static obs_bounds_type OBSDataGetBoundsType(obs_data_t *data, const char *name)
+{
+	string bounds = obs_data_get_string(data, name);
+	std::transform(begin(bounds), end(bounds), begin(bounds), toupper);
+	for (auto &item : bounds_names)
+		if (bounds == item.name)
+			return item.type;
+
+	return OBS_BOUNDS_NONE;
+}
+
+static void OBSDataSetBoundsType(obs_data_t *data, const char *name_, obs_bounds_type type)
+{
+	auto result = OBSDataCreate();
+	for (auto &bounds : bounds_names)
+		if (bounds.type == type) {
+			auto name = bounds.name;
+			std::transform(begin(name), end(name), begin(name), tolower);
+			obs_data_set_string(data, name_, name.c_str());
+			return;
+		}
+
+	obs_data_set_string(data, name_, "none");
+}
+
 struct OutputResolution {
 	uint32_t width;
 	uint32_t height;
@@ -857,6 +948,60 @@ static void InitRef(T &ref, const char *msg, void (*release)(U*), U *val)
 
 	ref = val;
 	release(val);
+}
+
+static void ApplyTransforms(obs_sceneitem_t *item, obs_data_t *properties)
+{
+	if (!item || !properties)
+		return;
+
+	vec2 vec;
+	obs_data_get_vec2(properties, "pos", &vec);
+	obs_sceneitem_set_pos(item, &vec);
+
+	obs_sceneitem_set_rot(item, static_cast<float>(obs_data_get_double(properties, "rot")));
+
+	obs_data_get_vec2(properties, "scale", &vec);
+	obs_sceneitem_set_scale(item, &vec);
+
+	obs_sceneitem_set_alignment(item, OBSDataGetAlignment(properties, "alignment"));
+
+
+	obs_sceneitem_set_bounds_type(item, OBSDataGetBoundsType(properties, "bounds_type"));
+
+	obs_sceneitem_set_bounds_alignment(item, OBSDataGetAlignment(properties, "bounds_alignment"));
+
+	obs_data_get_vec2(properties, "bounds", &vec);
+	obs_sceneitem_set_bounds(item, &vec);
+}
+
+static OBSData ExtractTransforms(obs_sceneitem_t *item, obs_data_t *prior)
+{
+	if (!item)
+		return prior;
+
+	auto properties = OBSDataCreate();
+
+	vec2 vec;
+	obs_sceneitem_get_pos(item, &vec);
+	obs_data_set_vec2(properties, "pos", &vec);
+
+	obs_data_set_double(properties, "rot", obs_sceneitem_get_rot(item));
+
+	obs_sceneitem_get_scale(item, &vec);
+	obs_data_set_vec2(properties, "scale", &vec);
+
+	obs_data_set_obj(properties, "alignment", OBSDataFromAlignment(obs_sceneitem_get_alignment(item)));
+
+
+	OBSDataSetBoundsType(properties, "bounds_type", obs_sceneitem_get_bounds_type(item));
+
+	obs_data_set_obj(properties, "bounds_alignment", OBSDataFromAlignment(obs_sceneitem_get_bounds_alignment(item)));
+
+	obs_sceneitem_get_bounds(item, &vec);
+	obs_data_set_vec2(properties, "bounds", &vec);
+
+	return properties;
 }
 
 static decltype(ProfileSnapshotCreate()) last_session;
