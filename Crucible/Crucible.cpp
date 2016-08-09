@@ -943,7 +943,11 @@ struct CrucibleContext {
 
 	bool ResetVideo()
 	{
-		return obs_reset_video(&ovi) == 0;
+		if (obs_reset_video(&ovi))
+			return false;
+
+		ForgeEvents::SendCanvasSize(ovi.base_width, ovi.base_height);
+		return true;
 	}
 
 	void InitLibobs(bool standalone)
