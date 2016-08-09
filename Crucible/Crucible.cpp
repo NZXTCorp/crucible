@@ -1849,13 +1849,6 @@ struct CrucibleContext {
 			return;
 
 		window_and_webcam.window = obs_scene_add(window_and_webcam.scene, window);
-		obs_sceneitem_set_order(window_and_webcam.window, OBS_ORDER_MOVE_BOTTOM);
-
-		obs_sceneitem_set_bounds_type(window_and_webcam.window, OBS_BOUNDS_MAX_ONLY);
-		obs_sceneitem_set_bounds_alignment(window_and_webcam.window, OBS_ALIGN_CENTER);
-
-		UpdateSourceBounds();
-
 		window_and_webcam.MakePresentable();
 	}
 
@@ -2093,36 +2086,11 @@ struct CrucibleContext {
 				return;
 
 			container.webcam = obs_scene_add(container.scene, webcam);
-
-			obs_sceneitem_set_bounds_type(container.webcam, OBS_BOUNDS_SCALE_INNER);
-			obs_sceneitem_set_bounds_alignment(container.webcam, OBS_ALIGN_BOTTOM);
-			obs_sceneitem_set_alignment(container.webcam, OBS_ALIGN_BOTTOM | OBS_ALIGN_LEFT);
+			container.MakePresentable();
 		};
 
 		add_to_scene(game_and_webcam);
 		add_to_scene(window_and_webcam);
-
-		UpdateSourceBounds();
-	}
-
-	void UpdateSourceBounds()
-	{
-		if (ovi.base_height && ovi.base_width) {
-			auto vec = vec2{ ovi.base_width / 6.f, ovi.base_height / 6.f };
-			auto pos = vec2{ 0.f, static_cast<float>(ovi.base_height) };
-
-			auto update_scene = [&](auto &container)
-			{
-				obs_sceneitem_set_bounds(container.webcam, &vec);
-				obs_sceneitem_set_pos(container.webcam, &pos);
-			};
-
-			update_scene(game_and_webcam);
-			update_scene(window_and_webcam);
-
-			auto full = vec2{ ovi.base_width / 1.f, ovi.base_height / 1.f };
-			obs_sceneitem_set_bounds(window_and_webcam.window, &full);
-		}
 	}
 
 	void UpdateEncoder(obs_data_t *settings)
@@ -2334,7 +2302,8 @@ struct CrucibleContext {
 		ovi.fps_den = fps_den;
 		ResetVideo();
 
-		UpdateSourceBounds();
+		game_and_webcam.MakePresentable();
+		window_and_webcam.MakePresentable();
 
 		obs_encoder_set_video(h264, obs_get_video());
 		obs_encoder_set_video(stream_h264, obs_get_video());
