@@ -438,6 +438,15 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendSceneInfo(obs_data_t *scenes)
+	{
+		auto event = EventCreate("scene_info");
+
+		obs_data_set_obj(event, "scenes", scenes);
+
+		SendEvent(event);
+	}
 }
 
 namespace AnvilCommands {
@@ -1891,12 +1900,15 @@ struct CrucibleContext {
 
 	void UpdateScenes(obs_data_t *settings)
 	{
+		bool send_info = false;
+
 		if (auto game_settings = OBSDataGetObj(settings, "game")) {
 			game_and_webcam.game_data = OBSDataGetObj(game_settings, "game");
 			game_and_webcam.webcam_data = OBSDataGetObj(game_settings, "webcam");
 			game_and_webcam.theme_data = OBSDataGetObj(game_settings, "theme");
 
 			game_and_webcam.MakePresentable();
+			send_info = true;
 		}
 
 		if (auto window_settings = OBSDataGetObj(settings, "window")) {
@@ -1905,7 +1917,41 @@ struct CrucibleContext {
 			window_and_webcam.theme_data = OBSDataGetObj(window_settings, "theme");
 
 			window_and_webcam.MakePresentable();
+			send_info = true;
 		}
+
+		if (send_info)
+			SendSceneInfo();
+	}
+
+	void SendSceneInfo()
+	{
+		auto add_item = [](obs_data_t *data, const char *name, obs_sceneitem_t *item, obs_data_t *prior)
+		{
+			auto transforms = ExtractTransforms(item, prior);
+			if (auto source = OBSTransferOwned(obs_sceneitem_get_source(item))) {
+				obs_data_set_int(transforms, "width", obs_source_get_width(source));
+				obs_data_set_int(transforms, "height", obs_source_get_height(source));
+			}
+
+			obs_data_set_obj(data, name, transforms);
+		};
+
+		auto scenes = OBSDataCreate();
+
+		auto game = OBSDataCreate();
+		add_item(game, "game", game_and_webcam.game, game_and_webcam.game_data);
+		add_item(game, "webcam", game_and_webcam.webcam, game_and_webcam.webcam_data);
+		add_item(game, "theme", game_and_webcam.theme, game_and_webcam.theme_data);
+		obs_data_set_obj(scenes, "game", game);
+
+		auto window = OBSDataCreate();
+		add_item(window, "window", window_and_webcam.window, window_and_webcam.window_data);
+		add_item(window, "webcam", window_and_webcam.webcam, window_and_webcam.webcam_data);
+		add_item(window, "theme", window_and_webcam.theme, window_and_webcam.theme_data);
+		obs_data_set_obj(scenes, "window", window);
+
+		ForgeEvents::SendSceneInfo(scenes);
 	}
 
 	void StartStreaming(const char *server, const char *key, const char *version)
@@ -2578,6 +2624,11 @@ static void HandleQueryCanvasSize(CrucibleContext &cc, OBSData&)
 	ForgeEvents::SendCanvasSize(cc.ovi.base_width, cc.ovi.base_height);
 }
 
+static void HandleQuerySceneInfo(CrucibleContext &cc, OBSData&)
+{
+	cc.SendSceneInfo();
+}
+
 static void HandleUpdateScenes(CrucibleContext &cc, OBSData &data)
 {
 	cc.UpdateScenes(data);
@@ -2612,6 +2663,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "connect_display", HandleConnectDisplay },
 		{ "resize_display", HandleResizeDisplay },
 		{ "query_canvas_size", HandleQueryCanvasSize },
+		{ "query_scene_info", HandleQuerySceneInfo },
 		{ "update_scenes", HandleUpdateScenes },
 	};
 	if (!data)
