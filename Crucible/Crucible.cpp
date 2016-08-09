@@ -428,6 +428,16 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendCanvasSize(uint32_t width, uint32_t height)
+	{
+		auto event = EventCreate("canvas_size");
+
+		obs_data_set_int(event, "width", width);
+		obs_data_set_int(event, "height", height);
+
+		SendEvent(event);
+	}
 }
 
 namespace AnvilCommands {
@@ -2385,6 +2395,11 @@ static void HandleResizeDisplay(CrucibleContext&, OBSData &obj)
 	Display::Resize(name, cx, cy);
 }
 
+static void HandleQueryCanvasSize(CrucibleContext &cc, OBSData&)
+{
+	ForgeEvents::SendCanvasSize(cc.ovi.base_width, cc.ovi.base_height);
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -2413,6 +2428,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "select_scene", HandleSelectScene },
 		{ "connect_display", HandleConnectDisplay },
 		{ "resize_display", HandleResizeDisplay },
+		{ "query_canvas_size", HandleQueryCanvasSize },
 	};
 	if (!data)
 		return;
