@@ -1021,9 +1021,14 @@ struct CrucibleContext {
 	struct {
 		OBSScene scene;
 		OBSSceneItem game, webcam, theme;
+		OBSData game_data, webcam_data, theme_data;
 
 		void MakePresentable()
 		{
+			ApplyTransforms(game, game_data);
+			ApplyTransforms(webcam, webcam_data);
+			ApplyTransforms(theme, theme_data);
+
 			obs_sceneitem_set_order(theme, OBS_ORDER_MOVE_TOP);
 			obs_sceneitem_set_order(game, OBS_ORDER_MOVE_BOTTOM);
 		}
@@ -1032,9 +1037,14 @@ struct CrucibleContext {
 	struct {
 		OBSScene scene;
 		OBSSceneItem window, webcam, theme;
+		OBSData window_data, webcam_data, theme_data;
 		
 		void MakePresentable()
 		{
+			ApplyTransforms(window, window_data);
+			ApplyTransforms(webcam, webcam_data);
+			ApplyTransforms(theme, theme_data);
+
 			obs_sceneitem_set_order(theme, OBS_ORDER_MOVE_TOP);
 			obs_sceneitem_set_order(window, OBS_ORDER_MOVE_BOTTOM);
 		}
@@ -1879,6 +1889,25 @@ struct CrucibleContext {
 		ForgeEvents::SendSelectSceneResult(scene_name, scene_name, true);
 	}
 
+	void UpdateScenes(obs_data_t *settings)
+	{
+		if (auto game_settings = OBSDataGetObj(settings, "game")) {
+			game_and_webcam.game_data = OBSDataGetObj(game_settings, "game");
+			game_and_webcam.webcam_data = OBSDataGetObj(game_settings, "webcam");
+			game_and_webcam.theme_data = OBSDataGetObj(game_settings, "theme");
+
+			game_and_webcam.MakePresentable();
+		}
+
+		if (auto window_settings = OBSDataGetObj(settings, "window")) {
+			window_and_webcam.window_data = OBSDataGetObj(window_settings, "window");
+			window_and_webcam.webcam_data = OBSDataGetObj(window_settings, "webcam");
+			window_and_webcam.theme_data = OBSDataGetObj(window_settings, "theme");
+
+			window_and_webcam.MakePresentable();
+		}
+	}
+
 	void StartStreaming(const char *server, const char *key, const char *version)
 	{
 		auto settings = OBSDataCreate();
@@ -2549,6 +2578,11 @@ static void HandleQueryCanvasSize(CrucibleContext &cc, OBSData&)
 	ForgeEvents::SendCanvasSize(cc.ovi.base_width, cc.ovi.base_height);
 }
 
+static void HandleUpdateScenes(CrucibleContext &cc, OBSData &data)
+{
+	cc.UpdateScenes(data);
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -2578,6 +2612,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "connect_display", HandleConnectDisplay },
 		{ "resize_display", HandleResizeDisplay },
 		{ "query_canvas_size", HandleQueryCanvasSize },
+		{ "update_scenes", HandleUpdateScenes },
 	};
 	if (!data)
 		return;
