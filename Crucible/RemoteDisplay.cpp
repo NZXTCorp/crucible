@@ -261,7 +261,7 @@ protected:
 
 				while (!idle_stagesurface.empty()) {
 					auto sf = idle_stagesurface.front();
-					if (cx == gs_stagesurface_get_width(sf) || cy == gs_stagesurface_get_height(sf))
+					if (cx == gs_stagesurface_get_width(sf) && cy == gs_stagesurface_get_height(sf))
 						break;
 
 					gs_stagesurface_destroy(sf);
