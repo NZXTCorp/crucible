@@ -1715,6 +1715,7 @@ struct CrucibleContext {
 			return;
 		}
 
+		Display::SetSource("preview", source);
 		obs_set_output_source(0, source);
 		ForgeEvents::SendSelectSceneResult(scene_name, scene_name, true);
 	}
@@ -2107,8 +2108,6 @@ struct CrucibleContext {
 		obs_encoder_set_audio(aac, obs_get_audio());
 		
 		CreateOutput();
-
-		Display::SetSource("preview", gameCapture);
 	}
 
 	void StartVideoCapture()
