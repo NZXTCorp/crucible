@@ -322,10 +322,29 @@ protected:
 
 			auto tr = idle_texrender.front();
 
+			auto display_aspect = draw_cx / static_cast<double>(draw_cy);
+			auto source_aspect = cx / static_cast<double>(cy);
+
+			int x, y, width, height;
+			double scale;
+			if (display_aspect > source_aspect) {
+				scale = draw_cy / static_cast<double>(cy);
+				width = static_cast<int>(draw_cy * source_aspect);
+				height = draw_cy;
+			} else {
+				scale = draw_cx / static_cast<double>(cx);
+				width = draw_cx;
+				height = static_cast<int>(draw_cx / source_aspect);
+			}
+			x = draw_cx / 2 - width / 2;
+			y = draw_cy / 2 - height / 2;
+			width = static_cast<int>(scale * cx);
+			height = static_cast<int>(scale * cy);
+
 			gs_texrender_reset(tr);
 			if (gs_texrender_begin(tr, draw_cx, draw_cy)) {
 				gs_ortho(0.0f, (float)cx, 0.0f, (float)cy, -100.0f, 100.0f);
-				gs_set_viewport(0, 0, draw_cx, draw_cy);
+				gs_set_viewport(x, y, width, height);
 
 				obs_view_render(view);
 
