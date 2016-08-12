@@ -346,6 +346,34 @@ protected:
 				gs_ortho(0.0f, (float)cx, 0.0f, (float)cy, -100.0f, 100.0f);
 				gs_set_viewport(x, y, width, height);
 
+				gs_effect_t    *solid = obs_get_base_effect(OBS_EFFECT_SOLID);
+				gs_eparam_t    *color = gs_effect_get_param_by_name(solid, "color");
+				gs_technique_t *tech = gs_effect_get_technique(solid, "Solid");
+
+				vec4 colorVal;
+				vec4_set(&colorVal, 0.0f, 0.0f, 0.0f, 1.0f);
+				gs_effect_set_vec4(color, &colorVal);
+
+				gs_technique_begin(tech);
+				gs_technique_begin_pass(tech, 0);
+				gs_matrix_push();
+				gs_matrix_identity();
+				gs_matrix_scale3f(float(cx), float(cy), 1.0f);
+
+				gs_render_start(false);
+				gs_vertex2f(0.0f, 0.0f);
+				gs_vertex2f(0.0f, 1.0f);
+				gs_vertex2f(1.0f, 1.0f);
+				gs_vertex2f(1.0f, 0.0f);
+				gs_vertex2f(0.0f, 0.0f);
+				gs_render_stop(GS_TRISTRIP);
+
+				gs_matrix_pop();
+				gs_technique_end_pass(tech);
+				gs_technique_end(tech);
+
+				gs_load_vertexbuffer(nullptr);
+
 				obs_view_render(view);
 
 				gs_texrender_end(tr);
