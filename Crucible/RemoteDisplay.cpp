@@ -109,7 +109,6 @@ protected:
 	std::deque<gs_texrender_t*> rendering_texrender;
 	std::deque<std::pair<gs_texrender_t*, gs_stagesurf_t*>> staging_texrender;
 	ProtectedObject<std::deque<Mapped_t>> copyable_stagesurface;
-	std::deque<Mapped_t> copying_stagesurface;
 	ProtectedObject<std::deque<gs_stagesurf_t*>> copied_stagesurface;
 
 	std::condition_variable cv;
