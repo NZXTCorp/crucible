@@ -158,6 +158,12 @@ protected:
 					cs->pop_front();
 				}
 
+				DEFER
+				{
+					auto cs = copied_stagesurface.Lock();
+					cs->push_back(mapped.first);
+				};
+
 				auto &info = mapped.second;
 
 				obs_data_set_int(data, "line_size", info.line_size);
@@ -188,11 +194,6 @@ protected:
 				} while (false);
 
 				last_send_failed = !success;
-
-				{
-					auto cs = copied_stagesurface.Lock();
-					cs->push_back(mapped.first);
-				}
 			}
 		});
 	}
