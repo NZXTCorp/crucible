@@ -33,7 +33,7 @@ static const std::string info_header_fragment = "FramebufferInfo";
 #define LOCK(x) std::lock_guard<decltype(x)> CONCAT(lockGuard, __LINE__){x};
 
 struct RemoteDisplay {
-	const char *remote_display_name = "";
+	std::string remote_display_name = "";
 	OBSDisplay display;
 	OBSView view;
 	OBSSource source;
@@ -46,6 +46,14 @@ struct RemoteDisplay {
 
 		StartSendThread();
 		return true;
+	}
+
+	void UpdateName(const char *name)
+	{
+		if (!remote_display_name.empty())
+			return;
+
+		remote_display_name = name;
 	}
 
 	void Display(obs_source_t *source_)
@@ -176,21 +184,21 @@ protected:
 					auto json = obs_data_get_json(data);
 					success = !!json;
 					if (!json) {
-						blog(LOG_WARNING, "RemoteDisplay[%s]: failed to materialize info json", remote_display_name);
+						blog(LOG_WARNING, "RemoteDisplay[%s]: failed to materialize info json", remote_display_name.c_str());
 						break;
 					}
 
 					success = framebuffer_client.Write(info_header_fragment + json);
 					if (!success && !last_send_failed) {
-						blog(LOG_WARNING, "RemoteDisplay[%s]: failed to send info", remote_display_name);
+						blog(LOG_WARNING, "RemoteDisplay[%s]: failed to send info", remote_display_name.c_str());
 						break;
 					}
 
 					success = framebuffer_client.Write(info.data, info.line_size * info.height);
 					if (success && last_send_failed)
-						blog(LOG_INFO, "RemoteDisplay[%s]: resumed sending (size: %u, payload: %u)", remote_display_name, info.line_size * info.height, info.width * info.height * 4);
+						blog(LOG_INFO, "RemoteDisplay[%s]: resumed sending (size: %u, payload: %u)", remote_display_name.c_str(), info.line_size * info.height, info.width * info.height * 4);
 					else if (!success && last_send_failed)
-						blog(LOG_WARNING, "RemoteDisplay[%s]: failed to send (size: %u, payload: %u)", remote_display_name, info.line_size * info.height, info.width * info.height * 4);
+						blog(LOG_WARNING, "RemoteDisplay[%s]: failed to send (size: %u, payload: %u)", remote_display_name.c_str(), info.line_size * info.height, info.width * info.height * 4);
 				} while (false);
 
 				last_send_failed = !success;
@@ -407,28 +415,28 @@ namespace Display {
 	void SetSource(const char *name, obs_source_t *source)
 	{
 		auto &display = displays[name];
-		display.remote_display_name = name;
+		display.UpdateName(name);
 		display.Display(source);
 	}
 
 	bool Connect(const char *name, const char *server)
 	{
 		auto &display = displays[name];
-		display.remote_display_name = name;
+		display.UpdateName(name);
 		return display.Connect(server);
 	}
 
 	void SetEnabled(const char *name, bool enable)
 	{
 		auto &display = displays[name];
-		display.remote_display_name = name;
+		display.UpdateName(name);
 		display.Enable(enable);
 	}
 
 	void Resize(const char *name, uint32_t cx, uint32_t cy)
 	{
 		auto &display = displays[name];
-		display.remote_display_name = name;
+		display.UpdateName(name);
 		display.Resize(cx, cy);
 	}
 
