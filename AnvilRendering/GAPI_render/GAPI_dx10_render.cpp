@@ -685,7 +685,7 @@ void DX10Renderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 	pOldInputLayout.ReleaseRefObj( );
 }
 
-bool DX10Renderer::DrawOverlay(IDXGISwapChain *pSwapChain)
+bool DX10Renderer::DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_overlay)
 {
 	return overlay_textures[active_overlay].Draw([&](D3D10Texture &tex)
 	{
@@ -845,9 +845,9 @@ void overlay_d3d10_free()
 	renderer.reset();
 }
 
-static bool show_browser_tex(IDXGISwapChain *swap)
+static bool show_browser_tex(IDXGISwapChain *swap, const ActiveOverlay &active_overlay = ::active_overlay)
 {
-	return renderer->DrawOverlay(swap);
+	return renderer->DrawOverlay(swap, active_overlay);
 }
 
 C_EXPORT void overlay_draw_d3d10(IDXGISwapChain *swap)
@@ -860,9 +860,12 @@ C_EXPORT void overlay_draw_d3d10(IDXGISwapChain *swap)
 
 	renderer->UpdateOverlay();
 
-	if (!g_bBrowserShowing || !show_browser_tex(swap))
+	if (g_bBrowserShowing && show_browser_tex(swap))
+		return;
+
 	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)
 	{
+		show_browser_tex(swap, OVERLAY_NOTIFICATIONS);
 		renderer->DrawNewIndicator(indicator, alpha);
 	});
 }

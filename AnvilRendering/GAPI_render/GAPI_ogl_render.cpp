@@ -10,6 +10,8 @@
 //#include "TaksiDll.h"
 //#include "GAPI_Base.h"
 
+#include "../../Crucible/scopeguard.hpp"
+
 #include <GL/gl.h>
 #include "glext.h"
 
@@ -478,7 +480,7 @@ static void update_overlay()
 	s_glPopAttrib();
 }
 
-static bool show_browser_tex_()
+static bool show_browser_tex_(const ActiveOverlay &active_overlay)
 {
 	return overlay_textures[active_overlay].Draw([&](GLuint &tex)
 	{
@@ -562,10 +564,10 @@ static bool show_browser_tex_()
 	});
 }
 
-static bool show_browser_tex()
+static bool show_browser_tex(const ActiveOverlay &active_overlay = ::active_overlay)
 {
 	s_glPushAttrib(GL_ALL_ATTRIB_BITS);
-	bool res = show_browser_tex_();
+	bool res = show_browser_tex_(active_overlay);
 	s_glPopAttrib();
 	return res;
 }
@@ -581,6 +583,9 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 	auto current_context = s_wglGetCurrentContext();
 
 	s_wglMakeCurrent(hdc, render_context);
+	DEFER {
+		s_wglMakeCurrent(hdc, current_context);
+	};
 
 	if (!initialized)
 		initialized = render.InitRenderer(indicatorManager);
@@ -599,11 +604,12 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 
 	update_overlay();
 
-	if (!g_bBrowserShowing || !show_browser_tex())
+	if (g_bBrowserShowing && show_browser_tex())
+		return;
+
 	ShowCurrentIndicator([](IndicatorEvent indicator, BYTE alpha)
 	{
+		show_browser_tex(OVERLAY_NOTIFICATIONS);
 		render.DrawNewIndicator(indicator, alpha);
 	});
-
-	s_wglMakeCurrent(hdc, current_context);
 }

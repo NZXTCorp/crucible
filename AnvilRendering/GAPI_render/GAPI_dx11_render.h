@@ -113,7 +113,7 @@ public:
 	void DrawIndicator( IDXGISwapChain *pSwapChain, TAKSI_INDICATE_TYPE eIndicate );
 
 	// draw overlay
-	bool DrawOverlay(IDXGISwapChain *pSwapChain);
+	bool DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_overlay);
 	void UpdateOverlay();
 };
 

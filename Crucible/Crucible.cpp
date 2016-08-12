@@ -36,6 +36,7 @@ using namespace std;
 
 #include "IPC.hpp"
 #include "ProtectedObject.hpp"
+#include "scopeguard.hpp"
 #include "ThreadTools.hpp"
 
 // window class borrowed from forge, remove once we've got headless mode working
@@ -49,6 +50,7 @@ extern "C" {
 }
 
 extern OBSEncoder CreateAudioEncoder(const char *name);
+extern void RegisterFramebufferSource();
 
 static IPCClient event_client, log_client;
 
@@ -79,7 +81,7 @@ void do_log(int log_level, const char *msg, va_list args, void *param)
 		startup_logs.push_back(bla);
 	}
 
-	if (log_level < LOG_WARNING)
+	if (log_level < LOG_WARNING && IsDebuggerPresent())
 		__debugbreak();
 
 	UNUSED_PARAMETER(param);
@@ -341,9 +343,30 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
-	void SendStreamingStop()
+	void SendStreamingStop(long long code)
 	{
+#define EXPAND2(x) x
+#define EXPAND(x) x, EXPAND2(#x)
+		static const map<long long, const char*> known_code = {
+			{EXPAND(OBS_OUTPUT_SUCCESS)},
+			{EXPAND(OBS_OUTPUT_BAD_PATH)},
+			{EXPAND(OBS_OUTPUT_CONNECT_FAILED)},
+			{EXPAND(OBS_OUTPUT_INVALID_STREAM)},
+			{EXPAND(OBS_OUTPUT_ERROR)},
+			{EXPAND(OBS_OUTPUT_DISCONNECTED)},
+			{EXPAND(OBS_OUTPUT_UNSUPPORTED)},
+			{EXPAND(OBS_OUTPUT_NO_SPACE)},
+		};
+#undef EXPAND
+#undef EXPAND2
+
 		auto event = EventCreate("stopped_streaming");
+
+		obs_data_set_int(event, "code", code);
+
+		auto it = known_code.find(code);
+		if (it != end(known_code))
+			obs_data_set_string(event, "name", it->second);
 
 		SendEvent(event);
 	}
@@ -354,6 +377,54 @@ namespace ForgeEvents {
 
 		obs_data_set_string(event, "requested_filename", requested_filename);
 		obs_data_set_string(event, "actual_filename", actual_filename);
+
+		SendEvent(event);
+	}
+
+	void SendQueryWebcamsResponse(const OBSDataArray &arr)
+	{
+		auto event = EventCreate("query_webcams_response");
+
+		obs_data_set_array(event, "devices", arr);
+
+		SendEvent(event);
+	}
+
+	void SendFramebufferConnectionInfo(const char *id, const char *name)
+	{
+		auto event = EventCreate("framebuffer_connection_info");
+
+		obs_data_set_string(event, "id", id);
+		obs_data_set_string(event, "name", name);
+
+		SendEvent(event);
+	}
+
+	void SendQueryDesktopAudioDevicesResponse(const OBSDataArray &arr)
+	{
+		auto event = EventCreate("query_desktop_audio_devices_response");
+
+		obs_data_set_array(event, "devices", arr);
+
+		SendEvent(event);
+	}
+
+	void SendQueryWindowsResponse(const OBSDataArray &arr)
+	{
+		auto event = EventCreate("query_windows_response");
+
+		obs_data_set_array(event, "windows", arr);
+
+		SendEvent(event);
+	}
+
+	void SendSelectSceneResult(const string &scene, const string &current_scene, bool success)
+	{
+		auto event = EventCreate("select_scene_result");
+
+		obs_data_set_string(event, "scene", scene.c_str());
+		obs_data_set_string(event, "current_scene", current_scene.c_str());
+		obs_data_set_bool(event, "success", success);
 
 		SendEvent(event);
 	}
@@ -792,9 +863,32 @@ struct CrucibleContext {
 	bool recordingStartSent = false;
 	bool sendRecordingStop = true;
 
+	struct {
+		OBSScene scene;
+		OBSSceneItem game, webcam, theme;
+
+		void MakePresentable()
+		{
+			obs_sceneitem_set_order(theme, OBS_ORDER_MOVE_TOP);
+			obs_sceneitem_set_order(game, OBS_ORDER_MOVE_BOTTOM);
+		}
+	} game_and_webcam;
+
+	struct {
+		OBSScene scene;
+		OBSSceneItem window, webcam, theme;
+		
+		void MakePresentable()
+		{
+			obs_sceneitem_set_order(theme, OBS_ORDER_MOVE_TOP);
+			obs_sceneitem_set_order(window, OBS_ORDER_MOVE_BOTTOM);
+		}
+	} window_and_webcam;
+
 	obs_video_info ovi;
 	uint32_t fps_den;
-	OBSSource tunes, mic, gameCapture;
+	std::string webcam_device;
+	OBSSource tunes, mic, gameCapture, webcam, theme, window;
 	OBSSourceSignal micMuted, pttActive;
 	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess, screenshotSaved;
 	OBSEncoder h264, aac, stream_h264;
@@ -870,6 +964,8 @@ struct CrucibleContext {
 		if (!obs_reset_audio(&ai))
 			throw "Couldn't initialize audio";
 
+		RegisterFramebufferSource();
+
 		if (standalone)
 		{
 			DStr obs_path = GetModulePath(/*&obs_startup*/ "obs.dll");
@@ -910,6 +1006,30 @@ struct CrucibleContext {
 				obs_source_create(OBS_SOURCE_TYPE_INPUT, "wasapi_output_capture", "wasapi loopback", nullptr, nullptr));
 
 		obs_set_output_source(1, tunes);
+
+		InitRef(game_and_webcam.scene, "Couldn't create game_and_webcam scene", obs_scene_release,
+				obs_scene_create("game_and_webcam"));
+
+		InitRef(window_and_webcam.scene, "Couldn't create window_and_webcam scene", obs_scene_release,
+				obs_scene_create("window_and_webcam"));
+
+		InitRef(theme, "Couldn't create theme source", obs_source_release,
+				obs_source_create(OBS_SOURCE_TYPE_INPUT, "FramebufferSource", "theme overlay", nullptr, nullptr));
+
+		game_and_webcam.theme = obs_scene_add(game_and_webcam.scene, theme);
+		window_and_webcam.theme = obs_scene_add(window_and_webcam.scene, theme);
+
+		{
+			auto proc = obs_source_get_proc_handler(theme);
+			calldata_t data = {};
+			proc_handler_call(proc, "get_server_name", &data);
+
+			if (auto name = calldata_string(&data, "name")) {
+				ForgeEvents::SendFramebufferConnectionInfo("theme", name);
+			} else {
+				blog(LOG_WARNING, "CrucibleContext::InitSources: failed to get framebuffer name");
+			}
+		}
 	}
 
 	void InitEncoders()
@@ -976,12 +1096,8 @@ struct CrucibleContext {
 			.SetFunc([=](calldata*)
 		{
 			string profiler_path;
-			DWORD pid = 0;
 			{
 				LOCK(updateMutex);
-				auto data = OBSTransferOwned(obs_source_get_settings(gameCapture));
-				pid = static_cast<DWORD>(obs_data_get_int(data, "process_id"));
-
 				if (sendRecordingStop) {
 					profiler_path = profiler_filename;
 					auto data = OBSTransferOwned(obs_output_get_settings(output));
@@ -993,7 +1109,7 @@ struct CrucibleContext {
 					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
 						obs_output_get_total_frames(output),
 						obs_output_get_output_duration(output),
-						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, pid, full_bookmarks);
+						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, game_pid, full_bookmarks);
 					AnvilCommands::ShowIdle();
 				}
 			}
@@ -1014,7 +1130,7 @@ struct CrucibleContext {
 
 			last_session = move(snap);
 
-			ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, pid);
+			ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, game_pid);
 		});
 
 		startRecording
@@ -1123,11 +1239,11 @@ struct CrucibleContext {
 
 		stopStreaming
 			.SetSignal("stop")
-			.SetFunc([=](calldata*)
+			.SetFunc([=](calldata *data)
 		{
 			streaming = false;
 			AnvilCommands::StreamStatus(streaming);
-			ForgeEvents::SendStreamingStop();
+			ForgeEvents::SendStreamingStop(calldata_int(data, "code"));
 		});
 
 	}
@@ -1193,13 +1309,6 @@ struct CrucibleContext {
 
 		obs_output_set_video_encoder(buffer, h264);
 		obs_output_set_audio_encoder(buffer, aac, 0);
-
-		InitRef(stream, "Couldn't create stream output", obs_output_release,
-			obs_output_create("rtmp_output", "rtmp streaming", nullptr, nullptr));
-
-		obs_output_set_video_encoder(stream, stream_h264);
-		obs_output_set_audio_encoder(stream, aac, 0);
-		obs_output_set_service(stream, stream_service);
 		
 		
 		stopRecording
@@ -1232,24 +1341,30 @@ struct CrucibleContext {
 			.SetOwner(buffer)
 			.Connect();
 
+		auto weakGameCapture = OBSGetWeakRef(gameCapture);
 		auto weakOutput = OBSGetWeakRef(output);
 		auto weakBuffer = OBSGetWeakRef(buffer);
-		auto weakStream = OBSGetWeakRef(stream);
 
 		stopCapture
 			.Disconnect()
 			.SetOwner(gameCapture)
 			.SetFunc([=](calldata_t*)
 		{
+			if (auto ref = OBSGetStrongRef(weakGameCapture)) {
+				auto settings = OBSTransferOwned(obs_source_get_settings(ref));
+				obs_data_set_int(settings, "process_id", 0);
+				obs_data_set_int(settings, "thread_id", 0);
+				obs_source_update(ref, settings);
+
+				if (OBSGetOutputSource(0) == ref)
+					obs_set_output_source(0, nullptr);
+			}
+
 			auto ref = OBSGetStrongRef(weakOutput);
 			if (ref)
 				obs_output_stop(ref);
 
 			ref = OBSGetStrongRef(weakBuffer);
-			if (ref)
-				obs_output_stop(ref);
-
-			ref = OBSGetStrongRef(weakStream);
 			if (ref)
 				obs_output_stop(ref);
 		}).Connect();
@@ -1272,13 +1387,17 @@ struct CrucibleContext {
 			ref = OBSGetStrongRef(weakBuffer);
 			if (ref)
 				obs_output_start(ref);
-
-			if (streaming) {
-				ref = OBSGetStrongRef(weakStream);
-				if (ref)
-					obs_output_start(ref);
-			}
 		}).Connect();
+	}
+
+	void CreateStreamOutput()
+	{
+		InitRef(stream, "Couldn't create stream output", obs_output_release,
+			obs_output_create("rtmp_output", "rtmp streaming", nullptr, nullptr));
+
+		obs_output_set_video_encoder(stream, stream_h264);
+		obs_output_set_audio_encoder(stream, aac, 0);
+		obs_output_set_service(stream, stream_service);
 
 		stopStreaming
 			.Disconnect()
@@ -1468,9 +1587,14 @@ struct CrucibleContext {
 	void DeleteGameCapture()
 	{
 		LOCK(updateMutex);
-		obs_set_output_source(0, nullptr);
+		auto source = OBSGetOutputSource(0);
+		if (source == gameCapture)
+			obs_set_output_source(0, nullptr);
 
 		gameCapture = nullptr;
+
+		obs_sceneitem_remove(game_and_webcam.game);
+		game_and_webcam.game = nullptr;
 	}
 
 	void CreateGameCapture(obs_data_t *settings)
@@ -1516,7 +1640,83 @@ struct CrucibleContext {
 			.SetOwner(gameCapture)
 			.Connect();
 
-		obs_set_output_source(0, gameCapture);
+		if (game_and_webcam.game)
+			obs_sceneitem_remove(game_and_webcam.game);
+		game_and_webcam.game = obs_scene_add(game_and_webcam.scene, gameCapture);
+		game_and_webcam.MakePresentable();
+
+		if (!OBSGetOutputSource(0))
+			obs_set_output_source(0, gameCapture);
+	}
+
+	void ResetWindowCapture(obs_data_t *settings)
+	{
+		if (!settings) {
+			obs_sceneitem_remove(window_and_webcam.window);
+			window_and_webcam.window = nullptr;
+			window = nullptr;
+
+			return;
+		}
+
+		if (window) {
+			obs_source_update(window, settings);
+			return;
+		}
+
+		InitRef(window, "Couldn't create window capture source", obs_source_release,
+			obs_source_create(OBS_SOURCE_TYPE_INPUT, "window_capture", "window capture", settings, nullptr));
+
+		if (!window)
+			return;
+
+		window_and_webcam.window = obs_scene_add(window_and_webcam.scene, window);
+		obs_sceneitem_set_order(window_and_webcam.window, OBS_ORDER_MOVE_BOTTOM);
+
+		obs_sceneitem_set_bounds_type(window_and_webcam.window, OBS_BOUNDS_MAX_ONLY);
+		obs_sceneitem_set_bounds_alignment(window_and_webcam.window, OBS_ALIGN_CENTER);
+
+		UpdateSourceBounds();
+
+		window_and_webcam.MakePresentable();
+	}
+
+	void SetOutputScene(string scene_name)
+	{
+		obs_source_t *source = nullptr;
+
+		auto source_from_scene = [&](auto &container)
+		{
+			container.MakePresentable();
+			return obs_scene_get_source(container.scene);
+		};
+
+		auto current_scene_name = [&]()
+		{
+			auto cur = OBSGetOutputSource(0);
+			if (!cur || cur == gameCapture)
+				return "game_only";
+			if (cur == source_from_scene(game_and_webcam))
+				return "game";
+			if (cur == source_from_scene(window_and_webcam))
+				return "window";
+
+			return "unknown";
+		};
+
+		if (scene_name == "game_only") {
+			source = gameCapture;
+		} else if (scene_name == "game") {
+			source = source_from_scene(game_and_webcam);
+		} else if (scene_name == "window") {
+			source = source_from_scene(window_and_webcam);
+		} else {
+			ForgeEvents::SendSelectSceneResult(scene_name, current_scene_name(), false);
+			return;
+		}
+
+		obs_set_output_source(0, source);
+		ForgeEvents::SendSelectSceneResult(scene_name, scene_name, true);
 	}
 
 	void StartStreaming(const char *server, const char *key, const char *version)
@@ -1596,7 +1796,10 @@ struct CrucibleContext {
 		obs_key_combination_to_str(combo, str);
 		blog(LOG_INFO, "mic hotkey uses '%s'", str->array);
 
+		auto desktop_audio_settings = OBSDataGetObj(settings, "desktop_audio");
+
 		LOCK(updateMutex);
+		obs_source_update(tunes, desktop_audio_settings);
 		obs_source_update(mic, source_settings);
 		obs_source_set_muted(mic, false);
 		obs_source_enable_push_to_talk(mic, ptt);
@@ -1605,6 +1808,86 @@ struct CrucibleContext {
 		obs_hotkey_load_bindings(mute_hotkey_id, &combo, continuous ? 1 : 0);
 		obs_hotkey_load_bindings(unmute_hotkey_id, &combo, continuous ? 1 : 0);
 		obs_set_output_source(2, enabled ? mic : nullptr);
+
+		auto webcam_ = OBSDataGetObj(settings, "webcam");
+
+		auto remove_from_scene = [&](auto &container)
+		{
+			obs_sceneitem_remove(container.webcam);
+			container.webcam = nullptr;
+		};
+
+		DEFER {
+			game_and_webcam.MakePresentable();
+			window_and_webcam.MakePresentable();
+		};
+
+		if (!obs_data_has_user_value(webcam_, "device")) {
+			remove_from_scene(game_and_webcam);
+			remove_from_scene(window_and_webcam);
+
+			webcam = nullptr;
+
+			return;
+		}
+
+		{
+			auto dev = obs_data_get_string(webcam_, "device");
+
+			auto webcam_settings = OBSDataCreate();
+			obs_data_set_string(webcam_settings, "video_device_id", dev);
+
+			if (webcam && webcam_device == dev)
+				obs_source_update(webcam, webcam_settings);
+			else {
+				remove_from_scene(game_and_webcam);
+				remove_from_scene(window_and_webcam);
+
+				InitRef(webcam, "Couldn't create webcam source", obs_source_release,
+					obs_source_create(OBS_SOURCE_TYPE_INPUT, "dshow_input", "webcam", webcam_settings, nullptr));
+			}
+
+			webcam_device = dev;
+
+			obs_source_set_muted(webcam, true); // webcams can have mics attached to them that dshow_input will pick up sometimes
+		}
+
+		auto add_to_scene = [&](auto &container)
+		{
+			if (container.webcam)
+				return;
+
+			container.webcam = obs_scene_add(container.scene, webcam);
+
+			obs_sceneitem_set_bounds_type(container.webcam, OBS_BOUNDS_SCALE_INNER);
+			obs_sceneitem_set_bounds_alignment(container.webcam, OBS_ALIGN_BOTTOM);
+			obs_sceneitem_set_alignment(container.webcam, OBS_ALIGN_BOTTOM | OBS_ALIGN_LEFT);
+		};
+
+		add_to_scene(game_and_webcam);
+		add_to_scene(window_and_webcam);
+
+		UpdateSourceBounds();
+	}
+
+	void UpdateSourceBounds()
+	{
+		if (ovi.base_height && ovi.base_width) {
+			auto vec = vec2{ ovi.base_width / 6.f, ovi.base_height / 6.f };
+			auto pos = vec2{ 0.f, static_cast<float>(ovi.base_height) };
+
+			auto update_scene = [&](auto &container)
+			{
+				obs_sceneitem_set_bounds(container.webcam, &vec);
+				obs_sceneitem_set_pos(container.webcam, &pos);
+			};
+
+			update_scene(game_and_webcam);
+			update_scene(window_and_webcam);
+
+			auto full = vec2{ ovi.base_width / 1.f, ovi.base_height / 1.f };
+			obs_sceneitem_set_bounds(window_and_webcam.window, &full);
+		}
 	}
 
 	void UpdateEncoder(obs_data_t *settings)
@@ -1659,6 +1942,8 @@ struct CrucibleContext {
 		if (restartThread.t.joinable())
 			restartThread.t.join();
 
+		bool streaming = obs_output_active(stream);
+
 		restartThread.t = thread{[=]()
 		{
 			{
@@ -1666,8 +1951,10 @@ struct CrucibleContext {
 				sendRecordingStop = false;
 			}
 
-			if (output_dimensions_changed)
+			if (output_dimensions_changed) {
+				obs_output_stop(stream);
 				StopVideo();
+			}
 			
 			StartVideo();
 
@@ -1790,8 +2077,6 @@ struct CrucibleContext {
 			obs_output_stop(output);
 		if (obs_output_active(buffer))
 			obs_output_stop(buffer);
-		if (obs_output_active(stream))
-			obs_output_stop(stream);
 
 		output = nullptr;
 		buffer = nullptr;
@@ -1799,8 +2084,6 @@ struct CrucibleContext {
 		game_res.width = 0;
 		game_res.height = 0;
 
-		ovi.fps_den = 0;
-		ResetVideo();
 		stopping = false;
 	}
 
@@ -1815,6 +2098,8 @@ struct CrucibleContext {
 
 		ovi.fps_den = fps_den;
 		ResetVideo();
+
+		UpdateSourceBounds();
 
 		obs_encoder_set_video(h264, obs_get_video());
 		obs_encoder_set_video(stream_h264, obs_get_video());
@@ -1963,6 +2248,7 @@ static void HandleForgeWillClose(CrucibleContext &cc, OBSData&)
 
 static void HandleStartStreaming(CrucibleContext &cc, OBSData& obj)
 {
+	cc.CreateStreamOutput();
 	cc.StartStreaming(obs_data_get_string(obj, "server"), obs_data_get_string(obj, "key"), obs_data_get_string(obj, "version"));
 }
 
@@ -1974,6 +2260,106 @@ static void HandleStopStreaming(CrucibleContext &cc, OBSData&)
 static void HandleGameScreenshot(CrucibleContext &cc, OBSData &obj)
 {
 	cc.SaveGameScreenshot(obs_data_get_string(obj, "filename"));
+}
+
+static void HandleQueryWebcams(CrucibleContext&, OBSData&)
+{
+	auto props = obs_get_source_properties(OBS_SOURCE_TYPE_INPUT, "dshow_input");
+
+	DEFER {
+		obs_properties_destroy(props);
+	};
+
+	auto result = OBSDataArrayCreate();
+
+	DEFER {
+		ForgeEvents::SendQueryWebcamsResponse(result);
+	};
+
+	auto prop = obs_properties_get(props, "video_device_id");
+	if (prop) {
+		auto count = obs_property_list_item_count(prop);
+		for (decltype(count) i = 0; i < count; i++) {
+			if (obs_property_list_item_disabled(prop, i))
+				continue;
+
+			auto data = OBSDataCreate();
+			obs_data_set_string(data, "name", obs_property_list_item_name(prop, i));
+			obs_data_set_string(data, "device", obs_property_list_item_string(prop, i));
+
+			obs_data_array_push_back(result, data);
+		}
+	}
+}
+
+static void HandleQueryDesktopAudioDevices(CrucibleContext&, OBSData&)
+{
+	auto props = obs_get_source_properties(OBS_SOURCE_TYPE_INPUT, "wasapi_output_capture");
+
+	DEFER {
+		obs_properties_destroy(props);
+	};
+
+	auto result = OBSDataArrayCreate();
+
+	DEFER {
+		ForgeEvents::SendQueryDesktopAudioDevicesResponse(result);
+	};
+
+	auto prop = obs_properties_get(props, "device_id");
+	if (prop) {
+		auto count = obs_property_list_item_count(prop);
+		for (decltype(count) i = 0; i < count; i++) {
+			if (obs_property_list_item_disabled(prop, i))
+				continue;
+
+			auto data = OBSDataCreate();
+			obs_data_set_string(data, "name", obs_property_list_item_name(prop, i));
+			obs_data_set_string(data, "device", obs_property_list_item_string(prop, i));
+
+			obs_data_array_push_back(result, data);
+		}
+	}
+}
+
+static void HandleQueryWindows(CrucibleContext&, OBSData&)
+{
+	auto props = obs_get_source_properties(OBS_SOURCE_TYPE_INPUT, "window_capture");
+
+	DEFER{
+		obs_properties_destroy(props);
+	};
+
+	auto result = OBSDataArrayCreate();
+
+	DEFER{
+		ForgeEvents::SendQueryWindowsResponse(result);
+	};
+
+	auto prop = obs_properties_get(props, "window");
+	if (prop) {
+		auto count = obs_property_list_item_count(prop);
+		for (decltype(count) i = 0; i < count; i++) {
+			if (obs_property_list_item_disabled(prop, i))
+				continue;
+
+			auto data = OBSDataCreate();
+			obs_data_set_string(data, "name", obs_property_list_item_name(prop, i));
+			obs_data_set_string(data, "window", obs_property_list_item_string(prop, i));
+
+			obs_data_array_push_back(result, data);
+		}
+	}
+}
+
+static void HandleCaptureWindow(CrucibleContext &cc, OBSData &data)
+{
+	cc.ResetWindowCapture(OBSDataGetObj(data, "window"));
+}
+
+static void HandleSelectScene(CrucibleContext &cc, OBSData &data)
+{
+	cc.SetOutputScene(obs_data_get_string(data, "scene"));
 }
 
 static void HandleConnectDisplay(CrucibleContext&, OBSData &obj)
@@ -2021,6 +2407,11 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "start_streaming", HandleStartStreaming },
 		{ "stop_streaming", HandleStopStreaming },
 		{ "save_game_screenshot", HandleGameScreenshot },
+		{ "query_webcams", HandleQueryWebcams },
+		{ "query_desktop_audio_devices", HandleQueryDesktopAudioDevices },
+		{ "query_windows", HandleQueryWindows },
+		{ "capture_window", HandleCaptureWindow },
+		{ "select_scene", HandleSelectScene },
 		{ "connect_display", HandleConnectDisplay },
 		{ "resize_display", HandleResizeDisplay },
 	};

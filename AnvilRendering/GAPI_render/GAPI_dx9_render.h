@@ -32,6 +32,8 @@ private:
 	void InitIndicatorTextures( IndicatorManager &manager ); // helper to create indicator textures from the manager
 
 	template <typename Fun>
+	bool ProtectState(Fun &&f);
+	template <typename Fun>
 	bool RenderTex(Fun &&f);
 public:
 	DX9Renderer( void );
@@ -47,7 +49,7 @@ public:
 	// draw the new indicator images
 	void DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color );
 	// draw overlay
-	bool DrawOverlay( void );
+	bool DrawOverlay(ActiveOverlay active_overlay);
 	void UpdateOverlay();
 };
 
