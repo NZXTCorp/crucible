@@ -176,13 +176,13 @@ protected:
 					auto json = obs_data_get_json(data);
 					success = !!json;
 					if (!json) {
-						blog(LOG_WARNING, "RemoteDisplay[%s]: failed to materialize info json");
+						blog(LOG_WARNING, "RemoteDisplay[%s]: failed to materialize info json", remote_display_name);
 						break;
 					}
 
 					success = framebuffer_client.Write(info_header_fragment + json);
 					if (!success && !last_send_failed) {
-						blog(LOG_WARNING, "RemoteDisplay[%s]: failed to send info");
+						blog(LOG_WARNING, "RemoteDisplay[%s]: failed to send info", remote_display_name);
 						break;
 					}
 
