@@ -155,6 +155,7 @@ protected:
 					if (cs->empty())
 						continue;
 					mapped = cs->front();
+					cs->pop_front();
 				}
 
 				auto &info = mapped.second;
