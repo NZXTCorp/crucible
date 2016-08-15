@@ -1059,6 +1059,22 @@ struct CrucibleContext {
 		}
 	} window_and_webcam;
 
+	struct {
+		OBSScene scene;
+		OBSSceneItem wallpaper, webcam, theme;
+		OBSData wallpaper_data, webcam_data, theme_data;
+
+		void MakePresentable()
+		{
+			ApplyTransforms(wallpaper, wallpaper_data);
+			ApplyTransforms(webcam, webcam_data);
+			ApplyTransforms(theme, theme_data);
+
+			obs_sceneitem_set_order(theme, OBS_ORDER_MOVE_TOP);
+			obs_sceneitem_set_order(wallpaper, OBS_ORDER_MOVE_BOTTOM);
+		}
+	} wallpaper_and_webcam;
+
 	obs_video_info ovi;
 	uint32_t fps_den;
 	std::string webcam_device;
@@ -1191,6 +1207,9 @@ struct CrucibleContext {
 		InitRef(window_and_webcam.scene, "Couldn't create window_and_webcam scene", obs_scene_release,
 				obs_scene_create("window_and_webcam"));
 
+		InitRef(wallpaper_and_webcam.scene, "Couldn't create wallpaper_and_webcam scene", obs_scene_release,
+			obs_scene_create("wallpaper_and_webcam"));
+
 		InitRef(theme, "Couldn't create theme source", obs_source_release,
 				obs_source_create(OBS_SOURCE_TYPE_INPUT, "FramebufferSource", "theme overlay", nullptr, nullptr));
 
@@ -1199,6 +1218,9 @@ struct CrucibleContext {
 
 		game_and_webcam.theme = obs_scene_add(game_and_webcam.scene, theme);
 		window_and_webcam.theme = obs_scene_add(window_and_webcam.scene, theme);
+		wallpaper_and_webcam.theme = obs_scene_add(wallpaper_and_webcam.scene, theme);
+
+		wallpaper_and_webcam.wallpaper = obs_scene_add(wallpaper_and_webcam.scene, wallpaper);
 
 		auto connect_framebuffer = [&](obs_source_t *source, const char *connection)
 		{
@@ -1878,6 +1900,8 @@ struct CrucibleContext {
 				return "game";
 			if (cur == source_from_scene(window_and_webcam))
 				return "window";
+			if (cur == source_from_scene(wallpaper_and_webcam))
+				return "wallpaper";
 
 			return "unknown";
 		};
@@ -1888,6 +1912,8 @@ struct CrucibleContext {
 			source = source_from_scene(game_and_webcam);
 		} else if (scene_name == "window") {
 			source = source_from_scene(window_and_webcam);
+		} else if (scene_name == "wallpaper") {
+			source = source_from_scene(wallpaper_and_webcam);
 		} else {
 			ForgeEvents::SendSelectSceneResult(scene_name, current_scene_name(), false);
 			return;
@@ -1917,6 +1943,15 @@ struct CrucibleContext {
 			window_and_webcam.theme_data = OBSDataGetObj(window_settings, "theme");
 
 			window_and_webcam.MakePresentable();
+			send_info = true;
+		}
+
+		if (auto wallpaper_settings = OBSDataGetObj(settings, "wallpaper")) {
+			wallpaper_and_webcam.wallpaper_data = OBSDataGetObj(wallpaper_settings, "wallpaper");
+			wallpaper_and_webcam.webcam_data = OBSDataGetObj(wallpaper_settings, "webcam");
+			wallpaper_and_webcam.theme_data = OBSDataGetObj(wallpaper_settings, "theme");
+
+			wallpaper_and_webcam.MakePresentable();
 			send_info = true;
 		}
 
@@ -1950,6 +1985,12 @@ struct CrucibleContext {
 		add_item(window, "webcam", window_and_webcam.webcam, window_and_webcam.webcam_data);
 		add_item(window, "theme", window_and_webcam.theme, window_and_webcam.theme_data);
 		obs_data_set_obj(scenes, "window", window);
+
+		auto wallpaper = OBSDataCreate();
+		add_item(wallpaper, "wallpaper", wallpaper_and_webcam.wallpaper, wallpaper_and_webcam.wallpaper_data);
+		add_item(wallpaper, "webcam", wallpaper_and_webcam.webcam, wallpaper_and_webcam.webcam_data);
+		add_item(wallpaper, "theme", wallpaper_and_webcam.theme, wallpaper_and_webcam.theme_data);
+		obs_data_set_obj(scenes, "wallpaper", wallpaper);
 
 		ForgeEvents::SendSceneInfo(scenes);
 	}
@@ -2055,11 +2096,13 @@ struct CrucibleContext {
 		DEFER {
 			game_and_webcam.MakePresentable();
 			window_and_webcam.MakePresentable();
+			wallpaper_and_webcam.MakePresentable();
 		};
 
 		if (!obs_data_has_user_value(webcam_, "device")) {
 			remove_from_scene(game_and_webcam);
 			remove_from_scene(window_and_webcam);
+			remove_from_scene(wallpaper_and_webcam);
 
 			webcam = nullptr;
 
@@ -2077,6 +2120,7 @@ struct CrucibleContext {
 			else {
 				remove_from_scene(game_and_webcam);
 				remove_from_scene(window_and_webcam);
+				remove_from_scene(wallpaper_and_webcam);
 
 				InitRef(webcam, "Couldn't create webcam source", obs_source_release,
 					obs_source_create(OBS_SOURCE_TYPE_INPUT, "dshow_input", "webcam", webcam_settings, nullptr));
@@ -2098,6 +2142,7 @@ struct CrucibleContext {
 
 		add_to_scene(game_and_webcam);
 		add_to_scene(window_and_webcam);
+		add_to_scene(wallpaper_and_webcam);
 	}
 
 	void UpdateEncoder(obs_data_t *settings)
