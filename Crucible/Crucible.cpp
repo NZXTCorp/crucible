@@ -1717,6 +1717,25 @@ struct CrucibleContext {
 		ForgeEvents::SendSelectSceneResult(scene_name, scene_name, true);
 	}
 
+	void SetSourceVolume(const string source_name, double volume, bool mute)
+	{
+		const map<string, OBSSource &> sources = 
+		{
+			{"desktop", tunes},
+			{"microphone", mic}
+		};
+
+		auto elem = sources.find(source_name);
+		if (elem == sources.end())
+		{
+			blog(LOG_INFO, "SetSourceVolume: source '%s' not found", source_name.c_str());
+			return;
+		}
+
+		obs_source_set_volume(elem->second, volume);
+		obs_source_set_muted(elem->second, mute);
+	}
+
 	void StartStreaming(const char *server, const char *key, const char *version)
 	{
 		auto settings = OBSDataCreate();
@@ -2358,6 +2377,11 @@ static void HandleSelectScene(CrucibleContext &cc, OBSData &data)
 	cc.SetOutputScene(obs_data_get_string(data, "scene"));
 }
 
+static void HandleSetSourceVolume(CrucibleContext &cc, OBSData &data)
+{
+	cc.SetSourceVolume(obs_data_get_string(data, "source"), obs_data_get_double(data, "volume"), obs_data_get_bool(data, "mute"));
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -2384,6 +2408,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "query_windows", HandleQueryWindows },
 		{ "capture_window", HandleCaptureWindow },
 		{ "select_scene", HandleSelectScene },
+		{ "set_source_volume", HandleSetSourceVolume },
 	};
 	if (!data)
 		return;
