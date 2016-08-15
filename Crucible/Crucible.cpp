@@ -1255,6 +1255,17 @@ struct CrucibleContext {
 
 		connect_framebuffer(theme, "theme");
 		connect_framebuffer(wallpaper, "wallpaper");
+
+
+		auto init_display = [&](const char *display, auto &container)
+		{
+			Display::SetSource(display, obs_scene_get_source(container.scene));
+		};
+
+		init_display("game", game_and_webcam);
+		init_display("window", window_and_webcam);
+		init_display("wallpaper", wallpaper_and_webcam);
+		init_display("webcam", webcam_and_theme);
 	}
 
 	void InitEncoders()
