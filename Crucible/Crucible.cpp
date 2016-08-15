@@ -1062,7 +1062,7 @@ struct CrucibleContext {
 	obs_video_info ovi;
 	uint32_t fps_den;
 	std::string webcam_device;
-	OBSSource tunes, mic, gameCapture, webcam, theme, window;
+	OBSSource tunes, mic, gameCapture, webcam, theme, window, wallpaper;
 	OBSSourceSignal micMuted, pttActive;
 	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess, screenshotSaved;
 	OBSEncoder h264, aac, stream_h264;
@@ -1194,20 +1194,27 @@ struct CrucibleContext {
 		InitRef(theme, "Couldn't create theme source", obs_source_release,
 				obs_source_create(OBS_SOURCE_TYPE_INPUT, "FramebufferSource", "theme overlay", nullptr, nullptr));
 
+		InitRef(wallpaper, "Couldn't create wallpaper source", obs_source_release,
+				obs_source_create(OBS_SOURCE_TYPE_INPUT, "FramebufferSource", "wallpaper", nullptr, nullptr));
+
 		game_and_webcam.theme = obs_scene_add(game_and_webcam.scene, theme);
 		window_and_webcam.theme = obs_scene_add(window_and_webcam.scene, theme);
 
+		auto connect_framebuffer = [&](obs_source_t *source, const char *connection)
 		{
-			auto proc = obs_source_get_proc_handler(theme);
+			auto proc = obs_source_get_proc_handler(source);
 			calldata_t data = {};
 			proc_handler_call(proc, "get_server_name", &data);
 
 			if (auto name = calldata_string(&data, "name")) {
-				ForgeEvents::SendFramebufferConnectionInfo("theme", name);
+				ForgeEvents::SendFramebufferConnectionInfo(connection, name);
 			} else {
-				blog(LOG_WARNING, "CrucibleContext::InitSources: failed to get framebuffer name");
+				blog(LOG_WARNING, "CrucibleContext::InitSources: failed to get framebuffer name for %s", connection);
 			}
-		}
+		};
+
+		connect_framebuffer(theme, "theme");
+		connect_framebuffer(wallpaper, "wallpaper");
 	}
 
 	void InitEncoders()
