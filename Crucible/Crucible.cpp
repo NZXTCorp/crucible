@@ -1120,6 +1120,7 @@ struct CrucibleContext {
 
 	struct obs_service_info forge_streaming_service;
 	OBSService stream_service;
+	bool streaming = false;
 	bool stream_active = false;
 	OutputResolution target_stream = OutputResolution{ 1280, 720 };
 	uint32_t target_stream_bitrate = 3000;
@@ -2068,12 +2069,22 @@ struct CrucibleContext {
 		obs_output_update(stream, ssettings);
 
 		UpdateStreamSettings();
-		obs_output_start(stream);
+		if (obs_output_start(stream)) {
+			streaming = true;
+
+			StartVideoCapture();
+			if (!obs_output_active(output)) {
+				obs_output_start(output);
+				obs_output_start(buffer);
+			}
+		}
 	}
 
 	void StopStreaming()
 	{
 		obs_output_stop(stream);
+		streaming = false;
+		StopVideo();
 	}
 
 	void UpdateSettings(obs_data_t *settings)
@@ -2243,6 +2254,9 @@ struct CrucibleContext {
 
 		ForgeEvents::SendBrowserSizeHint(width, height);
 
+		if (streaming)
+			return false;
+
 		auto scaled = ScaleResolution(target, game_res);
 
 		bool output_dimensions_changed = scaled.width != ovi.output_width || scaled.height != ovi.output_height;
@@ -2392,7 +2406,7 @@ struct CrucibleContext {
 	void StopVideo()
 	{
 		LOCK(updateMutex);
-		if (stopping || recording_game)
+		if (stopping || streaming || recording_game)
 			return;
 
 		ProfileScope(profile_store_name(obs_get_profiler_name_store(), "StopVideo()"));
@@ -2438,6 +2452,9 @@ struct CrucibleContext {
 	void StartVideoCapture()
 	{
 		LOCK(updateMutex);
+		if (obs_output_active(output))
+			return;
+
 		recordingStartSent = false;
 		sendRecordingStop = true;
 
@@ -2579,6 +2596,7 @@ static void HandleForgeWillClose(CrucibleContext &cc, OBSData&)
 static void HandleStartStreaming(CrucibleContext &cc, OBSData& obj)
 {
 	cc.CreateStreamOutput();
+	cc.UpdateFilenames(obs_data_get_string(obj, "filename"), obs_data_get_string(obj, "profiler_data"));
 	cc.StartStreaming(obs_data_get_string(obj, "server"), obs_data_get_string(obj, "key"), obs_data_get_string(obj, "version"));
 }
 
