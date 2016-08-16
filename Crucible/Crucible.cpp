@@ -2347,6 +2347,9 @@ struct CrucibleContext {
 			if (obs_output_active(output))
 				UpdateSize(game_res.width, game_res.height);
 		}
+
+		if (obs_data_has_user_value(settings, "muxer_settings"))
+			UpdateMuxerSettings(obs_data_get_string(settings, "muxer_settings"));
 	}
 
 	void SaveGameScreenshot(const char *filename)
@@ -2472,7 +2475,6 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 	cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
 	cc.UpdateStreamSettings();
 	cc.UpdateFilenames(obs_data_get_string(obj, "filename"), obs_data_get_string(obj, "profiler_data"));
-	cc.UpdateMuxerSettings(obs_data_get_string(obj, "muxer_settings"));
 
 	blog(LOG_INFO, "Starting new capture");
 
