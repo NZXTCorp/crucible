@@ -1539,8 +1539,6 @@ struct CrucibleContext {
 			.SetOwner(gameCapture)
 			.SetFunc([=](calldata_t*)
 		{
-			recording_game = false;
-
 			if (auto ref = OBSGetStrongRef(weakGameCapture)) {
 				auto settings = OBSTransferOwned(obs_source_get_settings(ref));
 				obs_data_set_int(settings, "process_id", 0);
