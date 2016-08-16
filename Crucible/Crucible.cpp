@@ -1357,8 +1357,9 @@ struct CrucibleContext {
 
 		stopRecording
 			.SetSignal("stop")
-			.SetFunc([=](calldata*)
+			.SetFunc([=](calldata *data)
 		{
+			auto output = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
 			string profiler_path;
 			{
 				LOCK(updateMutex);
