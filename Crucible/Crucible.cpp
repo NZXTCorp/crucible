@@ -1119,7 +1119,7 @@ struct CrucibleContext {
 
 	struct obs_service_info forge_streaming_service;
 	OBSService stream_service;
-	bool streaming = false;
+	bool stream_active = false;
 	OutputResolution target_stream = OutputResolution{ 1280, 720 };
 	uint32_t target_stream_bitrate = 3000;
 	OBSOutputSignal startStreaming, stopStreaming;
@@ -1468,8 +1468,8 @@ struct CrucibleContext {
 			.SetSignal("start")
 			.SetFunc([=](calldata*)
 		{
-			streaming = true;
-			AnvilCommands::StreamStatus(streaming);
+			stream_active = true;
+			AnvilCommands::StreamStatus(stream_active);
 			ForgeEvents::SendStreamingStart();
 		});
 
@@ -1477,8 +1477,8 @@ struct CrucibleContext {
 			.SetSignal("stop")
 			.SetFunc([=](calldata *data)
 		{
-			streaming = false;
-			AnvilCommands::StreamStatus(streaming);
+			stream_active = false;
+			AnvilCommands::StreamStatus(stream_active);
 			ForgeEvents::SendStreamingStop(calldata_int(data, "code"));
 		});
 
