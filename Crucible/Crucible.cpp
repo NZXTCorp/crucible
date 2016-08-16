@@ -27,6 +27,9 @@
 #include <vector>
 using namespace std;
 
+#include <boost/date_time/c_local_time_adjustor.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/format.hpp>
 #include <boost/logic/tribool.hpp>
 #include <boost/optional.hpp>
 
@@ -143,6 +146,29 @@ static DStr GetModulePath(const char *name)
 #else
 #define BIT_STRING "32bit"
 #endif
+
+static string TimeZoneOffset()
+{
+	using boost::format;
+
+	auto utc = boost::posix_time::second_clock::universal_time();
+	auto now = boost::date_time::c_local_adjustor<boost::posix_time::ptime>::utc_to_local(utc);
+
+	auto diff = now - utc;
+
+	if (diff.hours() == 0 && diff.minutes() == 0)
+		return "Z";
+
+	return (format("%+03d%02d") % diff.hours() % diff.minutes()).str();
+}
+
+static OBSData GenerateExtraData(const string &type)
+{
+	auto res = OBSDataCreate();
+	obs_data_set_string(res, "type", type.c_str());
+	obs_data_set_string(res, "iso8601_time", (to_iso_extended_string(boost::posix_time::second_clock::local_time()) + TimeZoneOffset()).c_str());
+	return res;
+}
 
 struct Bookmark {
 	int id = 0;
@@ -1553,6 +1579,14 @@ struct CrucibleContext {
 					obs_set_output_source(0, nullptr);
 			}
 
+			if (streaming) {
+				auto data = OBSDataCreate();
+				obs_data_set_bool(data, "suppress_indicator", true);
+				obs_data_set_obj(data, "extra_data", GenerateExtraData("game_exit"));
+				CreateBookmark(data);
+				return;
+			}
+
 			auto ref = OBSGetStrongRef(weakOutput);
 			if (ref)
 				obs_output_stop(ref);
@@ -1572,6 +1606,14 @@ struct CrucibleContext {
 			if (UpdateSize(static_cast<uint32_t>(calldata_int(data, "width")),
 				static_cast<uint32_t>(calldata_int(data, "height"))))
 				return;
+
+			if (streaming) {
+				auto data = OBSDataCreate();
+				obs_data_set_bool(data, "suppress_indicator", true);
+				obs_data_set_obj(data, "extra_data", GenerateExtraData("game_begin"));
+				CreateBookmark(data);
+				return;
+			}
 
 			auto ref = OBSGetStrongRef(weakOutput);
 			if (ref)
