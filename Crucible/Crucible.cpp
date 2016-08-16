@@ -1110,6 +1110,7 @@ struct CrucibleContext {
 	OutputResolution game_res = OutputResolution{ 0, 0 };
 
 	DWORD game_pid = -1;
+	bool recording_game = false;
 
 	obs_hotkey_id ptt_hotkey_id = OBS_INVALID_HOTKEY_ID;
 	obs_hotkey_id mute_hotkey_id = OBS_INVALID_HOTKEY_ID;
@@ -1539,6 +1540,8 @@ struct CrucibleContext {
 			.SetOwner(gameCapture)
 			.SetFunc([=](calldata_t*)
 		{
+			recording_game = false;
+
 			if (auto ref = OBSGetStrongRef(weakGameCapture)) {
 				auto settings = OBSTransferOwned(obs_source_get_settings(ref));
 				obs_data_set_int(settings, "process_id", 0);
@@ -1857,6 +1860,8 @@ struct CrucibleContext {
 
 		InitRef(gameCapture, "Couldn't create game capture source", obs_source_release,
 			obs_source_create(OBS_SOURCE_TYPE_INPUT, "game_capture", "game capture", settings, nullptr));
+
+		recording_game = true;
 
 		injectFailed
 			.Disconnect()
@@ -2382,7 +2387,7 @@ struct CrucibleContext {
 	void StopVideo()
 	{
 		LOCK(updateMutex);
-		if (stopping)
+		if (stopping || recording_game)
 			return;
 
 		ProfileScope(profile_store_name(obs_get_profiler_name_store(), "StopVideo()"));
