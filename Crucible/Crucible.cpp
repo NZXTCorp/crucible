@@ -1528,6 +1528,59 @@ struct CrucibleContext {
 		obs_output_set_reconnect_settings(stream, 0, 0);
 	}
 
+	void ResetCaptureSignals()
+	{
+		auto weakGameCapture = OBSGetWeakRef(gameCapture);
+		auto weakOutput = OBSGetWeakRef(output);
+		auto weakBuffer = OBSGetWeakRef(buffer);
+
+		stopCapture
+			.Disconnect()
+			.SetOwner(gameCapture)
+			.SetFunc([=](calldata_t*)
+		{
+			recording_game = false;
+
+			if (auto ref = OBSGetStrongRef(weakGameCapture)) {
+				auto settings = OBSTransferOwned(obs_source_get_settings(ref));
+				obs_data_set_int(settings, "process_id", 0);
+				obs_data_set_int(settings, "thread_id", 0);
+				obs_source_update(ref, settings);
+
+				if (OBSGetOutputSource(0) == ref)
+					obs_set_output_source(0, nullptr);
+			}
+
+			auto ref = OBSGetStrongRef(weakOutput);
+			if (ref)
+				obs_output_stop(ref);
+
+			ref = OBSGetStrongRef(weakBuffer);
+			if (ref)
+				obs_output_stop(ref);
+		}).Connect();
+
+		startCapture
+			.Disconnect()
+			.SetOwner(gameCapture)
+			.SetFunc([=](calldata_t *data)
+		{
+			AnvilCommands::Connect(game_pid);
+
+			if (UpdateSize(static_cast<uint32_t>(calldata_int(data, "width")),
+				static_cast<uint32_t>(calldata_int(data, "height"))))
+				return;
+
+			auto ref = OBSGetStrongRef(weakOutput);
+			if (ref)
+				obs_output_start(ref);
+
+			ref = OBSGetStrongRef(weakBuffer);
+			if (ref)
+				obs_output_start(ref);
+		}).Connect();
+	}
+
 	void CreateOutput()
 	{
 		auto osettings = OBSDataCreate();
@@ -1577,53 +1630,7 @@ struct CrucibleContext {
 			.SetOwner(buffer)
 			.Connect();
 
-		auto weakGameCapture = OBSGetWeakRef(gameCapture);
-		auto weakOutput = OBSGetWeakRef(output);
-		auto weakBuffer = OBSGetWeakRef(buffer);
-
-		stopCapture
-			.Disconnect()
-			.SetOwner(gameCapture)
-			.SetFunc([=](calldata_t*)
-		{
-			if (auto ref = OBSGetStrongRef(weakGameCapture)) {
-				auto settings = OBSTransferOwned(obs_source_get_settings(ref));
-				obs_data_set_int(settings, "process_id", 0);
-				obs_data_set_int(settings, "thread_id", 0);
-				obs_source_update(ref, settings);
-
-				if (OBSGetOutputSource(0) == ref)
-					obs_set_output_source(0, nullptr);
-			}
-
-			auto ref = OBSGetStrongRef(weakOutput);
-			if (ref)
-				obs_output_stop(ref);
-
-			ref = OBSGetStrongRef(weakBuffer);
-			if (ref)
-				obs_output_stop(ref);
-		}).Connect();
-
-		startCapture
-			.Disconnect()
-			.SetOwner(gameCapture)
-			.SetFunc([=](calldata_t *data)
-		{
-			AnvilCommands::Connect(game_pid);
-
-			if (UpdateSize(static_cast<uint32_t>(calldata_int(data, "width")),
-				       static_cast<uint32_t>(calldata_int(data, "height"))))
-				return;
-
-			auto ref = OBSGetStrongRef(weakOutput);
-			if (ref)
-				obs_output_start(ref);
-
-			ref = OBSGetStrongRef(weakBuffer);
-			if (ref)
-				obs_output_start(ref);
-		}).Connect();
+		ResetCaptureSignals();
 	}
 
 	void CreateStreamOutput()
@@ -1875,6 +1882,8 @@ struct CrucibleContext {
 			.Disconnect()
 			.SetOwner(gameCapture)
 			.Connect();
+
+		ResetCaptureSignals();
 
 		if (game_and_webcam.game)
 			obs_sceneitem_remove(game_and_webcam.game);
