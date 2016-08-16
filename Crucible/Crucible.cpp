@@ -2382,6 +2382,11 @@ struct CrucibleContext {
 
 		calldata_free(&data);
 	}
+
+	bool RecordingActive()
+	{
+		return obs_output_active(output);
+	}
 	
 	bool stopping = false;
 	void StopVideo()
@@ -2479,19 +2484,26 @@ static void HandleConnectCommand(CrucibleContext &cc, OBSData &obj)
 
 static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 {
-	cc.StopVideo();
+	bool recording_active = cc.RecordingActive();
 
-	last_session = ProfileSnapshotCreate();
+	if (!recording_active) {
+		cc.StopVideo();
+
+		last_session = ProfileSnapshotCreate();
+
+		cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
+		cc.UpdateStreamSettings();
+		cc.UpdateFilenames(obs_data_get_string(obj, "filename"), obs_data_get_string(obj, "profiler_data"));
+	}
 
 	cc.CreateGameCapture(OBSDataGetObj(obj, "game_capture"));
-	cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
-	cc.UpdateStreamSettings();
-	cc.UpdateFilenames(obs_data_get_string(obj, "filename"), obs_data_get_string(obj, "profiler_data"));
 
 	blog(LOG_INFO, "Starting new capture");
 
 	AnvilCommands::ResetShowWelcome();
-	cc.StartVideoCapture();
+
+	if (!recording_active)
+		cc.StartVideoCapture();
 }
 
 static void HandleQueryMicsCommand(CrucibleContext&, OBSData&)
