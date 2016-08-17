@@ -2660,6 +2660,12 @@ static void HandleForgeWillClose(CrucibleContext &cc, OBSData&)
 
 static void HandleStartStreaming(CrucibleContext &cc, OBSData& obj)
 {
+	if (cc.streaming) {
+		blog(LOG_INFO, "Streaming already started.");
+		ForgeEvents::SendStreamingStartExecuted(false);
+		return;
+	}
+
 	cc.CreateStreamOutput();
 	cc.UpdateFilenames(obs_data_get_string(obj, "filename"), obs_data_get_string(obj, "profiler_data"));
 	cc.StartStreaming(obs_data_get_string(obj, "server"), obs_data_get_string(obj, "key"), obs_data_get_string(obj, "version"));
