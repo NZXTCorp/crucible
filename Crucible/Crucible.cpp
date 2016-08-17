@@ -2148,6 +2148,8 @@ struct CrucibleContext {
 		ForgeEvents::SendStreamingStopExecuted(obs_output_active(stream));
 
 		obs_output_stop(stream);
+		stream = nullptr;
+
 		streaming = false;
 		StopVideo();
 	}
