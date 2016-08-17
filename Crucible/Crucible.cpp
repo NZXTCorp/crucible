@@ -362,6 +362,24 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
+	void SendStreamingStartExecuted(bool success)
+	{
+		auto event = EventCreate("streaming_start_executed");
+		obs_data_set_bool(event, "success", success);
+
+		SendEvent(event);
+
+	};
+
+	void SendStreamingStopExecuted(bool success)
+	{
+		auto event = EventCreate("streaming_stop_executed");
+		obs_data_set_bool(event, "success", success);
+
+		SendEvent(event);
+
+	};
+
 	void SendStreamingStart()
 	{
 		auto event = EventCreate("started_streaming");
@@ -2121,10 +2139,14 @@ struct CrucibleContext {
 				obs_output_start(buffer);
 			}
 		}
+	
+		ForgeEvents::SendStreamingStartExecuted(!obs_output_active(stream));
 	}
 
 	void StopStreaming()
 	{
+		ForgeEvents::SendStreamingStopExecuted(obs_output_active(stream));
+
 		obs_output_stop(stream);
 		streaming = false;
 		StopVideo();
