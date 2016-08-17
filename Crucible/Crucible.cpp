@@ -426,6 +426,19 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendAudioSourceLevel(const char *source, float level, float magnitude, float peak, bool muted)
+	{
+		auto event = EventCreate("audio_source_level");
+
+		obs_data_set_string(event, "source", source);
+		obs_data_set_double(event, "level", level);
+		obs_data_set_double(event, "magnitude", magnitude);
+		obs_data_set_double(event, "peak", peak);
+		obs_data_set_bool(event, "muted", muted);
+
+		SendEvent(event);
+	}
 }
 
 namespace AnvilCommands {
@@ -898,6 +911,12 @@ struct CrucibleContext {
 	OBSOutputSignal sentTrackedFrame, bufferSentTrackedFrame;
 	OBSOutputSignal bufferSaved, bufferSaveFailed;
 
+	unique_ptr<obs_volmeter_t> tunesMeter;
+	OBSSignal tunesLevelsUpdated;
+
+	unique_ptr<obs_volmeter_t> micMeter;
+	OBSSignal micLevelsUpdated;
+
 	OutputResolution target = OutputResolution{ 1280, 720 }; //thanks VS2013
 	uint32_t target_bitrate = 3500;
 
@@ -1004,6 +1023,12 @@ struct CrucibleContext {
 				obs_source_create(OBS_SOURCE_TYPE_INPUT, "wasapi_output_capture", "wasapi loopback", nullptr, nullptr));
 
 		obs_set_output_source(1, tunes);
+		
+		tunesMeter = OBSVolMeterCreate(OBS_FADER_LOG);
+		obs_volmeter_set_update_interval(tunesMeter.get(), 100);
+
+		micMeter = OBSVolMeterCreate(OBS_FADER_LOG);
+		obs_volmeter_set_update_interval(micMeter.get(), 100);
 
 		InitRef(game_and_webcam.scene, "Couldn't create game_and_webcam scene", obs_scene_release,
 				obs_scene_create("game_and_webcam"));
@@ -1736,6 +1761,36 @@ struct CrucibleContext {
 		obs_source_set_muted(elem->second, mute);
 	}
 
+	void EnableSourceLevelMeters(bool enabled)
+	{	
+		tunesLevelsUpdated.Disconnect();
+		micLevelsUpdated.Disconnect();
+
+		obs_volmeter_detach_source(tunesMeter.get());
+		obs_volmeter_detach_source(micMeter.get());
+
+		if (enabled)
+		{
+			auto handler = [](void *param, calldata_t *calldata)
+			{
+				const char *source = (const char *)param;
+
+				float level = calldata_float(calldata, "level");
+				float mag = calldata_float(calldata, "magnitude");
+				float peak = calldata_float(calldata, "peak");
+				bool  muted = calldata_bool(calldata, "muted");
+				//blog(LOG_INFO, "levels_updated for %s: level %.3f, magnitude %.3f, peak %.3f, muted: %s", source, mag, level, peak, muted ? "true" : "false");
+				ForgeEvents::SendAudioSourceLevel(source, level, mag, peak, muted);
+			};
+
+			tunesLevelsUpdated.Connect(obs_volmeter_get_signal_handler(tunesMeter.get()), "levels_updated", handler, "desktop");
+			micLevelsUpdated.Connect(obs_volmeter_get_signal_handler(micMeter.get()), "levels_updated", handler, "microphone");
+
+			obs_volmeter_attach_source(tunesMeter.get(), tunes);
+			obs_volmeter_attach_source(micMeter.get(), mic);
+		}
+	}
+
 	void StartStreaming(const char *server, const char *key, const char *version)
 	{
 		auto settings = OBSDataCreate();
@@ -2382,6 +2437,11 @@ static void HandleSetSourceVolume(CrucibleContext &cc, OBSData &data)
 	cc.SetSourceVolume(obs_data_get_string(data, "source"), obs_data_get_double(data, "volume"), obs_data_get_bool(data, "mute"));
 }
 
+static void HandleEnableSourceLevelMeters(CrucibleContext &cc, OBSData &data)
+{
+	cc.EnableSourceLevelMeters(obs_data_get_bool(data, "enabled"));
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -2409,6 +2469,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "capture_window", HandleCaptureWindow },
 		{ "select_scene", HandleSelectScene },
 		{ "set_source_volume", HandleSetSourceVolume },
+		{ "enable_source_level_meters", HandleEnableSourceLevelMeters },
 	};
 	if (!data)
 		return;
