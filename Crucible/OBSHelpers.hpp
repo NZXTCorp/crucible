@@ -40,6 +40,15 @@ struct default_delete<profiler_snapshot_t> {
 	}
 };
 
+template <>
+struct default_delete<obs_volmeter_t> {
+	void operator()(obs_volmeter_t *meter)
+	{
+		obs_volmeter_destroy(meter);
+	}
+};
+
+
 }
 
 inline OBSEncoder OBSTransferOwned(obs_encoder_t *encoder)
@@ -98,6 +107,11 @@ inline void OBSEnumHotkeys(Fun &&fun)
 inline std::unique_ptr<profiler_snapshot_t> ProfileSnapshotCreate()
 {
 	return std::unique_ptr<profiler_snapshot_t>{profile_snapshot_create()};
+}
+
+inline std::unique_ptr<obs_volmeter_t> OBSVolMeterCreate(obs_fader_type type)
+{
+	return std::unique_ptr<obs_volmeter_t>{obs_volmeter_create(type)};
 }
 
 inline OBSSource OBSGetOutputSource(uint32_t channel)
