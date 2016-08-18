@@ -2083,7 +2083,7 @@ struct CrucibleContext {
 		auto add_item = [](obs_data_t *data, const char *name, obs_sceneitem_t *item, obs_data_t *prior)
 		{
 			auto transforms = ExtractTransforms(item, prior);
-			if (auto source = OBSTransferOwned(obs_sceneitem_get_source(item))) {
+			if (auto source = obs_sceneitem_get_source(item)) {
 				obs_data_set_int(transforms, "width", obs_source_get_width(source));
 				obs_data_set_int(transforms, "height", obs_source_get_height(source));
 			}
