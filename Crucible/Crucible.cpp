@@ -1178,6 +1178,7 @@ struct CrucibleContext {
 
 	DWORD game_pid = -1;
 	bool recording_game = false;
+	boost::optional<int> game_start_bookmark_id, game_end_bookmark_id;
 
 	obs_hotkey_id ptt_hotkey_id = OBS_INVALID_HOTKEY_ID;
 	obs_hotkey_id mute_hotkey_id = OBS_INVALID_HOTKEY_ID;
@@ -1459,6 +1460,14 @@ struct CrucibleContext {
 				}
 			}
 			AnvilCommands::ShowRecording();
+
+			if (!game_start_bookmark_id && recording_game) {
+				// this can happen in recording only mode; requesting the bookmark earlier could cause us to not be notified of the tracked frame
+				auto data = OBSDataCreate();
+				obs_data_set_bool(data, "suppress_indicator", true);
+				obs_data_set_obj(data, "extra_data", GenerateExtraData("game_begin"));
+				game_start_bookmark_id = CreateBookmark(data);
+			}
 		});
 
 		sentTrackedFrame
@@ -1631,13 +1640,17 @@ struct CrucibleContext {
 					obs_set_output_source(0, nullptr);
 			}
 
-			if (streaming) {
+			if (!game_end_bookmark_id) {
 				auto data = OBSDataCreate();
 				obs_data_set_bool(data, "suppress_indicator", true);
 				obs_data_set_obj(data, "extra_data", GenerateExtraData("game_exit"));
-				CreateBookmark(data);
-				return;
+				game_end_bookmark_id = CreateBookmark(data);
+			} else {
+				blog(LOG_WARNING, "stopCapture: called with game_end_bookmark_id already set");
 			}
+
+			if (streaming)
+				return;
 
 			auto ref = OBSGetStrongRef(weakOutput);
 			if (ref)
@@ -1655,17 +1668,25 @@ struct CrucibleContext {
 		{
 			AnvilCommands::Connect(game_pid);
 
-			if (UpdateSize(static_cast<uint32_t>(calldata_int(data, "width")),
-				static_cast<uint32_t>(calldata_int(data, "height"))))
-				return;
-
-			if (streaming) {
+			auto add_bookmark = [&]
+			{
 				auto data = OBSDataCreate();
 				obs_data_set_bool(data, "suppress_indicator", true);
 				obs_data_set_obj(data, "extra_data", GenerateExtraData("game_begin"));
-				CreateBookmark(data);
+				game_start_bookmark_id = CreateBookmark(data);
+			};
+
+			if (!game_start_bookmark_id)
+				add_bookmark();
+
+			if (UpdateSize(static_cast<uint32_t>(calldata_int(data, "width")),
+				static_cast<uint32_t>(calldata_int(data, "height")))) {
+				add_bookmark();
 				return;
 			}
+
+			if (streaming)
+				return;
 
 			auto ref = OBSGetStrongRef(weakOutput);
 			if (ref)
@@ -1814,10 +1835,10 @@ struct CrucibleContext {
 		estimates.erase(it);
 	}
 
-	void CreateBookmark(OBSData &obj)
+	boost::optional<int> CreateBookmark(OBSData &obj)
 	{
 		if (!output || !obs_output_active(output))
-			return;
+			return boost::none;
 
 		LOCK(bookmarkMutex);
 		estimatedBookmarks.emplace_back();
@@ -1848,6 +1869,8 @@ struct CrucibleContext {
 
 		if (!obs_data_get_bool(obj, "suppress_indicator"))
 			AnvilCommands::ShowBookmark();
+
+		return bookmark.id;
 	}
 
 	recursive_mutex updateMutex;
