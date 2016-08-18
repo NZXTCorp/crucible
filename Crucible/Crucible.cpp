@@ -1026,6 +1026,8 @@ static void ApplyTransforms(obs_sceneitem_t *item, obs_data_t *properties)
 
 	obs_data_get_vec2(properties, "bounds", &vec);
 	obs_sceneitem_set_bounds(item, &vec);
+
+	obs_sceneitem_set_visible(item, !obs_data_get_bool(properties, "invisible"));
 }
 
 static OBSData ExtractTransforms(obs_sceneitem_t *item, obs_data_t *prior)
@@ -1053,6 +1055,8 @@ static OBSData ExtractTransforms(obs_sceneitem_t *item, obs_data_t *prior)
 
 	obs_sceneitem_get_bounds(item, &vec);
 	obs_data_set_vec2(properties, "bounds", &vec);
+
+	obs_data_set_bool(properties, "invisible", !obs_sceneitem_visible(item));
 
 	return properties;
 }
