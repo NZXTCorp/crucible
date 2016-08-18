@@ -1452,6 +1452,9 @@ struct CrucibleContext {
 						LOCK(bookmarkMutex);
 						full_bookmarks = bookmarks;
 					}
+
+					GameSessionEnded(output);
+
 					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
 						obs_output_get_total_frames(output),
 						obs_output_get_output_duration(output),
@@ -1507,8 +1510,16 @@ struct CrucibleContext {
 			.SetSignal("sent_tracked_frame")
 			.SetFunc([=](calldata *data)
 		{
-			FinalizeBookmark(estimatedBookmarks, bookmarks, calldata_int(data, "id"),
+			auto bookmark = FinalizeBookmark(estimatedBookmarks, bookmarks, calldata_int(data, "id"),
 				calldata_int(data, "pts"), static_cast<uint32_t>(calldata_int(data, "timebase_den")));
+
+			if (!bookmark || !game_end_bookmark_id)
+				return;
+
+			if (bookmark->id != *game_end_bookmark_id)
+				return;
+
+			GameSessionEnded(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")));
 		});
 
 		bufferSaved
@@ -1650,6 +1661,27 @@ struct CrucibleContext {
 		obs_output_set_reconnect_settings(stream, 0, 0);
 	}
 
+	void GameSessionEnded(obs_output_t *output)
+	{
+		if (!recording_game && !game_end_bookmark_id)
+			return;
+
+		decltype(bookmarks) full_bookmarks;
+		{
+			LOCK(bookmarkMutex);
+			full_bookmarks = bookmarks;
+		}
+		auto data = OBSTransferOwned(obs_output_get_settings(output));
+		ForgeEvents::SendGameSessionEnded(obs_data_get_string(data, "path"),
+			obs_output_get_total_frames(output),
+			obs_output_get_output_duration(output),
+			BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, game_pid, full_bookmarks,
+			game_start_bookmark_id, game_end_bookmark_id);
+
+		game_start_bookmark_id = boost::none;
+		game_end_bookmark_id = boost::none;
+	}
+
 	void ResetCaptureSignals()
 	{
 		auto weakGameCapture = OBSGetWeakRef(gameCapture);
@@ -1709,8 +1741,10 @@ struct CrucibleContext {
 				game_start_bookmark_id = CreateBookmark(data);
 			};
 
-			if (!game_start_bookmark_id)
+			if (!game_start_bookmark_id) {
 				add_bookmark();
+				ForgeEvents::SendGameSessionStarted();
+			}
 
 			if (UpdateSize(static_cast<uint32_t>(calldata_int(data, "width")),
 				static_cast<uint32_t>(calldata_int(data, "height")))) {
