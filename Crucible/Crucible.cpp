@@ -257,11 +257,9 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
-	void SendRecordingStop(const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
-		uint32_t width, uint32_t height, DWORD pid, const vector<Bookmark> &full_bookmarks)
+	static void SendRecordingStopEvent(obs_data_t *event, const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
+		uint32_t width, uint32_t height, DWORD *pid, const vector<Bookmark> &full_bookmarks)
 	{
-		auto event = EventCreate("stopped_recording");
-
 		auto arr = OBSDataArrayCreate();
 		for (auto &bookmark : full_bookmarks) {
 			auto mark = OBSDataCreate();
@@ -275,7 +273,37 @@ namespace ForgeEvents {
 
 		obs_data_set_array(event, "full_bookmarks", arr);
 
-		SendFileCompleteEvent(event, filename, total_frames, duration, bookmarks, width, height, &pid);
+		SendFileCompleteEvent(event, filename, total_frames, duration, bookmarks, width, height, pid);
+	}
+
+	void SendRecordingStop(const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
+		uint32_t width, uint32_t height, DWORD *pid, const vector<Bookmark> &full_bookmarks)
+	{
+		SendRecordingStopEvent(EventCreate("stopped_recording"), filename, total_frames, duration, bookmarks, width, height, pid, full_bookmarks);
+	}
+
+	void SendGameSessionEnded(const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
+		uint32_t width, uint32_t height, DWORD pid, const vector<Bookmark> &full_bookmarks, boost::optional<int> game_start_id, boost::optional<int> game_end_id)
+	{
+		auto event = EventCreate("game_session_ended");
+
+		const Bookmark *start = nullptr;
+		const Bookmark *end_ = nullptr;
+		for (auto &mark : full_bookmarks) {
+			if (game_start_id && mark.id == *game_start_id)
+				start = &mark;
+			else if (game_end_id && mark.id == *game_end_id)
+				end_ = &mark;
+		}
+
+		auto game_start = start ? start->time : 0.;
+		auto game_end = end_ ? end_->time : duration;
+
+		obs_data_set_double(event, "game_start", game_start);
+		obs_data_set_double(event, "game_end", game_end);
+		obs_data_set_double(event, "game_duration", game_end - game_start);
+
+		SendRecordingStopEvent(event, filename, total_frames, duration, bookmarks, width, height, &pid, full_bookmarks);
 	}
 
 	void SendQueryMicsResponse(obs_data_array_t *devices)
@@ -503,6 +531,11 @@ namespace ForgeEvents {
 		obs_data_set_bool(event, "muted", muted);
 
 		SendEvent(event);
+	}
+
+	void SendGameSessionStarted()
+	{
+		SendEvent(EventCreate("game_session_started"));
 	}
 }
 
