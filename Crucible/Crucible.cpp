@@ -1422,7 +1422,7 @@ struct CrucibleContext {
 					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
 						obs_output_get_total_frames(output),
 						obs_output_get_output_duration(output),
-						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, game_pid, full_bookmarks);
+						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, recording_game ? &game_pid : nullptr, full_bookmarks);
 					AnvilCommands::ShowIdle();
 				}
 			}
