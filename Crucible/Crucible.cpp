@@ -501,6 +501,8 @@ namespace ForgeEvents {
 		obs_data_set_double(event, "magnitude", magnitude);
 		obs_data_set_double(event, "peak", peak);
 		obs_data_set_bool(event, "muted", muted);
+
+		SendEvent(event);
 	}
 }
 
