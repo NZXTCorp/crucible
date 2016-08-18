@@ -29,8 +29,8 @@ struct default_delete<ipc_pipe_client>
 }
 
 struct IPCServer {
-	std::unique_ptr<ipc_pipe_server> server;
 	std::unique_ptr<std::function<void(uint8_t*, size_t)>> func_;
+	std::unique_ptr<ipc_pipe_server> server;
 
 	IPCServer() = default;
 

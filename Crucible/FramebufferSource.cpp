@@ -20,8 +20,6 @@ using namespace std;
 static const string info_header_fragment = "FramebufferInfo";
 
 struct CrucibleFramebufferServer {
-	IPCServer server;
-
 	std::string name;
 
 	atomic<bool> died = true;
@@ -34,6 +32,8 @@ struct CrucibleFramebufferServer {
 
 	Metadata incoming_data;
 	bool have_metadata = false;
+
+	IPCServer server;
 
 #pragma optimize("tsg", on)
 	template <typename Fun>
@@ -92,10 +92,11 @@ static FramebufferSource *cast(void *context)
 }
 
 struct FramebufferSource {
-	CrucibleFramebufferServer server;
 	obs_source_t *source;
 
 	obs_source_frame frame = {};
+
+	CrucibleFramebufferServer server;
 
 	FramebufferSource() = default;
 	FramebufferSource(obs_source_t *source)
