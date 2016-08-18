@@ -197,7 +197,7 @@ protected:
 					success = framebuffer_client.Write(info.data, info.line_size * info.height);
 					if (success && last_send_failed)
 						blog(LOG_INFO, "RemoteDisplay[%s]: resumed sending (size: %u, payload: %u)", remote_display_name.c_str(), info.line_size * info.height, info.width * info.height * 4);
-					else if (!success && last_send_failed)
+					else if (!success && !last_send_failed)
 						blog(LOG_WARNING, "RemoteDisplay[%s]: failed to send (size: %u, payload: %u)", remote_display_name.c_str(), info.line_size * info.height, info.width * info.height * 4);
 				} while (false);
 
