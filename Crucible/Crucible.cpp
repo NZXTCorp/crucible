@@ -1845,7 +1845,7 @@ struct CrucibleContext {
 		return boost::none;
 	}
 
-	void FinalizeBookmark(vector<Bookmark> &estimates, vector<Bookmark> &bookmarks, video_tracked_frame_id tracked_id, int64_t pts, uint32_t fps_den)
+	boost::optional<Bookmark> FinalizeBookmark(vector<Bookmark> &estimates, vector<Bookmark> &bookmarks, video_tracked_frame_id tracked_id, int64_t pts, uint32_t fps_den)
 	{
 		LOCK(bookmarkMutex);
 
@@ -1854,7 +1854,7 @@ struct CrucibleContext {
 			return bookmark.tracked_id == tracked_id;
 		});
 		if (it == end(estimates))
-			return;
+			return boost::none;
 
 		auto new_time = pts / static_cast<double>(fps_den);
 
@@ -1866,6 +1866,8 @@ struct CrucibleContext {
 
 		bookmarks.push_back(*it);
 		estimates.erase(it);
+
+		return bookmarks.back();
 	}
 
 	boost::optional<int> CreateBookmark(OBSData &obj)
