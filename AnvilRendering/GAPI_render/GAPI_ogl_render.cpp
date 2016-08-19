@@ -413,6 +413,7 @@ void overlay_gl_free()
 	}
 
 	overlay_tex_initialized = false;
+	framebuffer_server_started = false;
 
 	render.FreeRenderer();
 
@@ -595,8 +596,10 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 
 	get_window_size(hdc, &g_Proc.m_Stats.m_SizeWnd.cx, &g_Proc.m_Stats.m_SizeWnd.cy);
 
-	if (!framebuffer_server_started)
+	if (!framebuffer_server_started) {
 		StartFramebufferServer();
+		framebuffer_server_started = true;
+	}
 
 	HandleInputHook(WindowFromDC(hdc));
 
