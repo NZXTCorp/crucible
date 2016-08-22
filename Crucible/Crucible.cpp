@@ -1226,6 +1226,7 @@ struct CrucibleContext {
 	OutputResolution target_stream = OutputResolution{ 1280, 720 };
 	uint32_t target_stream_bitrate = 3000;
 	OBSOutputSignal startStreaming, stopStreaming;
+	obs_source_t *streaming_source = nullptr;
 
 	vector<pair<string, long long>> requested_screenshots;
 
@@ -2080,7 +2081,7 @@ struct CrucibleContext {
 		game_and_webcam.game = obs_scene_add(game_and_webcam.scene, gameCapture);
 		game_and_webcam.MakePresentable();
 
-		if (!OBSGetOutputSource(0))
+		if (!OBSGetOutputSource(0) || !streaming)
 			obs_set_output_source(0, gameCapture);
 	}
 
@@ -2152,7 +2153,9 @@ struct CrucibleContext {
 		}
 
 		Display::SetSource("preview", source);
-		obs_set_output_source(0, source);
+		streaming_source = source;
+		if (streaming)
+			obs_set_output_source(0, source);
 		ForgeEvents::SendSelectSceneResult(scene_name, scene_name, true);
 	}
 
@@ -2305,6 +2308,8 @@ struct CrucibleContext {
 
 		UpdateStreamSettings();
 		if (obs_output_start(stream)) {
+			if (streaming_source)
+				obs_set_output_source(0, streaming_source);
 			streaming = true;
 
 			StartVideoCapture();
