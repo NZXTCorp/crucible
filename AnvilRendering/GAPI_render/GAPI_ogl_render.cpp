@@ -398,7 +398,7 @@ static bool overlay_tex_initialized = false;
 static bool in_free = false;
 void overlay_gl_free()
 {
-	if (in_free)
+	if (in_free || !initialized)
 		return;
 
 	in_free = true;
