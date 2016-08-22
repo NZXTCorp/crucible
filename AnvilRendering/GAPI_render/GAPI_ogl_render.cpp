@@ -27,6 +27,8 @@
 #undef GAPIOGLFUNC
 
 PFNGLACTIVETEXTUREARBPROC s_glActiveTextureARB;
+HGLRC cur_context;
+HDC app_HDC;
 GLint s_iMaxTexUnits;
 
 bool LoadOpenGLFunctions()
@@ -401,6 +403,8 @@ void overlay_gl_free()
 
 	in_free = true;
 
+	s_wglMakeCurrent(app_HDC, render_context); // Switch to the overlay context for these operations.
+
 	for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
 		overlay_textures[a].Reset([&](GLuint &tex)
 		{
@@ -425,6 +429,8 @@ void overlay_gl_free()
 	initialized = false;
 	framebuffer_server_started = false;
 	in_free = false;
+
+	s_wglMakeCurrent(app_HDC, cur_context); // And then switch back the game's context.
 }
 
 static void update_overlay()
@@ -581,11 +587,12 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 	if (!render_context)
 		render_context = s_wglCreateContext(hdc);
 
-	auto current_context = s_wglGetCurrentContext();
+	cur_context = s_wglGetCurrentContext();
+	app_HDC = hdc;
 
 	s_wglMakeCurrent(hdc, render_context);
 	DEFER {
-		s_wglMakeCurrent(hdc, current_context);
+		s_wglMakeCurrent(hdc, cur_context);
 	};
 
 	if (!initialized)
