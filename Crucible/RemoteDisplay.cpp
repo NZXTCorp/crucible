@@ -202,6 +202,9 @@ protected:
 				} while (false);
 
 				last_send_failed = !success;
+
+				if (!success)
+					Enable(false);
 			}
 		});
 	}
