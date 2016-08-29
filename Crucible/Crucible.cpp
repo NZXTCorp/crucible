@@ -1222,6 +1222,7 @@ struct CrucibleContext {
 	struct obs_service_info forge_streaming_service;
 	OBSService stream_service;
 	bool streaming = false;
+	bool recording_stream = false;
 	bool stream_active = false;
 	OutputResolution target_stream = OutputResolution{ 1280, 720 };
 	uint32_t target_stream_bitrate = 3000;
@@ -1441,6 +1442,8 @@ struct CrucibleContext {
 			.SetSignal("stop")
 			.SetFunc([=](calldata *data)
 		{
+			recording_stream = false;
+
 			auto output = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
 			string profiler_path;
 			{
@@ -2154,7 +2157,7 @@ struct CrucibleContext {
 
 		Display::SetSource("preview", source);
 		streaming_source = source;
-		if (streaming)
+		if (streaming || recording_stream)
 			obs_set_output_source(0, source);
 		ForgeEvents::SendSelectSceneResult(scene_name, scene_name, true);
 	}
@@ -2311,6 +2314,7 @@ struct CrucibleContext {
 			if (streaming_source)
 				obs_set_output_source(0, streaming_source);
 			streaming = true;
+			recording_stream = true;
 
 			StartVideoCapture();
 			if (!obs_output_active(output)) {
