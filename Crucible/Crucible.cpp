@@ -248,11 +248,13 @@ namespace ForgeEvents {
 		return event;
 	}
 
-	void SendRecordingStart(const char *filename)
+	void SendRecordingStart(const char *filename, bool restarting_recording)
 	{
 		auto event = EventCreate("started_recording");
 
 		obs_data_set_string(event, "filename", filename);
+		if (restarting_recording)
+			obs_data_set_bool(event, "restarting_recording", true);
 
 		SendEvent(event);
 	}
@@ -283,7 +285,8 @@ namespace ForgeEvents {
 	}
 
 	void SendGameSessionEnded(const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
-		uint32_t width, uint32_t height, DWORD pid, const vector<Bookmark> &full_bookmarks, boost::optional<int> game_start_id, boost::optional<int> game_end_id)
+		uint32_t width, uint32_t height, DWORD pid, const vector<Bookmark> &full_bookmarks, boost::optional<int> game_start_id, boost::optional<int> game_end_id,
+		bool restart_recording)
 	{
 		auto event = EventCreate("game_session_ended");
 
@@ -302,6 +305,9 @@ namespace ForgeEvents {
 		obs_data_set_double(event, "game_start", game_start);
 		obs_data_set_double(event, "game_end", game_end);
 		obs_data_set_double(event, "game_duration", game_end - game_start);
+
+		if (restart_recording)
+			obs_data_set_bool(event, "restart_recording", true);
 
 		SendRecordingStopEvent(event, filename, total_frames, duration, bookmarks, width, height, &pid, full_bookmarks);
 	}
@@ -1121,6 +1127,9 @@ struct CrucibleContext {
 	bool recordingStartSent = false;
 	bool sendRecordingStop = true;
 
+	bool restart_recording = false;
+	bool restarting_recording = false;
+
 	struct {
 		OBSScene scene;
 		OBSSceneItem game, webcam, theme;
@@ -1495,8 +1504,9 @@ struct CrucibleContext {
 			{
 				LOCK(updateMutex);
 				if (!recordingStartSent) {
-					ForgeEvents::SendRecordingStart(obs_data_get_string(data, "path"));
+					ForgeEvents::SendRecordingStart(obs_data_get_string(data, "path"), restarting_recording);
 					recordingStartSent = true;
+					restarting_recording = false;
 				}
 			}
 			AnvilCommands::ShowRecording();
@@ -1680,7 +1690,7 @@ struct CrucibleContext {
 			obs_output_get_total_frames(output),
 			obs_output_get_output_duration(output),
 			BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, game_pid, full_bookmarks,
-			game_start_bookmark_id, game_end_bookmark_id);
+			game_start_bookmark_id, game_end_bookmark_id, restart_recording);
 
 		game_start_bookmark_id = boost::none;
 		game_end_bookmark_id = boost::none;
@@ -2316,11 +2326,13 @@ struct CrucibleContext {
 			streaming = true;
 			recording_stream = true;
 
+			restarting_recording = obs_output_active(output);
+
+			StopVideo(true, true);
 			StartVideoCapture();
-			if (!obs_output_active(output)) {
-				obs_output_start(output);
-				obs_output_start(buffer);
-			}
+
+			obs_output_start(output);
+			obs_output_start(buffer);
 		}
 	
 		ForgeEvents::SendStreamingStartExecuted(!obs_output_active(stream));
@@ -2653,7 +2665,7 @@ struct CrucibleContext {
 	}
 	
 	bool stopping = false;
-	void StopVideo(bool force=false)
+	void StopVideo(bool force=false, bool restart=false)
 	{
 		LOCK(updateMutex);
 		if (!force && (stopping || streaming || recording_game))
@@ -2662,6 +2674,8 @@ struct CrucibleContext {
 		ProfileScope(profile_store_name(obs_get_profiler_name_store(), "StopVideo()"));
 
 		auto stop_func = force ? obs_output_force_stop : obs_output_stop;
+
+		restart_recording = restart;
 
 		stopping = true;
 		if (obs_output_active(output))
@@ -2672,10 +2686,13 @@ struct CrucibleContext {
 		output = nullptr;
 		buffer = nullptr;
 
-		game_res.width = 0;
-		game_res.height = 0;
+		if (restart) {
+			game_res.width = 0;
+			game_res.height = 0;
+		}
 
 		stopping = false;
+		restart_recording = false;
 	}
 
 	void StartVideo()
