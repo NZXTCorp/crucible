@@ -2649,10 +2649,10 @@ struct CrucibleContext {
 	}
 	
 	bool stopping = false;
-	void StopVideo()
+	void StopVideo(bool force=false)
 	{
 		LOCK(updateMutex);
-		if (stopping || streaming || recording_game)
+		if (!force && (stopping || streaming || recording_game))
 			return;
 
 		ProfileScope(profile_store_name(obs_get_profiler_name_store(), "StopVideo()"));
@@ -2806,7 +2806,7 @@ static void HandleStopRecording(CrucibleContext &cc, OBSData &)
 {
 	AnvilCommands::ShowCacheLimitExceeded();
 
-	cc.StopVideo();
+	cc.StopVideo(true);
 }
 
 static void HandleInjectorResult(CrucibleContext &cc, OBSData &data)
@@ -2836,7 +2836,7 @@ static void HandleClipFinished(CrucibleContext &cc, OBSData &obj)
 
 static void HandleForgeWillClose(CrucibleContext &cc, OBSData&)
 {
-	cc.StopVideo();
+	cc.StopVideo(true);
 }
 
 static void HandleStartStreaming(CrucibleContext &cc, OBSData& obj)
