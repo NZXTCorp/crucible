@@ -1608,7 +1608,7 @@ struct CrucibleContext {
 			.SetFunc([=](calldata *data)
 		{
 			auto stream_ = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
-			if (stream_ == stream) // check if stop was requested
+			if (stream_ == stream) // check if stop wasn't requested
 				streaming = false;
 
 			stream_active = false;
