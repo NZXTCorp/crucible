@@ -2657,11 +2657,13 @@ struct CrucibleContext {
 
 		ProfileScope(profile_store_name(obs_get_profiler_name_store(), "StopVideo()"));
 
+		auto stop_func = force ? obs_output_force_stop : obs_output_stop;
+
 		stopping = true;
 		if (obs_output_active(output))
-			obs_output_stop(output);
+			stop_func(output);
 		if (obs_output_active(buffer))
-			obs_output_stop(buffer);
+			stop_func(buffer);
 
 		output = nullptr;
 		buffer = nullptr;
