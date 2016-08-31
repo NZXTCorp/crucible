@@ -2545,13 +2545,14 @@ struct CrucibleContext {
 			}
 
 			if (output_dimensions_changed) {
-				obs_output_stop(stream);
-				StopVideo();
+				obs_output_stop(output);
+				obs_output_stop(buffer);
+				StopVideo(true); // Needs to be force stopped, otherwise the output settings aren't updated.
 			}
 			
 			StartVideo();
 
-			obs_output_start(this->output);
+			obs_output_start(output);
 			obs_output_start(buffer);
 			if (streaming)
 				obs_output_start(stream);
