@@ -28,6 +28,7 @@ struct CrucibleFramebufferServer {
 		uint32_t width;
 		uint32_t height;
 		uint32_t line_size;
+		uint32_t shared_handle;
 	};
 
 	Metadata incoming_data;
@@ -61,6 +62,12 @@ struct CrucibleFramebufferServer {
 				incoming_data.width = static_cast<uint32_t>(obs_data_get_int(info, "width"));
 				incoming_data.height = static_cast<uint32_t>(obs_data_get_int(info, "height"));
 				incoming_data.line_size = static_cast<uint32_t>(obs_data_get_int(info, "line_size"));
+				incoming_data.shared_handle = static_cast<uint32_t>(obs_data_get_int(info, "shared_handle"));
+
+				if (incoming_data.shared_handle) {
+					fun(nullptr, 0, incoming_data);
+					return;
+				}
 
 				have_metadata = true;
 				return;
@@ -127,6 +134,7 @@ protected:
 			frame.height = metadata.height;
 			frame.linesize[0] = metadata.line_size;
 			frame.data[0] = data;
+			frame.shared_handle = metadata.shared_handle;
 
 			frame.timestamp = os_gettime_ns();
 
