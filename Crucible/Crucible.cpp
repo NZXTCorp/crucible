@@ -147,6 +147,8 @@ static DStr GetModulePath(const char *name)
 #define BIT_STRING "32bit"
 #endif
 
+static string recording_filename_prefix = "recording_";
+
 static string TimeZoneOffset()
 {
 	using boost::format;
@@ -286,7 +288,7 @@ namespace ForgeEvents {
 
 	void SendGameSessionEnded(const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
 		uint32_t width, uint32_t height, DWORD pid, const vector<Bookmark> &full_bookmarks, boost::optional<int> game_start_id, boost::optional<int> game_end_id,
-		bool restart_recording)
+		bool restart_recording, bool split_recording)
 	{
 		auto event = EventCreate("game_session_ended");
 
@@ -305,6 +307,7 @@ namespace ForgeEvents {
 		obs_data_set_double(event, "game_start", game_start);
 		obs_data_set_double(event, "game_end", game_end);
 		obs_data_set_double(event, "game_duration", game_end - game_start);
+		obs_data_set_bool(event, "split_recording", split_recording);
 
 		if (restart_recording)
 			obs_data_set_bool(event, "restart_recording", true);
@@ -1466,7 +1469,7 @@ struct CrucibleContext {
 						full_bookmarks = bookmarks;
 					}
 
-					GameSessionEnded(output);
+					GameSessionEnded(output, false);
 
 					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
 						obs_output_get_total_frames(output),
@@ -1533,7 +1536,7 @@ struct CrucibleContext {
 			if (bookmark->id != *game_end_bookmark_id)
 				return;
 
-			GameSessionEnded(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")));
+			GameSessionEnded(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")), false);
 		});
 
 		bufferSaved
@@ -1675,7 +1678,7 @@ struct CrucibleContext {
 		obs_output_set_reconnect_settings(stream, 0, 0);
 	}
 
-	void GameSessionEnded(obs_output_t *output)
+	void GameSessionEnded(obs_output_t *output, bool split_recording)
 	{
 		if (!recording_game && !game_end_bookmark_id)
 			return;
@@ -1690,7 +1693,7 @@ struct CrucibleContext {
 			obs_output_get_total_frames(output),
 			obs_output_get_output_duration(output),
 			BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, game_pid, full_bookmarks,
-			game_start_bookmark_id, game_end_bookmark_id, restart_recording);
+			game_start_bookmark_id, game_end_bookmark_id, restart_recording, split_recording);
 
 		game_start_bookmark_id = boost::none;
 		game_end_bookmark_id = boost::none;
@@ -2545,9 +2548,17 @@ struct CrucibleContext {
 			}
 
 			if (output_dimensions_changed) {
-				obs_output_stop(output);
-				obs_output_stop(buffer);
+				bool split_recording = RecordingActive();	// This is called when a new recording starts, so don't split the recording when it hasn't started yet
+
+				if (split_recording)
+					GameSessionEnded(output, true);
+
 				StopVideo(true); // Needs to be force stopped, otherwise the output settings aren't updated.
+
+				if (split_recording) { // Make a new filename for the split recording
+					auto cur = boost::posix_time::second_clock::local_time();
+					filename = recording_filename_prefix + to_iso_string(cur) + TimeZoneOffset() + ".mp4";
+				}
 			}
 			
 			StartVideo();
@@ -2788,6 +2799,8 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 	blog(LOG_INFO, "Starting new capture");
 
 	AnvilCommands::ResetShowWelcome();
+
+	recording_filename_prefix = string(obs_data_get_string(obj, "filename_prefix"));
 
 	if (!recording_active)
 		cc.StartVideoCapture();
