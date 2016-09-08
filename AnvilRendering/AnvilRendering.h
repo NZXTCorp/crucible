@@ -48,6 +48,7 @@ enum HOTKEY_TYPE
 	HOTKEY_Bookmark,
 	HOTKEY_Overlay,
 	HOTKEY_Stream,
+	HOTKEY_StartStopStream,
 	HOTKEY_QTY,
 };
 
@@ -60,6 +61,7 @@ static inline const char *HotKeyTypeName(HOTKEY_TYPE hotkey)
 		HK(HOTKEY_Bookmark);
 		HK(HOTKEY_Overlay);
 		HK(HOTKEY_Stream);
+		HK(HOTKEY_StartStopStream);
 	default:
 		break;
 	}
@@ -105,6 +107,7 @@ namespace ForgeEvent
 	bool ShowBrowser(const BrowserConnectionDescription &server, LONG width, LONG height);
 	bool HideBrowser();
 	bool CreateBookmark();
+	bool StartStopStream(); // For the new Start/Stop stream hotkey
 	bool StartStream();
 	bool StopStream();
 }
