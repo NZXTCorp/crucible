@@ -133,7 +133,7 @@ struct ScreenshotProvider
 
 			gs_stagesurface_destroy(stage);
 			stage = nullptr;
-			requested = false;
+			requested = !pending_request.empty();
 			copied = false;
 			staged = false;
 			saved = false;
