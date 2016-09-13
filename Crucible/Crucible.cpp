@@ -471,12 +471,17 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
-	void SendFramebufferConnectionInfo(const char *id, const char *name)
+	void SendFramebufferConnectionInfo(const char *id, const char *name, const LUID *luid)
 	{
 		auto event = EventCreate("framebuffer_connection_info");
 
 		obs_data_set_string(event, "id", id);
 		obs_data_set_string(event, "name", name);
+
+		if (luid) {
+			obs_data_set_int(event, "luid_low", luid->LowPart);
+			obs_data_set_int(event, "luid_high", luid->HighPart);
+		}
 
 		SendEvent(event);
 	}
@@ -1369,6 +1374,10 @@ struct CrucibleContext {
 
 		wallpaper_and_webcam.wallpaper = obs_scene_add(wallpaper_and_webcam.scene, wallpaper);
 
+		obs_enter_graphics();
+		auto graphics_adapter_luid = reinterpret_cast<const LUID*>(gs_get_device_luid());
+		obs_leave_graphics();
+
 		auto connect_framebuffer = [&](obs_source_t *source, const char *connection)
 		{
 			auto proc = obs_source_get_proc_handler(source);
@@ -1376,7 +1385,7 @@ struct CrucibleContext {
 			proc_handler_call(proc, "get_server_name", &data);
 
 			if (auto name = calldata_string(&data, "name")) {
-				ForgeEvents::SendFramebufferConnectionInfo(connection, name);
+				ForgeEvents::SendFramebufferConnectionInfo(connection, name, graphics_adapter_luid);
 			} else {
 				blog(LOG_WARNING, "CrucibleContext::InitSources: failed to get framebuffer name for %s", connection);
 			}
