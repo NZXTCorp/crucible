@@ -59,6 +59,7 @@ struct ScreenshotProvider
 	bool requested = false;
 	bool copied = false;
 	bool staged = false;
+	bool saving = false;
 	bool saved = false;
 	bool success = false;
 	mutex save_mutex;
@@ -125,7 +126,7 @@ struct ScreenshotProvider
 	std::recursive_mutex draw_mutex;
 	void Draw()
 	{
-		if (staged && saved) {
+		if (saved) {
 			auto request = pending_request.front();
 			request.Complete(success);
 			
@@ -136,16 +137,29 @@ struct ScreenshotProvider
 			requested = !pending_request.empty();
 			copied = false;
 			staged = false;
+			saving = false;
 			saved = false;
 			success = false;
 		}
 		
-		if (staged && !saved) {
-			auto request = pending_request.front();
-			if (!(success = gs_stagesurface_save_to_file(stage, request.filename.c_str())))
-				blog(LOG_WARNING, "screenshot: gs_stagesurface_save_to_file failed for \"%s\"", request.filename.c_str());
+		if (staged && !saving) {
+			auto work = CreateThreadpoolWork([](PTP_CALLBACK_INSTANCE instance, PVOID context, PTP_WORK work)
+			{
+				auto self = reinterpret_cast<ScreenshotProvider*>(context);
+				auto request = self->pending_request.front();
 
-			saved = true;
+				obs_enter_graphics();
+				if (!(self->success = gs_stagesurface_save_to_file(self->stage, request.filename.c_str())))
+					blog(LOG_WARNING, "screenshot: gs_stagesurface_save_to_file failed for \"%s\"", request.filename.c_str());
+				obs_leave_graphics();
+				
+				self->saved = true;
+			}, this, nullptr);
+
+			SubmitThreadpoolWork(work);
+			CloseThreadpoolWork(work);
+
+			saving = true;
 		}
 	
 		if (copied && !staged) {
