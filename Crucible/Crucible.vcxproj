@@ -82,6 +82,7 @@
     <ClCompile Include="Crucible.cpp" />
     <ClCompile Include="RemoteDisplay.cpp" />
     <ClCompile Include="FramebufferSource.cpp" />
+    <ClCompile Include="ScreenshotProvider.cpp" />
     <ClCompile Include="TestWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -90,6 +91,7 @@
     <ClInclude Include="ProtectedObject.hpp" />
     <ClInclude Include="RemoteDisplay.h" />
     <ClInclude Include="scopeguard.hpp" />
+    <ClInclude Include="ScreenshotProvider.h" />
     <ClInclude Include="TestWindow.h" />
     <ClInclude Include="ThreadTools.hpp" />
   </ItemGroup>

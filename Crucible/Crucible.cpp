@@ -42,6 +42,8 @@ using namespace std;
 #include "scopeguard.hpp"
 #include "ThreadTools.hpp"
 
+#include "ScreenshotProvider.h"
+
 // window class borrowed from forge, remove once we've got headless mode working
 #include "TestWindow.h"
 
@@ -550,6 +552,18 @@ namespace ForgeEvents {
 	void SendGameSessionStarted()
 	{
 		SendEvent(EventCreate("game_session_started"));
+	}
+
+	void SendScreenshotSaved(bool success, uint32_t cx, uint32_t cy, const std::string filename)
+	{
+		auto event = EventCreate("screenshot_saved");
+
+		obs_data_set_bool(event, "success", success);
+		obs_data_set_int(event, "width", cx);
+		obs_data_set_int(event, "height", cy);
+		obs_data_set_string(event, "filename", filename.c_str());
+
+		SendEvent(event);
 	}
 }
 
@@ -1398,6 +1412,7 @@ struct CrucibleContext {
 		auto init_display = [&](const char *display, auto &container)
 		{
 			Display::SetSource(display, obs_scene_get_source(container.scene));
+			Screenshot::SetSource(obs_scene_get_source(container.scene));
 		};
 
 		init_display("game", game_and_webcam);
@@ -2184,6 +2199,7 @@ struct CrucibleContext {
 		}
 
 		Display::SetSource("preview", source);
+		Screenshot::SetSource(source);
 		streaming_source = source;
 		if (streaming || recording_stream)
 			obs_set_output_source(0, source);
@@ -2687,6 +2703,11 @@ struct CrucibleContext {
 		calldata_free(&data);
 	}
 
+	void SaveScreenshot(int width, int height, const char *filename)
+	{
+		Screenshot::Request(width, height, filename, ForgeEvents::SendScreenshotSaved);
+	}
+
 	bool RecordingActive()
 	{
 		return obs_output_active(output);
@@ -3064,6 +3085,11 @@ static void HandleEnableSourceLevelMeters(CrucibleContext &cc, OBSData &data)
 	cc.EnableSourceLevelMeters(obs_data_get_bool(data, "enabled"));
 }
 
+static void HandleSaveScreenshot(CrucibleContext &cc, OBSData &data)
+{
+	cc.SaveScreenshot(obs_data_get_int(data, "width"), obs_data_get_int(data, "height"), obs_data_get_string(data, "filename"));
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -3097,6 +3123,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "update_scenes", HandleUpdateScenes },
 		{ "set_source_volume", HandleSetSourceVolume },
 		{ "enable_source_level_meters", HandleEnableSourceLevelMeters },
+		{ "save_screenshot", HandleSaveScreenshot },
 	};
 	if (!data)
 		return;
