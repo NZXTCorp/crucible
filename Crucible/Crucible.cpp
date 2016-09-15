@@ -2141,13 +2141,31 @@ struct CrucibleContext {
 			return;
 		}
 
-		if (window) {
+		string name = obs_data_get_string(settings, "window");
+
+		bool use_display = name.find("Google Chrome:Chrome") != name.npos && name.find(":chrome.exe") != name.npos;
+
+		if (window && (string("window_capture") == obs_source_get_id(window)) != use_display) {
 			obs_source_update(window, settings);
 			return;
 		}
 
-		InitRef(window, "Couldn't create window capture source", obs_source_release,
-			obs_source_create(OBS_SOURCE_TYPE_INPUT, "window_capture", "window capture", settings, nullptr));
+		if (window) {
+			obs_sceneitem_remove(window_and_webcam.window);
+			window_and_webcam.window = nullptr;
+			window = nullptr;
+		}
+
+		try {
+			InitRef(window, "Couldn't create window capture source", obs_source_release,
+				obs_source_create(OBS_SOURCE_TYPE_INPUT, use_display ? "display_window_capture" : "window_capture", "window capture", settings, nullptr));
+		} catch (const char*) {
+			if (use_display)
+				InitRef(window, "Couldn't create window capture source", obs_source_release,
+					obs_source_create(OBS_SOURCE_TYPE_INPUT, "window_capture", "window capture", settings, nullptr));
+			else
+				throw;
+		}
 
 		if (!window)
 			return;
