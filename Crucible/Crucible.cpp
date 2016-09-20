@@ -1280,6 +1280,10 @@ struct CrucibleContext {
 
 	bool ResetVideo()
 	{
+		ovi.colorspace = VIDEO_CS_601;
+		if (ovi.output_width >= 1280 || ovi.output_height >= 720)
+			ovi.colorspace = VIDEO_CS_709;
+
 		if (obs_reset_video(&ovi))
 			return false;
 
