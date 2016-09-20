@@ -1436,9 +1436,10 @@ struct CrucibleContext {
 		obs_data_set_bool(vsettings, "cbr", false);
 		obs_data_set_string(vsettings, "profile", "high");
 		obs_data_set_string(vsettings, "preset", "veryfast");
+		obs_data_set_int(vsettings, "keyint_sec", 1);
 
 		ostringstream os;
-		os << "keyint=30 vbv-maxrate=" << target_bitrate;
+		os << "vbv-maxrate=" << target_bitrate;
 		obs_data_set_string(vsettings, "x264opts", os.str().c_str());
 
 		InitRef(h264, "Couldn't create video encoder", obs_encoder_release,
@@ -1449,7 +1450,7 @@ struct CrucibleContext {
 		obs_data_set_bool(ssettings, "cbr", true);
 		obs_data_set_string(ssettings, "profile", "high");
 		obs_data_set_string(ssettings, "preset", "veryfast");
-		obs_data_set_string(ssettings, "x264opts", "keyint=60");
+		obs_data_set_int(ssettings, "keyint_sec", 2);
 
 		InitRef(stream_h264, "Couldn't create stream video encoder", obs_encoder_release,
 			obs_video_encoder_create("obs_x264", "stream video", ssettings, nullptr));
@@ -1704,7 +1705,7 @@ struct CrucibleContext {
 		obs_data_set_bool(ssettings, "cbr", true);
 		obs_data_set_string(ssettings, "profile", "high");
 		obs_data_set_string(ssettings, "preset", "veryfast");
-		obs_data_set_string(ssettings, "x264opts", "keyint=60");
+		obs_data_set_int(ssettings, "keyint_sec", 2);
 
 		obs_encoder_update(stream_h264, ssettings);
 
@@ -2682,9 +2683,10 @@ struct CrucibleContext {
 				obs_data_set_bool(vsettings, "cbr", false);
 				obs_data_set_string(vsettings, "profile", "high");
 				obs_data_set_string(vsettings, "preset", "veryfast");
+				obs_data_set_int(vsettings, "keyint_sec", 1);
 
 				ostringstream os;
-				os << "keyint=30 vbv-maxrate=" << max_rate;
+				os << "vbv-maxrate=" << max_rate;
 				obs_data_set_string(vsettings, "x264opts", os.str().c_str());
 
 				obs_encoder_update(h264, vsettings);
@@ -2702,7 +2704,7 @@ struct CrucibleContext {
 				obs_data_set_bool(vsettings, "cbr", true);
 				obs_data_set_string(vsettings, "profile", "high");
 				obs_data_set_string(vsettings, "preset", "veryfast");
-				obs_data_set_string(vsettings, "x264opts", "keyint=60");
+				obs_data_set_int(vsettings, "keyint_sec", 2);
 
 				if (game_res.width && game_res.height) {
 					auto scaled = ScaleResolution(target_stream, game_res);
