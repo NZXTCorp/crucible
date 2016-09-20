@@ -1243,6 +1243,7 @@ struct CrucibleContext {
 
 	OutputResolution target = OutputResolution{ 1280, 720 }; //thanks VS2013
 	uint32_t target_bitrate = 3500;
+	uint32_t target_fps = 30;
 
 	OutputResolution game_res = OutputResolution{ 0, 0 };
 	bool sli_compatibility = false;
@@ -1284,8 +1285,12 @@ struct CrucibleContext {
 		if (ovi.output_width >= 1280 || ovi.output_height >= 720)
 			ovi.colorspace = VIDEO_CS_709;
 
-		if (obs_reset_video(&ovi))
+		uint32_t old_fps = ovi.fps_num;
+		ovi.fps_num = target_fps;
+		if (obs_reset_video(&ovi)) {
+			ovi.fps_num = old_fps;
 			return false;
+		}
 
 		ForgeEvents::SendCanvasSize(ovi.base_width, ovi.base_height);
 		return true;
@@ -2556,6 +2561,17 @@ struct CrucibleContext {
 			auto gc_settings = OBSTransferOwned(obs_source_get_settings(gameCapture));
 			obs_data_set_bool(gc_settings, "sli_compatibility", sli_compatibility);
 			obs_source_update(gameCapture, gc_settings);
+		}();
+
+		[&]
+		{
+			auto new_fps = obs_data_get_int(settings, "frame_rate");
+			if (new_fps < 30 || new_fps == target_fps)
+				return;
+
+			target_fps = new_fps;
+
+			ResetVideo();
 		}();
 	}
 
