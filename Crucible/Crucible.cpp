@@ -1245,6 +1245,7 @@ struct CrucibleContext {
 	uint32_t target_bitrate = 3500;
 
 	OutputResolution game_res = OutputResolution{ 0, 0 };
+	bool sli_compatibility = false;
 
 	DWORD game_pid = -1;
 	bool recording_game = false;
@@ -2090,6 +2091,7 @@ struct CrucibleContext {
 
 		obs_data_set_string(settings, "overlay_dll", path);
 		obs_data_set_string(settings, "overlay_dll64", path64);
+		obs_data_set_bool(settings, "sli_compatibility", sli_compatibility);
 		//obs_data_set_bool(settings, "allow_ipc_injector", true);
 
 		InitRef(gameCapture, "Couldn't create game capture source", obs_source_release,
@@ -2533,6 +2535,22 @@ struct CrucibleContext {
 			add_to_scene(window_and_webcam);
 			add_to_scene(wallpaper_and_webcam);
 			add_to_scene(webcam_and_theme);
+		}();
+
+		[&]
+		{
+			auto new_sli_compatibility = obs_data_get_bool(settings, "sli_compatibility");
+			if (new_sli_compatibility == sli_compatibility)
+				return;
+
+			sli_compatibility = new_sli_compatibility;
+
+			if (!gameCapture)
+				return;
+
+			auto gc_settings = OBSTransferOwned(obs_source_get_settings(gameCapture));
+			obs_data_set_bool(gc_settings, "sli_compatibility", sli_compatibility);
+			obs_source_update(gameCapture, gc_settings);
 		}();
 	}
 
