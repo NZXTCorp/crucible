@@ -2469,68 +2469,71 @@ struct CrucibleContext {
 		obs_hotkey_load_bindings(unmute_hotkey_id, &combo, continuous ? 1 : 0);
 		obs_set_output_source(2, enabled ? mic : nullptr);
 
-		auto webcam_ = OBSDataGetObj(settings, "webcam");
-
-		auto remove_from_scene = [&](auto &container)
+		[&]
 		{
-			obs_sceneitem_remove(container.webcam);
-			container.webcam = nullptr;
-		};
+			auto webcam_ = OBSDataGetObj(settings, "webcam");
 
-		DEFER {
-			game_and_webcam.MakePresentable();
-			window_and_webcam.MakePresentable();
-			wallpaper_and_webcam.MakePresentable();
-			webcam_and_theme.MakePresentable();
-		};
+			auto remove_from_scene = [&](auto &container)
+			{
+				obs_sceneitem_remove(container.webcam);
+				container.webcam = nullptr;
+			};
 
-		if (!obs_data_has_user_value(webcam_, "device")) {
-			remove_from_scene(game_and_webcam);
-			remove_from_scene(window_and_webcam);
-			remove_from_scene(wallpaper_and_webcam);
-			remove_from_scene(webcam_and_theme);
+			DEFER{
+				game_and_webcam.MakePresentable();
+				window_and_webcam.MakePresentable();
+				wallpaper_and_webcam.MakePresentable();
+				webcam_and_theme.MakePresentable();
+			};
 
-			webcam = nullptr;
-
-			return;
-		}
-
-		{
-			auto dev = obs_data_get_string(webcam_, "device");
-
-			auto webcam_settings = OBSDataCreate();
-			obs_data_set_string(webcam_settings, "video_device_id", dev);
-
-			if (webcam && webcam_device == dev)
-				obs_source_update(webcam, webcam_settings);
-			else {
+			if (!obs_data_has_user_value(webcam_, "device")) {
 				remove_from_scene(game_and_webcam);
 				remove_from_scene(window_and_webcam);
 				remove_from_scene(wallpaper_and_webcam);
 				remove_from_scene(webcam_and_theme);
 
-				InitRef(webcam, "Couldn't create webcam source", obs_source_release,
-					obs_source_create(OBS_SOURCE_TYPE_INPUT, "dshow_input", "webcam", webcam_settings, nullptr));
+				webcam = nullptr;
+
+				return;
 			}
 
-			webcam_device = dev;
+			{
+				auto dev = obs_data_get_string(webcam_, "device");
 
-			obs_source_set_muted(webcam, true); // webcams can have mics attached to them that dshow_input will pick up sometimes
-		}
+				auto webcam_settings = OBSDataCreate();
+				obs_data_set_string(webcam_settings, "video_device_id", dev);
 
-		auto add_to_scene = [&](auto &container)
-		{
-			if (container.webcam)
-				return;
+				if (webcam && webcam_device == dev)
+					obs_source_update(webcam, webcam_settings);
+				else {
+					remove_from_scene(game_and_webcam);
+					remove_from_scene(window_and_webcam);
+					remove_from_scene(wallpaper_and_webcam);
+					remove_from_scene(webcam_and_theme);
 
-			container.webcam = obs_scene_add(container.scene, webcam);
-			container.MakePresentable();
-		};
+					InitRef(webcam, "Couldn't create webcam source", obs_source_release,
+						obs_source_create(OBS_SOURCE_TYPE_INPUT, "dshow_input", "webcam", webcam_settings, nullptr));
+				}
 
-		add_to_scene(game_and_webcam);
-		add_to_scene(window_and_webcam);
-		add_to_scene(wallpaper_and_webcam);
-		add_to_scene(webcam_and_theme);
+				webcam_device = dev;
+
+				obs_source_set_muted(webcam, true); // webcams can have mics attached to them that dshow_input will pick up sometimes
+			}
+
+			auto add_to_scene = [&](auto &container)
+			{
+				if (container.webcam)
+					return;
+
+				container.webcam = obs_scene_add(container.scene, webcam);
+				container.MakePresentable();
+			};
+
+			add_to_scene(game_and_webcam);
+			add_to_scene(window_and_webcam);
+			add_to_scene(wallpaper_and_webcam);
+			add_to_scene(webcam_and_theme);
+		}();
 	}
 
 	void UpdateEncoder(obs_data_t *settings)
