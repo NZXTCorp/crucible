@@ -27,8 +27,8 @@
 #undef GAPIOGLFUNC
 
 PFNGLACTIVETEXTUREARBPROC s_glActiveTextureARB;
-HGLRC cur_context;
-HDC app_HDC;
+HGLRC cur_context = nullptr;
+HDC app_HDC = nullptr;
 GLint s_iMaxTexUnits;
 
 bool LoadOpenGLFunctions()
