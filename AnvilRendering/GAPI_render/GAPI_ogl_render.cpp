@@ -401,36 +401,40 @@ void overlay_gl_free()
 	if (in_free || !initialized)
 		return;
 
+	auto dc_valid = !!WindowFromDC(app_HDC);
+
 	in_free = true;
 
-	s_wglMakeCurrent(app_HDC, render_context); // Switch to the overlay context for these operations.
+	if (dc_valid) {
+		s_wglMakeCurrent(app_HDC, render_context); // Switch to the overlay context for these operations.
 
-	for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
-		overlay_textures[a].Reset([&](GLuint &tex)
-		{
-			if (!tex)
-				return;
+		for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
+			overlay_textures[a].Reset([&](GLuint &tex)
+			{
+				if (!tex)
+					return;
 
-			s_glDeleteTextures(1, &tex);
-			tex = 0;
-		});
+				s_glDeleteTextures(1, &tex);
+				tex = 0;
+			});
+		}
+
+		render.FreeRenderer();
 	}
+
+	if (render_context && dc_valid)
+		s_wglDeleteContext(render_context);
+
+	render_context = nullptr;
 
 	overlay_tex_initialized = false;
 	framebuffer_server_started = false;
 
-	render.FreeRenderer();
-
-	if (render_context) {
-		s_wglDeleteContext(render_context);
-		render_context = nullptr;
-	}
-
 	initialized = false;
-	framebuffer_server_started = false;
 	in_free = false;
 
-	s_wglMakeCurrent(app_HDC, cur_context); // And then switch back the game's context.
+	if (dc_valid && cur_context)
+		s_wglMakeCurrent(app_HDC, cur_context); // And then switch back the game's context.
 }
 
 static void update_overlay()
@@ -583,6 +587,11 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 {
 	if (!s_wglCreateContext)
 		LoadOpenGLFunctions();
+
+	if (!WindowFromDC(app_HDC)) {
+		app_HDC = nullptr;
+		overlay_gl_free();
+	}
 
 	if (!render_context)
 		render_context = s_wglCreateContext(hdc);
