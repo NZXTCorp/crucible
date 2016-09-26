@@ -63,6 +63,49 @@ static const char* s_DX11TextureShader =
 	"    return input.Col;\r\n"
 	"}\r\n";
 
+#define MAX_RENDER_TARGETS             D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT
+#define MAX_SO_TARGETS                 4
+#define MAX_CLASS_INSTS                256
+
+struct d3d11_state {
+	bool                           saved;
+	ID3D11DeviceContext            *context;
+
+	ID3D11GeometryShader           *geom_shader;
+	ID3D11InputLayout              *vertex_layout;
+	D3D11_PRIMITIVE_TOPOLOGY       topology;
+	ID3D11Buffer                   *vertex_buffer;
+	UINT                           vb_stride;
+	UINT                           vb_offset;
+	ID3D11BlendState               *blend_state;
+	float                          blend_factor[4];
+	UINT                           sample_mask;
+	ID3D11DepthStencilState        *zstencil_state;
+	UINT                           zstencil_ref;
+	ID3D11RenderTargetView         *render_targets[MAX_RENDER_TARGETS];
+	ID3D11DepthStencilView         *zstencil_view;
+	ID3D11SamplerState             *sampler_state;
+	ID3D11PixelShader              *pixel_shader;
+	ID3D11ShaderResourceView       *resource;
+	ID3D11RasterizerState          *raster_state;
+	UINT                           num_viewports;
+	D3D11_VIEWPORT                 *viewports;
+	ID3D11Buffer                   *stream_output_targets[MAX_SO_TARGETS];
+	ID3D11VertexShader             *vertex_shader;
+	ID3D11ClassInstance            *gs_class_instances[MAX_CLASS_INSTS];
+	ID3D11ClassInstance            *ps_class_instances[MAX_CLASS_INSTS];
+	ID3D11ClassInstance            *vs_class_instances[MAX_CLASS_INSTS];
+	UINT                           gs_class_inst_count;
+	UINT                           ps_class_inst_count;
+	UINT                           vs_class_inst_count;
+};
+
+static d3d11_state *get_saved_state()
+{
+	static d3d11_state state = { 0 };
+	return &state;
+}
+
 DX11Renderer::DX11Renderer( ID3D11Device *pDevice )
 {
 	m_pDevice = pDevice;
@@ -488,6 +531,123 @@ void DX11Renderer::FreeRenderer( void )
 		m_pIndicatorTexture[i].ReleaseRefObj( );
 		m_pResViewNotification[i].ReleaseRefObj( );
 	}
+}
+
+static inline void d3d11_save_state(ID3D11DeviceContext *context, d3d11_state *state)
+{
+	if (state->saved)
+		return;
+
+	state->saved = true;
+	state->context = context;
+	context->AddRef();
+
+	state->gs_class_inst_count = MAX_CLASS_INSTS;
+	state->ps_class_inst_count = MAX_CLASS_INSTS;
+	state->vs_class_inst_count = MAX_CLASS_INSTS;
+
+	context->GSGetShader(&state->geom_shader,
+		state->gs_class_instances,
+		&state->gs_class_inst_count);
+	context->IAGetInputLayout(&state->vertex_layout);
+	context->IAGetPrimitiveTopology(&state->topology);
+	context->IAGetVertexBuffers(0, 1, &state->vertex_buffer,
+		&state->vb_stride, &state->vb_offset);
+	context->OMGetBlendState(&state->blend_state, state->blend_factor,
+		&state->sample_mask);
+	context->OMGetDepthStencilState(&state->zstencil_state,
+		&state->zstencil_ref);
+	context->OMGetRenderTargets(MAX_RENDER_TARGETS,
+		state->render_targets, &state->zstencil_view);
+	context->PSGetSamplers(0, 1, &state->sampler_state);
+	context->PSGetShader(&state->pixel_shader,
+		state->ps_class_instances,
+		&state->ps_class_inst_count);
+	context->PSGetShaderResources(0, 1, &state->resource);
+	context->RSGetState(&state->raster_state);
+	context->RSGetViewports(&state->num_viewports, nullptr);
+	if (state->num_viewports) {
+		state->viewports = (D3D11_VIEWPORT*)malloc(
+			sizeof(D3D11_VIEWPORT) * state->num_viewports);
+		context->RSGetViewports(&state->num_viewports,
+			state->viewports);
+	}
+	context->SOGetTargets(MAX_SO_TARGETS,
+		state->stream_output_targets);
+	context->VSGetShader(&state->vertex_shader,
+		state->vs_class_instances,
+		&state->vs_class_inst_count);
+}
+
+static inline void safe_release(IUnknown *p)
+{
+	if (p) p->Release();
+}
+
+#define SO_APPEND ((UINT)-1)
+
+static inline void d3d11_restore_state(d3d11_state *state)
+{
+	if (!state->saved)
+		return;
+
+	IRefPtr<ID3D11DeviceContext> context{ state->context };
+
+	state->saved = false;
+	state->context = nullptr;
+
+	UINT so_offsets[MAX_SO_TARGETS] =
+	{ SO_APPEND, SO_APPEND, SO_APPEND, SO_APPEND };
+
+	context->GSSetShader(state->geom_shader,
+		state->gs_class_instances,
+		state->gs_class_inst_count);
+	context->IASetInputLayout(state->vertex_layout);
+	context->IASetPrimitiveTopology(state->topology);
+	context->IASetVertexBuffers(0, 1, &state->vertex_buffer,
+		&state->vb_stride, &state->vb_offset);
+	context->OMSetBlendState(state->blend_state, state->blend_factor,
+		state->sample_mask);
+	context->OMSetDepthStencilState(state->zstencil_state,
+		state->zstencil_ref);
+	context->OMSetRenderTargets(MAX_RENDER_TARGETS,
+		state->render_targets,
+		state->zstencil_view);
+	context->PSSetSamplers(0, 1, &state->sampler_state);
+	context->PSSetShader(state->pixel_shader,
+		state->ps_class_instances,
+		state->ps_class_inst_count);
+	context->PSSetShaderResources(0, 1, &state->resource);
+	context->RSSetState(state->raster_state);
+	context->RSSetViewports(state->num_viewports, state->viewports);
+	context->SOSetTargets(MAX_SO_TARGETS,
+		state->stream_output_targets, so_offsets);
+	context->VSSetShader(state->vertex_shader,
+		state->vs_class_instances,
+		state->vs_class_inst_count);
+	safe_release(state->geom_shader);
+	safe_release(state->vertex_layout);
+	safe_release(state->vertex_buffer);
+	safe_release(state->blend_state);
+	safe_release(state->zstencil_state);
+	for (size_t i = 0; i < MAX_RENDER_TARGETS; i++)
+		safe_release(state->render_targets[i]);
+	safe_release(state->zstencil_view);
+	safe_release(state->sampler_state);
+	safe_release(state->pixel_shader);
+	safe_release(state->resource);
+	safe_release(state->raster_state);
+	for (size_t i = 0; i < MAX_SO_TARGETS; i++)
+		safe_release(state->stream_output_targets[i]);
+	safe_release(state->vertex_shader);
+	for (size_t i = 0; i < state->gs_class_inst_count; i++)
+		state->gs_class_instances[i]->Release();
+	for (size_t i = 0; i < state->ps_class_inst_count; i++)
+		state->ps_class_instances[i]->Release();
+	for (size_t i = 0; i < state->vs_class_inst_count; i++)
+		state->vs_class_instances[i]->Release();
+	free(state->viewports);
+	memset(state, 0, sizeof(*state));
 }
 
 void DX11Renderer::DrawNewIndicator( IDXGISwapChain *pSwapChain, IndicatorEvent eIndicatorEvent, BYTE alpha )
