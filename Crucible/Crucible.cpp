@@ -2473,7 +2473,6 @@ struct CrucibleContext {
 		LOCK(updateMutex);
 		obs_source_update(tunes, desktop_audio_settings);
 		obs_source_update(mic, source_settings);
-		obs_source_set_muted(mic, false);
 		obs_source_enable_push_to_talk(mic, ptt);
 		AnvilCommands::MicUpdated(ptt, enabled, ptt);
 		obs_hotkey_load_bindings(ptt_hotkey_id, &combo, ptt ? 1 : 0);
