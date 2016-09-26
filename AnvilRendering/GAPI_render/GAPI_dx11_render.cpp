@@ -17,6 +17,8 @@
 
 #include <memory>
 
+#include "../../Crucible/scopeguard.hpp"
+
 extern pD3DCompile s_D3DCompile;
 
 struct TEXMAPVERTEX 
@@ -680,34 +682,7 @@ void DX11Renderer::DrawNewIndicator( IDXGISwapChain *pSwapChain, IndicatorEvent 
 	vp.MinDepth   = 0.0f;
 	vp.MaxDepth   = 1.0f;
 
-// save current state
-	IRefPtr<ID3D11RasterizerState> pSavedRSState;
-	pContext->RSGetState( IREF_GETPPTR(pSavedRSState, ID3D11RasterizerState) );
-
-	IRefPtr<ID3D11DepthStencilState> pSavedDepthState;
-	UINT pStencilRef = 0;
-	pContext->OMGetDepthStencilState(IREF_GETPPTR(pSavedDepthState, ID3D11DepthStencilState), &pStencilRef);
-
-	// will games with multiple viewports break here?
-	D3D11_VIEWPORT originalVP;
-	UINT numViewPorts = 1;
-	pContext->RSGetViewports(&numViewPorts, &originalVP);
-
-	// save render/depth target so we can restore after
-	IRefPtr<ID3D11RenderTargetView> pOldRenderTargetView;
-	IRefPtr<ID3D11DepthStencilView> pDepthStencilView;
-	pContext->OMGetRenderTargets(1, IREF_GETPPTR(pOldRenderTargetView, ID3D11RenderTargetView), IREF_GETPPTR(pDepthStencilView, ID3D11DepthStencilView));
-
-	IRefPtr<ID3D11BlendState> pBlendState;
-	float fBlendFactor[4];
-	UINT uSampleMask;
-	pContext->OMGetBlendState( IREF_GETPPTR(pBlendState, ID3D11BlendState), fBlendFactor, &uSampleMask );
-
-	D3D11_PRIMITIVE_TOPOLOGY old_topology;
-	pContext->IAGetPrimitiveTopology( &old_topology );
-
-	IRefPtr<ID3D11InputLayout> pOldInputLayout;
-	pContext->IAGetInputLayout( IREF_GETPPTR(pOldInputLayout, ID3D11InputLayout) );	
+	d3d11_save_state(pContext, get_saved_state());
 
 // setup
 	pContext->OMSetRenderTargets(1, pRenderTargetView.get_Array(), nullptr );
@@ -737,29 +712,14 @@ void DX11Renderer::DrawNewIndicator( IDXGISwapChain *pSwapChain, IndicatorEvent 
 	pContext->IASetVertexBuffers( 0, 1, m_pVBNotification.get_Array(), &stride, &offset );
 	pContext->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP );
 	pContext->Draw( 4, 0 );
-
-// restore state
-	pContext->IASetPrimitiveTopology( old_topology );
-	pContext->IASetInputLayout( pOldInputLayout.get_RefObj() );	
-
-	auto targetView = pOldRenderTargetView.get_RefObj();
-	pContext->OMSetRenderTargets(1, &targetView, pDepthStencilView);
-
-	pContext->RSSetViewports(1, &originalVP);				// restore the old viewport
-	pContext->RSSetState(pSavedRSState);					// restore the old state
-	pContext->OMSetDepthStencilState(pSavedDepthState, 1);	// restore the old depth state (re-enable zbuffer)
-
-	pContext->OMSetBlendState( pBlendState, fBlendFactor, uSampleMask );
-
-	pRenderTargetView.ReleaseRefObj( );
-	pOldRenderTargetView.ReleaseRefObj( );
-	pOldInputLayout.ReleaseRefObj( );
 }
 
 void DX11Renderer::DrawIndicator( IDXGISwapChain *pSwapChain, TAKSI_INDICATE_TYPE eIndicate )
 {
 	IRefPtr<ID3D11DeviceContext> pContext;
 	m_pDevice->GetImmediateContext( IREF_GETPPTR(pContext, ID3D11DeviceContext) );
+
+	d3d11_save_state(pContext, get_saved_state());
 
 	HRESULT hRes;
 	IRefPtr<ID3D11Texture2D> pBackBuffer;
@@ -785,35 +745,6 @@ void DX11Renderer::DrawIndicator( IDXGISwapChain *pSwapChain, TAKSI_INDICATE_TYP
 	vp.Height = (UINT)( INDICATOR_Y*2 + INDICATOR_Height );
 	vp.MinDepth   = 0.0f;
 	vp.MaxDepth   = 1.0f;
-
-// save current state
-	IRefPtr<ID3D11RasterizerState> pSavedRSState;
-	pContext->RSGetState( IREF_GETPPTR(pSavedRSState, ID3D11RasterizerState) );
-
-	IRefPtr<ID3D11DepthStencilState> pSavedDepthState;
-	UINT pStencilRef = 0;
-	pContext->OMGetDepthStencilState(IREF_GETPPTR(pSavedDepthState, ID3D11DepthStencilState), &pStencilRef);
-
-	// will games with multiple viewports break here?
-	D3D11_VIEWPORT originalVP;
-	UINT numViewPorts = 1;
-	pContext->RSGetViewports(&numViewPorts, &originalVP);
-
-	// save render/depth target so we can restore after
-	IRefPtr<ID3D11RenderTargetView> pOldRenderTargetView;
-	IRefPtr<ID3D11DepthStencilView> pDepthStencilView;
-	pContext->OMGetRenderTargets(1, IREF_GETPPTR(pOldRenderTargetView, ID3D11RenderTargetView), IREF_GETPPTR(pDepthStencilView, ID3D11DepthStencilView));
-
-	IRefPtr<ID3D11BlendState> pBlendState;
-	float fBlendFactor[4];
-	UINT uSampleMask;
-	pContext->OMGetBlendState( IREF_GETPPTR(pBlendState, ID3D11BlendState), fBlendFactor, &uSampleMask );
-
-	D3D11_PRIMITIVE_TOPOLOGY old_topology;
-	pContext->IAGetPrimitiveTopology( &old_topology );
-
-	IRefPtr<ID3D11InputLayout> pOldInputLayout;
-	pContext->IAGetInputLayout( IREF_GETPPTR(pOldInputLayout, ID3D11InputLayout) );	
 
 // setup
 	pContext->OMSetRenderTargets(1, IREF_GETPPTR(pRenderTargetView, ID3D11RenderTargetView), nullptr );
@@ -841,23 +772,6 @@ void DX11Renderer::DrawIndicator( IDXGISwapChain *pSwapChain, TAKSI_INDICATE_TYP
 	pContext->IASetVertexBuffers( 0, 1, IREF_GETPPTR(m_pVBSquareBorder, ID3D11Buffer), &stride, &offset );
 	pContext->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP );
 	pContext->Draw( 5, 0 );
-
-
-// restore state
-	pContext->IASetPrimitiveTopology( old_topology );
-	pContext->IASetInputLayout( pOldInputLayout.get_RefObj() );	
-
-	pContext->OMSetRenderTargets(1, IREF_GETPPTR(pOldRenderTargetView, ID3D11RenderTargetView), pDepthStencilView);
-
-	pContext->RSSetViewports(1, &originalVP);				// restore the old viewport
-	pContext->RSSetState(pSavedRSState);					// restore the old state
-	pContext->OMSetDepthStencilState(pSavedDepthState, 1);	// restore the old depth state (re-enable zbuffer)
-
-	pContext->OMSetBlendState( pBlendState, fBlendFactor, uSampleMask );
-
-	pRenderTargetView.ReleaseRefObj( );
-	pOldRenderTargetView.ReleaseRefObj( );
-	pOldInputLayout.ReleaseRefObj( );
 }
 
 bool DX11Renderer::DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_overlay)
@@ -866,6 +780,8 @@ bool DX11Renderer::DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_
 	{
 		IRefPtr<ID3D11DeviceContext> pContext;
 		m_pDevice->GetImmediateContext(IREF_GETPPTR(pContext, ID3D11DeviceContext));
+
+		d3d11_save_state(pContext, get_saved_state());
 
 		HRESULT hRes;
 		IRefPtr<ID3D11Texture2D> pBackBuffer;
@@ -891,35 +807,6 @@ bool DX11Renderer::DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_
 		vp.Height = (UINT)(g_Proc.m_Stats.m_SizeWnd.cy);
 		vp.MinDepth = 0.0f;
 		vp.MaxDepth = 1.0f;
-
-		// save current state
-		IRefPtr<ID3D11RasterizerState> pSavedRSState;
-		pContext->RSGetState(IREF_GETPPTR(pSavedRSState, ID3D11RasterizerState));
-
-		IRefPtr<ID3D11DepthStencilState> pSavedDepthState;
-		UINT pStencilRef = 0;
-		pContext->OMGetDepthStencilState(IREF_GETPPTR(pSavedDepthState, ID3D11DepthStencilState), &pStencilRef);
-
-		// will games with multiple viewports break here?
-		D3D11_VIEWPORT originalVP;
-		UINT numViewPorts = 1;
-		pContext->RSGetViewports(&numViewPorts, &originalVP);
-
-		// save render/depth target so we can restore after
-		IRefPtr<ID3D11RenderTargetView> pOldRenderTargetView;
-		IRefPtr<ID3D11DepthStencilView> pDepthStencilView;
-		pContext->OMGetRenderTargets(1, IREF_GETPPTR(pOldRenderTargetView, ID3D11RenderTargetView), IREF_GETPPTR(pDepthStencilView, ID3D11DepthStencilView));
-
-		IRefPtr<ID3D11BlendState> pBlendState;
-		float fBlendFactor[4];
-		UINT uSampleMask;
-		pContext->OMGetBlendState(IREF_GETPPTR(pBlendState, ID3D11BlendState), fBlendFactor, &uSampleMask);
-
-		D3D11_PRIMITIVE_TOPOLOGY old_topology;
-		pContext->IAGetPrimitiveTopology(&old_topology);
-
-		IRefPtr<ID3D11InputLayout> pOldInputLayout;
-		pContext->IAGetInputLayout(IREF_GETPPTR(pOldInputLayout, ID3D11InputLayout));
 
 		// setup
 		pContext->OMSetRenderTargets(1, pRenderTargetView.get_Array(), nullptr);
@@ -950,22 +837,6 @@ bool DX11Renderer::DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_
 		pContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 		pContext->Draw(4, 0);
 
-		// restore state
-		pContext->IASetPrimitiveTopology(old_topology);
-		pContext->IASetInputLayout(pOldInputLayout.get_RefObj());
-
-		auto targetView = pOldRenderTargetView.get_RefObj();
-		pContext->OMSetRenderTargets(1, &targetView, pDepthStencilView);
-
-		pContext->RSSetViewports(1, &originalVP);				// restore the old viewport
-		pContext->RSSetState(pSavedRSState);					// restore the old state
-		pContext->OMSetDepthStencilState(pSavedDepthState, 1);	// restore the old depth state (re-enable zbuffer)
-
-		pContext->OMSetBlendState(pBlendState, fBlendFactor, uSampleMask);
-
-		pRenderTargetView.ReleaseRefObj();
-		pOldRenderTargetView.ReleaseRefObj();
-		pOldInputLayout.ReleaseRefObj();
 		return true;
 	});
 }
@@ -1056,6 +927,11 @@ C_EXPORT void overlay_draw_d3d11(IDXGISwapChain *swap)
 	HandleInputHook(window);
 
 	renderer->UpdateOverlay();
+
+	DEFER
+	{
+		d3d11_restore_state(get_saved_state());
+	};
 
 	if (g_bBrowserShowing && show_browser_tex(swap))
 		return;
