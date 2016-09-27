@@ -406,6 +406,9 @@ bool DX9Renderer::ProtectState(Fun &&f)
 	IRefPtr<IDirect3DVertexShader9> vs;
 	CHEK(m_pDevice->GetVertexShader(vs.get_PPtr()));
 
+	IRefPtr<IDirect3DSurface9> render_target;
+	CHEK(m_pDevice->GetRenderTarget(0, render_target.get_PPtr()));
+
 	// save whatever the current texture is. not doing this can break video cutscenes and stuff
 	IRefPtr<IDirect3DBaseTexture9> pTexture;
 	m_pDevice->GetTexture(0, pTexture.get_PPtr()); // note that it could be null
@@ -433,6 +436,15 @@ bool DX9Renderer::ProtectState(Fun &&f)
 	UINT stream_stride;
 	CHEK(m_pDevice->GetStreamSource(0, stream_data.get_PPtr(), &stream_offset, &stream_stride));
 
+	IRefPtr<IDirect3DSurface9> back_buffer;
+	CHEK(m_pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, back_buffer.get_PPtr()));
+
+	bool render_target_set = false;
+	if (back_buffer && back_buffer != render_target) {
+		CHEK(m_pDevice->SetRenderTarget(0, back_buffer));
+		render_target_set = true;
+	}
+
 	auto res = f();
 
 	if (stream_data)
@@ -457,6 +469,9 @@ bool DX9Renderer::ProtectState(Fun &&f)
 	// restore current texture if one was set
 	if (pTexture)
 		m_pDevice->SetTexture(0, pTexture);
+
+	if (render_target_set)
+		m_pDevice->SetRenderTarget(0, render_target);
 
 	if (vs)
 		m_pDevice->SetVertexShader(vs);
