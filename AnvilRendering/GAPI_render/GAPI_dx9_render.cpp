@@ -585,7 +585,7 @@ static bool get_back_buffer_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
 {
 	IDirect3DSurface9 *back_buffer = nullptr;
 
-	auto hr = dev->GetRenderTarget(0, &back_buffer);
+	auto hr = dev->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &back_buffer);
 	if (FAILED(hr)) {
 		return false;
 	}
