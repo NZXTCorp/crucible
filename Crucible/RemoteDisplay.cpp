@@ -274,6 +274,13 @@ protected:
 				auto cx = gs_texture_get_width(tex);
 				auto cy = gs_texture_get_height(tex);
 
+				if (idle_stagesurface.empty() && stagesurf.size() > 4) {
+					blog(LOG_WARNING, "RemoteDisplay[%s]: Exhausted stagesurfaces (%d)", remote_display_name.c_str(), stagesurf.size());
+					almost_idle_texrender.push_back(rendering_texrender.front());
+					rendering_texrender.pop_front();
+					break;
+				}
+
 				while (!idle_stagesurface.empty()) {
 					auto sf = idle_stagesurface.front();
 					if (cx == gs_stagesurface_get_width(sf) && cy == gs_stagesurface_get_height(sf))
@@ -326,6 +333,11 @@ protected:
 			return;
 
 		do {
+			if (texrender.size() > 3 && idle_texrender.empty()) {
+				blog(LOG_WARNING, "RemoteDisplay[%s]: Exhausted texrenders (%d)", remote_display_name.c_str(), texrender.size());
+				break;
+			}
+
 			if (idle_texrender.empty()) {
 				auto tr = gs_texrender_create(GS_RGBA, GS_ZS_NONE);
 				if (!tr)
