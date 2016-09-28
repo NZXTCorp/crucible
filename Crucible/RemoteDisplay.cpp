@@ -233,15 +233,19 @@ protected:
 			if (!staging_texrender.empty()) {
 				auto staging = staging_texrender.front();
 
+				almost_idle_texrender.push_back(staging.first);
+
 				Mapped_t mapped;
-				if (!gs_stagesurface_map(staging.second, &mapped.second.data, &mapped.second.line_size))
+				if (!gs_stagesurface_map(staging.second, &mapped.second.data, &mapped.second.line_size)) {
+					blog(LOG_WARNING, "RemoteDisplay[%s]: Failed to map stagesurface (%p)", remote_display_name.c_str(), staging.second);
+					almost_idle_stagesurface.push_back(staging.second);
+					staging_texrender.pop_front();
 					break;
+				}
 
 				mapped.second.width = gs_stagesurface_get_width(staging.second);
 				mapped.second.height = gs_stagesurface_get_height(staging.second);
 				mapped.first = staging.second;
-
-				almost_idle_texrender.push_back(staging.first);
 
 				staging_texrender.pop_front();
 
