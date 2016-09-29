@@ -25,11 +25,13 @@ struct ScreenshotProvider
 {
 	struct ScreenshotRequest
 	{
+		OBSSource source;
 		uint32_t cx, cy;
 		string filename;
 		request_completion_t callback;
 
-		ScreenshotRequest(uint32_t cx_, uint32_t cy_, const string& filename_, request_completion_t callback_)
+		ScreenshotRequest(OBSSource source, uint32_t cx_, uint32_t cy_, const string& filename_, request_completion_t callback_)
+			: source(source)
 		{
 			filename = filename_;
 			cx = cx_;
@@ -51,7 +53,6 @@ struct ScreenshotProvider
 	};
 
 	OBSDisplay display;
-	OBSSource source;
 	OBSView view;
 	
 	deque<ScreenshotRequest> pending_request;
@@ -100,27 +101,25 @@ struct ScreenshotProvider
 		}
 	}
 
-	void SetSource(obs_source_t *source_)
+	void Enable(bool enabled)
 	{
 		LOCK(draw_mutex);
-		if (!source_) {
-			view = nullptr;
-			display = nullptr;
+
+		obs_display_set_enabled(display, enabled);
+		if (!enabled)
 			return;
-		}
 
 		Create();
 
 		if (!view)
 			view = obs_view_create();
-
-		obs_view_set_source(view, 0, source = source_);
 	}
 
-	void Request(uint32_t cx, uint32_t cy, const string &filename, request_completion_t callback)
+	void Request(OBSSource source, uint32_t cx, uint32_t cy, const string &filename, request_completion_t callback)
 	{
-		pending_request.push_back(ScreenshotRequest(cx, cy, filename, callback));
+		pending_request.push_back(ScreenshotRequest(source, cx, cy, filename, callback));
 		requested = true;
+		Enable(true);
 	}
 
 	std::recursive_mutex draw_mutex;
@@ -140,6 +139,8 @@ struct ScreenshotProvider
 			saving = false;
 			saved = false;
 			success = false;
+
+			Enable(requested);
 		}
 		
 		if (staged && !saving) {
@@ -183,11 +184,12 @@ struct ScreenshotProvider
 			uint32_t cy = 0;
 			{
 				LOCK(draw_mutex);
-				if (!view || !source) 
+				if (!view) 
 					return;
 
-				cx = obs_source_get_width(source);
-				cy = obs_source_get_height(source);
+				cx = obs_source_get_width(request.source);
+				cy = obs_source_get_height(request.source);
+				obs_view_set_source(view, 0, request.source);
 
 				if (!draw_cx || !draw_cy) {
 					draw_cx = cx;
@@ -195,6 +197,12 @@ struct ScreenshotProvider
 					request.UpdateSize(cx, cy);
 				}
 			}
+
+			DEFER
+			{
+				if (request.source)
+					obs_view_set_source(view, 0, nullptr);
+			};
 
 			if (!cx || !cy) 
 				return;
@@ -273,13 +281,8 @@ struct ScreenshotProvider
 static ScreenshotProvider provider;
 
 namespace Screenshot {
-	void SetSource(obs_source_t *source)
+	void Request(OBSSource source, uint32_t cx, uint32_t cy, const string &filename, request_completion_t callback)
 	{
-		provider.SetSource(source);
-	}
-
-	void Request(uint32_t cx, uint32_t cy, const string &filename, request_completion_t callback)
-	{
-		provider.Request(cx, cy, filename, callback);
+		provider.Request(source, cx, cy, filename, callback);
 	}
 };

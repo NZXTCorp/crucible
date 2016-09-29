@@ -1424,7 +1424,6 @@ struct CrucibleContext {
 		auto init_display = [&](const char *display, auto &container)
 		{
 			Display::SetSource(display, obs_scene_get_source(container.scene));
-			Screenshot::SetSource(obs_scene_get_source(container.scene));
 		};
 
 		init_display("game", game_and_webcam);
@@ -2237,7 +2236,6 @@ struct CrucibleContext {
 		}
 
 		Display::SetSource("preview", source);
-		Screenshot::SetSource(source);
 		streaming_source = source;
 		if (streaming || recording_stream)
 			obs_set_output_source(0, source);
@@ -2771,9 +2769,16 @@ struct CrucibleContext {
 		calldata_free(&data);
 	}
 
-	void SaveScreenshot(int width, int height, const char *filename)
+	void SaveScreenshot(const string &source_name, int width, int height, const char *filename)
 	{
-		Screenshot::Request(width, height, filename, ForgeEvents::SendScreenshotSaved);
+		OBSSource source;
+		if (source_name == "output") {
+			source = OBSGetOutputSource(0);
+		} else /*if (source_name == "stream_scene")*/ {
+			source = streaming_source;
+		}
+
+		Screenshot::Request(source, width, height, filename, ForgeEvents::SendScreenshotSaved);
 	}
 
 	bool RecordingActive()
@@ -3160,7 +3165,7 @@ static void HandleEnableSourceLevelMeters(CrucibleContext &cc, OBSData &data)
 
 static void HandleSaveScreenshot(CrucibleContext &cc, OBSData &data)
 {
-	cc.SaveScreenshot(obs_data_get_int(data, "width"), obs_data_get_int(data, "height"), obs_data_get_string(data, "filename"));
+	cc.SaveScreenshot(obs_data_get_string(data, "source"), obs_data_get_int(data, "width"), obs_data_get_int(data, "height"), obs_data_get_string(data, "filename"));
 }
 
 static void HandleUpdateRecordingBufferSettings(CrucibleContext &cc, OBSData &data)
