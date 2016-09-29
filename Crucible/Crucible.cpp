@@ -2022,11 +2022,14 @@ struct CrucibleContext {
 		calldata_t param{};
 		calldata_init(&param);
 		calldata_set_string(&param, "filename", filename);
+		calldata_set_float(&param, "extra_recording_duration", obs_data_get_double(settings, "extra_recording_duration"));
+
+		bool continue_recording = obs_data_has_user_value(settings, "extra_recording_duration");
 
 		{
 			LOCK(updateMutex);
 			auto proc = obs_output_get_proc_handler(buffer);
-			proc_handler_call(proc, "output_precise_buffer", &param);
+			proc_handler_call(proc, continue_recording ? "output_precise_buffer_and_keep_recording" : "output_precise_buffer", &param);
 		}
 
 		if (tracked_id)
