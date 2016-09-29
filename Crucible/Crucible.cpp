@@ -1220,6 +1220,8 @@ struct CrucibleContext {
 		}
 	} webcam_and_theme;
 
+	OBSData buffer_settings;
+
 	obs_video_info ovi;
 	uint32_t fps_den;
 	std::string webcam_device;
@@ -1835,8 +1837,11 @@ struct CrucibleContext {
 		obs_output_set_video_encoder(output, streaming ? stream_h264 : h264);
 		obs_output_set_audio_encoder(output, aac, 0);
 
+
+		obs_data_set_string(buffer_settings, "muxer_settings", muxerSettings.c_str());
+
 		InitRef(buffer, "Couldn't create buffer output", obs_output_release,
-				obs_output_create("ffmpeg_recordingbuffer", "ffmpeg recordingbuffer", osettings, nullptr));
+				obs_output_create("ffmpeg_recordingbuffer", "ffmpeg recordingbuffer", buffer_settings, nullptr));
 
 		obs_output_set_video_encoder(buffer, streaming ? stream_h264 : h264);
 		obs_output_set_audio_encoder(buffer, aac, 0);
@@ -2772,6 +2777,11 @@ struct CrucibleContext {
 	{
 		return obs_output_active(output);
 	}
+
+	void UpdateRecordingBufferSettings(OBSData data)
+	{
+		buffer_settings = data;
+	}
 	
 	bool stopping = false;
 	void StopVideo(bool force=false, bool restart=false)
@@ -3150,6 +3160,11 @@ static void HandleSaveScreenshot(CrucibleContext &cc, OBSData &data)
 	cc.SaveScreenshot(obs_data_get_int(data, "width"), obs_data_get_int(data, "height"), obs_data_get_string(data, "filename"));
 }
 
+static void HandleUpdateRecordingBufferSettings(CrucibleContext &cc, OBSData &data)
+{
+	cc.UpdateRecordingBufferSettings(OBSDataGetObj(data, "settings"));
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -3184,6 +3199,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "set_source_volume", HandleSetSourceVolume },
 		{ "enable_source_level_meters", HandleEnableSourceLevelMeters },
 		{ "save_screenshot", HandleSaveScreenshot },
+		{ "update_recording_buffer_settings", HandleUpdateRecordingBufferSettings },
 	};
 	if (!data)
 		return;
