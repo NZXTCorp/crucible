@@ -565,6 +565,20 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendBookmarkFinalized(const Bookmark &bookmark, uint32_t width, uint32_t height)
+	{
+		auto event = EventCreate("bookmark_finalized");
+
+		obs_data_set_double(event, "created_at_offset", bookmark.time);
+		obs_data_set_int(event, "bookmark_id", bookmark.id);
+		obs_data_set_obj(event, "bookmark_extra_data", bookmark.extra_data);
+
+		obs_data_set_int(event, "width", width);
+		obs_data_set_int(event, "height", height);
+
+		SendEvent(event);
+	}
 }
 
 namespace AnvilCommands {
@@ -1962,6 +1976,8 @@ struct CrucibleContext {
 
 		bookmarks.push_back(*it);
 		estimates.erase(it);
+
+		ForgeEvents::SendBookmarkFinalized(bookmarks.back(), ovi.base_width, ovi.base_height);
 
 		return bookmarks.back();
 	}
