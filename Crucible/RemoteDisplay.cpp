@@ -210,6 +210,9 @@ protected:
 	}
 
 	std::recursive_mutex draw_mutex;
+	bool staging_error_logged = false;
+	bool stage_exhaustion_logged = false;
+	bool texrender_exhaustion_logged = false;
 	void Draw()
 	{
 		std::vector<gs_texrender_t*> almost_idle_texrender;
@@ -237,11 +240,16 @@ protected:
 
 				Mapped_t mapped;
 				if (!gs_stagesurface_map(staging.second, &mapped.second.data, &mapped.second.line_size)) {
-					blog(LOG_WARNING, "RemoteDisplay[%s]: Failed to map stagesurface (%p)", remote_display_name.c_str(), staging.second);
+					if (!staging_error_logged) {
+						blog(LOG_WARNING, "RemoteDisplay[%s]: Failed to map stagesurface (%p)", remote_display_name.c_str(), staging.second);
+						staging_error_logged = true;
+					}
 					almost_idle_stagesurface.push_back(staging.second);
 					staging_texrender.pop_front();
 					break;
 				}
+				
+				staging_error_logged = false;
 
 				mapped.second.width = gs_stagesurface_get_width(staging.second);
 				mapped.second.height = gs_stagesurface_get_height(staging.second);
@@ -275,11 +283,16 @@ protected:
 				auto cy = gs_texture_get_height(tex);
 
 				if (idle_stagesurface.empty() && stagesurf.size() > 4) {
-					blog(LOG_WARNING, "RemoteDisplay[%s]: Exhausted stagesurfaces (%d)", remote_display_name.c_str(), stagesurf.size());
+					if (!stage_exhaustion_logged) {
+						blog(LOG_WARNING, "RemoteDisplay[%s]: Exhausted stagesurfaces (%d)", remote_display_name.c_str(), stagesurf.size());
+						stage_exhaustion_logged = true;
+					}
 					almost_idle_texrender.push_back(rendering_texrender.front());
 					rendering_texrender.pop_front();
 					break;
 				}
+
+				stage_exhaustion_logged = false;
 
 				while (!idle_stagesurface.empty()) {
 					auto sf = idle_stagesurface.front();
@@ -334,9 +347,14 @@ protected:
 
 		do {
 			if (texrender.size() > 3 && idle_texrender.empty()) {
-				blog(LOG_WARNING, "RemoteDisplay[%s]: Exhausted texrenders (%d)", remote_display_name.c_str(), texrender.size());
+				if (!texrender_exhaustion_logged) {
+					blog(LOG_WARNING, "RemoteDisplay[%s]: Exhausted texrenders (%d)", remote_display_name.c_str(), texrender.size());
+					texrender_exhaustion_logged = true;
+				}
 				break;
 			}
+
+			texrender_exhaustion_logged = false;
 
 			if (idle_texrender.empty()) {
 				auto tr = gs_texrender_create(GS_RGBA, GS_ZS_NONE);
