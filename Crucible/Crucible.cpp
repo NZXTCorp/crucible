@@ -63,6 +63,8 @@ atomic<bool> store_startup_log = false;
 vector<string> startup_logs;
 mutex startup_log_mutex;
 
+HANDLE exit_event = nullptr;
+
 #define CONCAT2(x, y) x ## y
 #define CONCAT(x, y) CONCAT2(x, y)
 #define LOCK(x) lock_guard<decltype(x)> CONCAT(lockGuard, __LINE__){x};
@@ -3005,6 +3007,7 @@ static void HandleClipFinished(CrucibleContext &cc, OBSData &obj)
 static void HandleForgeWillClose(CrucibleContext &cc, OBSData&)
 {
 	cc.StopVideo(true);
+	SetEvent(exit_event);
 }
 
 static void HandleStartStreaming(CrucibleContext &cc, OBSData& obj)
@@ -3333,37 +3336,35 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 		if (start_event)
 			SetEvent(start_event);
 
+		exit_event = CreateEvent(nullptr, true, false, nullptr);
+
 		MSG msg;
 
-		if (forge) {
-			DWORD reason = WAIT_TIMEOUT;
-			HANDLE h = forge.get();
-			while (WAIT_OBJECT_0 != reason)
-			{
-				switch (reason = MsgWaitForMultipleObjects(1, &h, false, INFINITE, QS_ALLINPUT)) {
-				case WAIT_OBJECT_0:
-					blog(LOG_INFO, "Forge exited, exiting");
-					break;
+		DWORD reason = WAIT_TIMEOUT;
+		HANDLE hs[] = { exit_event, forge.get() };
+		while (true)
+		{
+			reason = MsgWaitForMultipleObjects(forge ? 2 : 1, hs, false, INFINITE, QS_ALLINPUT);
+			if (reason == WAIT_OBJECT_0) {
+				blog(LOG_INFO, "Exit requested");
+				break;
+			}
 
-				case WAIT_OBJECT_0 + 1:
-					while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
-					{
-						TranslateMessage(&msg);
-						DispatchMessage(&msg);
-					}
-					break;
-
-				default:
-					throw "Unexpected value from MsgWaitForMultipleObjects";
+			if (forge && reason == WAIT_OBJECT_0 + 1) {
+				blog(LOG_INFO, "Forge exited, exiting");
+				break;
+			}
+			
+			if ((!forge && reason == WAIT_OBJECT_0 + 1) || (forge && reason == WAIT_OBJECT_0 + 2)) {
+				while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+				{
+					TranslateMessage(&msg);
+					DispatchMessage(&msg);
 				}
+				continue;
 			}
 
-		} else {
-			while (GetMessage(&msg, nullptr, 0, 0))
-			{
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
-			}
+			throw "Unexpected value from MsgWaitForMultipleObjects";
 		}
 
 		crucibleContext.StopVideo();
