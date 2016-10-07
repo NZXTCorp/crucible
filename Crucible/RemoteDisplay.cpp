@@ -83,6 +83,8 @@ struct RemoteDisplay {
 
 	~RemoteDisplay()
 	{
+		send_thread.Join();
+
 		obs_enter_graphics();
 		for (auto &tr : texrender)
 			gs_texrender_destroy(tr);
