@@ -210,8 +210,11 @@ static void HandleUpdateSettings(Object &obj)
 	auto UpdateHotkey = [&](HOTKEY_TYPE hotkey, const char *setting_name)
 	{
 		Object key_data = obj[setting_name];
-		if (!key_data.HasMember("keycode"))
+		if (!key_data.HasMember("keycode")) {
+			hotkeys[hotkey] = 0;
+			hlog("hotkey '%s' (%s) disabled", HotKeyTypeName(hotkey), setting_name);
 			return;
+		}
 
 		Boolean meta = key_data["meta"];
 		if (meta)
