@@ -215,7 +215,7 @@ static void HandleUpdateSettings(Object &obj)
 
 		Boolean meta = key_data["meta"];
 		if (meta)
-			return hlog("meta modifier not supported for hotkey '%s' (%s)", HotKeyTypeName(hotkey), setting_name);
+			hlog("meta modifier not supported for hotkey '%s' (%s)", HotKeyTypeName(hotkey), setting_name);
 
 		Boolean shift = key_data["shift"];
 		Boolean ctrl = key_data["ctrl"];
