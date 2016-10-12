@@ -83,6 +83,8 @@ struct RemoteDisplay {
 
 	~RemoteDisplay()
 	{
+		display = nullptr;
+
 		send_thread.Join();
 
 		obs_enter_graphics();
