@@ -317,7 +317,7 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 				if (bHotMask != HIBYTE(wHotKey))
 					continue;
 				g_UserKeyboard.m_bKeysPressed[i] = false; // clear the 'pressed' state
-				if (!(eat_key = g_HotKeys.DoHotKey( (HOTKEY_TYPE)i, HKEVENT_RELEASE)))
+				if (!(eat_key = g_HotKeys.DoHotKey( (HOTKEY_TYPE)i, HKEVENT_RELEASE, wHotKey)))
 					g_HotKeys.AddEvent( (HOTKEY_TYPE)i, HKEVENT_RELEASE );
 			}
 
@@ -362,7 +362,7 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 				if ( !g_UserKeyboard.m_bKeysPressed[i] )
 				{
 					g_UserKeyboard.m_bKeysPressed[i] = true;
-					if (!(eat_key = g_HotKeys.DoHotKey((HOTKEY_TYPE)i, HKEVENT_PRESS)))
+					if (!(eat_key = g_HotKeys.DoHotKey((HOTKEY_TYPE)i, HKEVENT_PRESS, wHotKey)))
 						g_HotKeys.AddEvent( (HOTKEY_TYPE)i, HKEVENT_PRESS );
 				}
 			}
@@ -379,10 +379,10 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 
 static bool hotkeys_pressed[HOTKEY_QTY] = { false };
 
-bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt)
+bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt, WORD key)
 {
 	// Do the action now or schedule it for later.
-	LOG_MSG( "CTaksiHotKeys::DoHotKey: VKEY_* (%d) pressed." LOG_CR, eHotKey );
+	LOG_MSG( "CTaksiHotKeys::DoHotKey: VKEY_* (%d=%x) pressed." LOG_CR, eHotKey, key );
 
 	bool activated = !hotkeys_pressed[eHotKey] && evt == HKEVENT_PRESS;
 	hotkeys_pressed[eHotKey] = evt == HKEVENT_PRESS;
