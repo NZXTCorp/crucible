@@ -26,7 +26,7 @@ bool CHookJump::InstallHook( LPVOID pFunc, LPVOID pFuncNew )
 		return false;
 	}
 
-	DEBUG_MSG(("InstallHook: JMP-hook planted." LOG_CR));
+	//DEBUG_MSG(("InstallHook: JMP-hook planted." LOG_CR));
 	return true;
 }
 

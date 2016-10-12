@@ -674,8 +674,10 @@ static bool InitHooks()
 			InitHook(dll, s_HookPeekMessageW);
 
 			return true;
-		}())
+		}()) {
 			hooks_ready = true;
+			hlog("InputHooks initialized");
+		}
 	});
 
 	return hooks_ready;
