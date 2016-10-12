@@ -382,7 +382,7 @@ static bool hotkeys_pressed[HOTKEY_QTY] = { false };
 bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt, WORD key)
 {
 	// Do the action now or schedule it for later.
-	LOG_MSG( "CTaksiHotKeys::DoHotKey: VKEY_* (%d=%x) pressed." LOG_CR, eHotKey, key );
+	LOG_MSG( "CTaksiHotKeys::DoHotKey: VKEY_* (%d=%x) %s." LOG_CR, eHotKey, key, evt == HKEVENT_PRESS ? "pressed" : "released");
 
 	bool activated = !hotkeys_pressed[eHotKey] && evt == HKEVENT_PRESS;
 	hotkeys_pressed[eHotKey] = evt == HKEVENT_PRESS;
