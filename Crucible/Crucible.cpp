@@ -1515,10 +1515,11 @@ struct CrucibleContext {
 			recording_stream = false;
 
 			auto output = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
+			bool stop;
 			string profiler_path;
 			{
 				LOCK(updateMutex);
-				if (sendRecordingStop) {
+				if (stop = sendRecordingStop) {
 					profiler_path = profiler_filename;
 					auto data = OBSTransferOwned(obs_output_get_settings(output));
 					decltype(bookmarks) full_bookmarks;
@@ -1557,7 +1558,8 @@ struct CrucibleContext {
 
 			last_session = move(snap);
 
-			ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, game_pid);
+			if (stop)
+				ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, game_pid);
 		});
 
 		startRecording
