@@ -1558,14 +1558,15 @@ struct CrucibleContext {
 
 		startRecording
 			.SetSignal("start")
-			.SetFunc([=](calldata*)
+			.SetFunc([=](calldata *data)
 		{
-			auto data = OBSTransferOwned(obs_output_get_settings(output));
+			auto output = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
+			auto settings = OBSTransferOwned(obs_output_get_settings(output));
 			recordingStartTime = os_gettime_ns();
 			{
 				LOCK(updateMutex);
 				if (!recordingStartSent) {
-					ForgeEvents::SendRecordingStart(obs_data_get_string(data, "path"), restarting_recording);
+					ForgeEvents::SendRecordingStart(obs_data_get_string(settings, "path"), restarting_recording);
 					recordingStartSent = true;
 					restarting_recording = false;
 				}
