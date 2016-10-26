@@ -1546,9 +1546,13 @@ struct CrucibleContext {
 			profiler_print(diff.get());
 			profiler_print_time_between_calls(diff.get());
 
-			if (!profiler_path.empty() && !profiler_snapshot_dump_csv_gz(diff.get(), profiler_path.c_str())) {
-				blog(LOG_INFO, "Failed to dump profiler data to '%s'", profiler_path.c_str());
-				profiler_path = "";
+			if (!profiler_path.empty()) {
+				if (!profiler_snapshot_dump_csv_gz(diff.get(), profiler_path.c_str())) {
+					blog(LOG_INFO, "Failed to dump profiler data to '%s'", profiler_path.c_str());
+					profiler_path = "";
+				} else {
+					blog(LOG_INFO, "Profiler data dumped to '%s'", profiler_path.c_str());
+				}
 			}
 
 			last_session = move(snap);
