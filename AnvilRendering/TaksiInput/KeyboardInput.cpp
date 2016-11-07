@@ -152,6 +152,8 @@ static void HandleHotkeys(T s_keys, U keys)
 	for (int i = 0; i < HOTKEY_QTY; i++)
 	{
 		WORD wHotKey = GetHotKey((HOTKEY_TYPE)i);
+		if (!wHotKey)
+			continue;
 
 		auto vk = LOBYTE(wHotKey);
 		auto k_mods = HIBYTE(wHotKey);

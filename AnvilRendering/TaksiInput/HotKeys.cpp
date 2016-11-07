@@ -207,6 +207,9 @@ void CTaksiDI::ProcessDirectInput()
 	for ( int i=0; i<HOTKEY_QTY; i++ )
 	{
 		WORD wHotKey = GetHotKey( (HOTKEY_TYPE)i );
+		if (!wHotKey)
+			continue;
+
 		BYTE iScanCode = ::MapVirtualKey( LOBYTE(wHotKey), 0);
 		if ( buffer[iScanCode] & 0x80 ) 
 		{
@@ -312,6 +315,9 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 			for (int i = 0; i < HOTKEY_QTY; i++ )
 			{
 				WORD wHotKey = GetHotKey( (HOTKEY_TYPE)i );
+				if (!wHotKey)
+					continue;
+
 				if (wParam != LOBYTE(wHotKey))
 					continue;
 				if (bHotMask != HIBYTE(wHotKey))
@@ -353,6 +359,9 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 			for (int i = 0; i < HOTKEY_QTY; i++ )
 			{
 				WORD wHotKey = GetHotKey( (HOTKEY_TYPE)i );
+				if (!wHotKey)
+					continue;
+
 				if (wParam != LOBYTE(wHotKey))
 					continue;
 
