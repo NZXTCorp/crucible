@@ -150,7 +150,7 @@ wchar_t *hotkeyHelpText[] = {
 };
 
 unsigned int indicatorHotkey_Keycode[HOTKEY_QTY];
-bool indicatorHotkey_Ctrl[HOTKEY_QTY], indicatorHotkey_Alt[HOTKEY_QTY], indicatorHotkey_Shift[HOTKEY_QTY];
+bool indicatorHotkey_CONTROL[HOTKEY_QTY], indicatorHotkey_MENU[HOTKEY_QTY], indicatorHotkey_SHIFT[HOTKEY_QTY];
 bool hotkeysChanged = false;
 
 std::wstring GetKeyName(unsigned int virtualKey)
@@ -241,13 +241,13 @@ void SetIndicatorHotkey(int index, int keycode, bool ctrl, bool alt, bool shift)
 {
 	if (index > HOTKEY_QTY) return;
 
-	if (indicatorHotkey_Keycode[index] != keycode || indicatorHotkey_Ctrl[index] != ctrl ||
-		indicatorHotkey_Alt[index] != alt || indicatorHotkey_Shift[index] != ctrl)  hotkeysChanged = true;
+	if (indicatorHotkey_Keycode[index] != keycode || indicatorHotkey_CONTROL[index] != ctrl ||
+		indicatorHotkey_MENU[index] != alt || indicatorHotkey_SHIFT[index] != ctrl)  hotkeysChanged = true;
 
 	indicatorHotkey_Keycode[index] = keycode;
-	indicatorHotkey_Ctrl[index] = ctrl;
-	indicatorHotkey_Alt[index] = alt;
-	indicatorHotkey_Shift[index] = shift;
+	indicatorHotkey_CONTROL[index] = ctrl;
+	indicatorHotkey_MENU[index] = alt;
+	indicatorHotkey_SHIFT[index] = shift;
 }
 
 IndicatorManager::IndicatorManager( void )
@@ -266,14 +266,16 @@ IndicatorManager::~IndicatorManager( void )
 void MakeHotkeyDescription(wchar_t *hotkeyDescription) {
 	wcscat(hotkeyDescription, L"Hotkeys:\n");
 
+#define MOD(x) (indicatorHotkey_ ## x[i] ? GetKeyName(VK_ ## x).c_str() : L""), (indicatorHotkey_ ## x[i] ? L" + " : L"")
+
 	for (int i = 0; i < HOTKEY_QTY; i++) {
 		if (indicatorHotkey_Keycode[i] != 0) {
 			wchar_t tmp[256] = L"";
 
-			wsprintf(tmp, L"%s%s%s%s  -  %s\n",
-				(indicatorHotkey_Ctrl[i]) ? L"Ctrl + " : L"",
-				(indicatorHotkey_Alt[i]) ? L"Alt + " : L"",
-				(indicatorHotkey_Shift[i]) ? L"Shift + " : L"",
+			wsprintf(tmp, L"%s%s%s%s%s%s%s  -  %s\n",
+				MOD(CONTROL),
+				MOD(MENU),
+				MOD(SHIFT),
 				GetKeyName(indicatorHotkey_Keycode[i]).c_str(),
 				hotkeyHelpText[i]);
 
