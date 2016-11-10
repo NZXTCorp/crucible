@@ -179,35 +179,6 @@ void DX11Renderer::InitIndicatorTextures( IndicatorManager &manager )
 			break;
 		}
 	}
-
-	D3D11_TEXTURE2D_DESC desc;
-	SecureZeroMemory(&desc, sizeof(D3D11_TEXTURE2D_DESC));
-	desc.Width = g_Proc.m_Stats.m_SizeWnd.cx;
-	desc.Height = g_Proc.m_Stats.m_SizeWnd.cy;
-	desc.ArraySize = 1;
-	desc.MipLevels = 1;
-	desc.SampleDesc.Count = 1;
-	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	desc.Usage = D3D11_USAGE_DYNAMIC;
-	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-
-	for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
-		overlay_textures[a].Apply([&](D3D11Texture &tex)
-		{
-			HRESULT hRes;
-			hRes = m_pDevice->CreateTexture2D(&desc, nullptr, IREF_GETPPTR(tex.tex, ID3D11Texture2D));
-			if (FAILED(hRes))
-			{
-				LOG_WARN("InitIndicatorTextures: couldn't create overlay texture! 0x%08x" LOG_CR, hRes);
-				return;
-			}
-
-			hRes = m_pDevice->CreateShaderResourceView(tex.tex, nullptr, IREF_GETPPTR(tex.res, ID3D11ShaderResourceView));
-			if (FAILED(hRes))
-				LOG_WARN("InitIndicatorTextures: couldn't create overlay shader resource view! 0x%08x" LOG_CR, hRes);
-		});
-	}
 }
 
 void DX11Renderer::UpdateOverlayVB(ID3D11Texture2D *tex)
@@ -420,6 +391,35 @@ bool DX11Renderer::InitRenderer( IndicatorManager &manager )
 
 	// set up indicator textures
 	InitIndicatorTextures( manager );
+
+	D3D11_TEXTURE2D_DESC desc;
+	SecureZeroMemory(&desc, sizeof(D3D11_TEXTURE2D_DESC));
+	desc.Width = g_Proc.m_Stats.m_SizeWnd.cx;
+	desc.Height = g_Proc.m_Stats.m_SizeWnd.cy;
+	desc.ArraySize = 1;
+	desc.MipLevels = 1;
+	desc.SampleDesc.Count = 1;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	desc.Usage = D3D11_USAGE_DYNAMIC;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+	for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
+		overlay_textures[a].Apply([&](D3D11Texture &tex)
+		{
+			HRESULT hRes;
+			hRes = m_pDevice->CreateTexture2D(&desc, nullptr, IREF_GETPPTR(tex.tex, ID3D11Texture2D));
+			if (FAILED(hRes))
+			{
+				LOG_WARN("InitIndicatorTextures: couldn't create overlay texture! 0x%08x" LOG_CR, hRes);
+				return;
+			}
+
+			hRes = m_pDevice->CreateShaderResourceView(tex.tex, nullptr, IREF_GETPPTR(tex.res, ID3D11ShaderResourceView));
+			if (FAILED(hRes))
+				LOG_WARN("InitIndicatorTextures: couldn't create overlay shader resource view! 0x%08x" LOG_CR, hRes);
+		});
+	}
 
 	// vertex buffers should go elsewhere?
 
