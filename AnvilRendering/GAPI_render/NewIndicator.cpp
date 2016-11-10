@@ -11,6 +11,7 @@
 #include "NewIndicator.h"
 
 #include "resource.h"
+#include <string>
 
 using namespace Gdiplus;
 
@@ -29,21 +30,22 @@ static int s_image_res[INDICATE_NONE] =
 {  
 	IDB_CAPTURING,
 	IDB_ENABLED,
-	IDB_ENABLED_HOTKEYS,
 	IDB_BOOKMARK,
-	IDB_MIC_IDLE,
-	IDB_MIC_ACTIVE,
-	IDB_MIC_MUTE,
+	IDB_MIC_ICON_IDLE,
+	IDB_MIC_ICON,
+	IDB_MIC_ICON_MUTED,
 	IDB_CACHE_LIMIT,
 	IDB_HIGHLIGHT_UPLOADING,
 	IDB_HIGHLIGHT_UPLOADED,
 	IDB_STREAM_STARTED,
 	IDB_STREAM_STOPPED,
 	IDB_STREAMING,
-	IDB_STREAM_MIC_IDLE,
-	IDB_STREAM_MIC_ACTIVE,
-	IDB_STREAM_MIC_MUTE
+	IDB_MIC_ICON_IDLE,
+	IDB_MIC_ICON,
+	IDB_MIC_ICON_MUTED,
 };
+
+int micIndicatorW = 48, micIndicatorH = 48;
 
 static Bitmap *LoadBitmapFromResource( wchar_t *resource_name )
 {
@@ -90,6 +92,164 @@ static Bitmap *LoadBitmapFromResource( wchar_t *resource_name )
 	return image;
 }
 
+static Color popupBGColor = Color(192, 0, 0, 0);
+static Color textColor = Color(255, 255, 255, 255);
+
+static Bitmap *CreateMicIndicator(int indicatorID, int w, int h, bool live = false)
+{
+	int bitmapWidth = w, bitmapHeight = h;
+	int iconAdjust = 0;
+
+	if (live) {
+		bitmapHeight += 24;
+		iconAdjust = 24;
+	}
+
+	Bitmap *tmp = new Bitmap(bitmapWidth, bitmapHeight, PixelFormat32bppARGB);
+	Graphics graphics(tmp);
+
+	Bitmap *colorBar = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_COLOR_BAR));
+	Bitmap *liveIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_LIVE_ICON));
+	Bitmap *micIcon = LoadBitmapFromResource(MAKEINTRESOURCE(s_image_res[indicatorID]));
+
+	graphics.Clear(popupBGColor);
+	graphics.DrawImage(colorBar, 0, 0, w, h);
+	graphics.DrawImage(micIcon, 0, 0 + iconAdjust, w, h);
+	if (live) graphics.DrawImage(liveIcon, 0, 4, liveIcon->GetWidth(), liveIcon->GetHeight());
+
+	if (colorBar) DeleteObject(colorBar);
+	if (micIcon) DeleteObject(micIcon);
+	if (liveIcon) DeleteObject(liveIcon);
+
+	return tmp;
+}
+
+// It doesn't actually matter if the user has deleted Arial, GDI+ will pick the default Windows font if that's the case.
+wchar_t fontFace[64] = L"Arial";
+unsigned int sizeSmall = 10, sizeMedium = 14, sizeLarge = 18;
+
+wchar_t capturingCaption[] = L"Forge is now enabled!";
+wchar_t cacheLimitCaption[] = L"Forge stopped recording";
+wchar_t bookmarkCaption[] = L"Bookmark created!";
+wchar_t streamStoppedCaption[] = L"Stream ended";
+wchar_t streamStartedCaption[] = L"You started streaming";
+wchar_t clipUploadingCaption[] = L"Uploading clip...";
+wchar_t clipUploadedCaption[] = L"Clip uploaded!";
+
+wchar_t bookmarkDescription[] = L"View it under the Bookmarks tab in the\nForge app when you are done playing.";
+wchar_t cacheLimitDescription[] = L"We ran out of space to record further.";
+wchar_t streamStartedDescription[] = L"You will keep streaming until you click\nthe Stop Stream button in the Forge app.";
+wchar_t clipUploadedDescription[] = L"A link to your clip has been copied to your clipboard.";
+
+wchar_t *hotkeyHelpText[] = {
+	L"Save a screenshot",
+	L"Save a moment to upload a clip of later",
+	L"Open the in-game clipper",
+	L"Open the stream overlay that never existed",
+	L"Start or stop streaming (not really)",
+};
+
+unsigned int indicatorHotkey_Keycode[HOTKEY_QTY];
+bool indicatorHotkey_Ctrl[HOTKEY_QTY], indicatorHotkey_Alt[HOTKEY_QTY], indicatorHotkey_Shift[HOTKEY_QTY];
+bool hotkeysChanged = false;
+
+std::wstring GetKeyName(unsigned int virtualKey)
+{
+	unsigned int scanCode = MapVirtualKey(virtualKey, MAPVK_VK_TO_VSC);
+
+	// because MapVirtualKey strips the extended bit for some keys
+	switch (virtualKey)
+	{
+	case VK_LEFT: case VK_UP: case VK_RIGHT: case VK_DOWN: // arrow keys
+	case VK_PRIOR: case VK_NEXT: // page up and page down
+	case VK_END: case VK_HOME:
+	case VK_INSERT: case VK_DELETE:
+	case VK_DIVIDE: // numpad slash
+	case VK_NUMLOCK:
+	{
+		scanCode |= 0x100; // set extended bit
+		break;
+	}
+	}
+
+	wchar_t keyName[50];
+	if (GetKeyNameText(scanCode << 16, keyName, sizeof(keyName)) != 0)
+		return keyName;
+	else
+		return L"[Error]";
+}
+
+static Bitmap *CreatePopupImage(wchar_t *caption, wchar_t *desc, unsigned int iconID = 0, unsigned int colorbarID = IDB_COLOR_BAR)
+{
+	Font *largeFont = new Font(fontFace, sizeLarge, FontStyleBold);
+	Font *mediumFont = new Font(fontFace, sizeMedium);
+
+	HDC tempHDC = CreateCompatibleDC(NULL);
+	Graphics measureTemp(tempHDC);
+
+	int width = 0, height = 0;
+	int iconWidth = 0, iconHeight = 0;
+
+	Bitmap *colorBar = NULL, *popupIcon = NULL;
+
+	RectF bound;
+
+	measureTemp.MeasureString(caption, wcslen(caption), largeFont, PointF(0.0f, 0.0f), &bound);
+	width = (int)bound.Width;
+	height += (int)bound.Height;
+
+	measureTemp.MeasureString(desc, wcslen(desc), mediumFont, PointF(0.0f, 0.0f), &bound);
+	if ((int)bound.Width > width) width = (int)bound.Width;
+	height += (int)bound.Height;
+
+	measureTemp.ReleaseHDC(tempHDC);
+
+	colorBar = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_COLOR_BAR));
+	if (iconID != 0) {
+		popupIcon = LoadBitmapFromResource(MAKEINTRESOURCE(iconID));
+		iconWidth = popupIcon->GetWidth();
+		iconHeight = popupIcon->GetHeight();
+	}
+
+	width = width + 64 + iconWidth;
+	height = height + 32;
+
+	Bitmap *tmp = new Bitmap(width, height, PixelFormat32bppARGB);
+	Graphics graphics(tmp);
+
+	SolidBrush brush(textColor);
+
+	graphics.SetTextRenderingHint(TextRenderingHintAntiAlias);
+	graphics.SetCompositingMode(CompositingModeSourceOver);
+	graphics.SetSmoothingMode(SmoothingModeHighQuality);
+
+	graphics.Clear(popupBGColor);
+	graphics.DrawImage(colorBar, width - 48, 0, 48, 48);
+	if (iconID != 0) graphics.DrawImage(popupIcon, 16, 16, iconWidth, iconHeight);
+	graphics.DrawString(caption, wcslen(caption), largeFont, PointF(32.0f + iconWidth, 16.0f), &brush);
+	graphics.DrawString(desc, wcslen(desc), mediumFont, PointF(32.0f + iconWidth, 32.0f + sizeLarge), &brush);
+
+	if (colorBar) DeleteObject(colorBar);
+	if (popupIcon) DeleteObject(popupIcon);
+	if (largeFont) DeleteObject(largeFont);
+	if (mediumFont) DeleteObject(mediumFont);
+
+	return tmp;
+}
+
+void SetIndicatorHotkey(int index, int keycode, bool ctrl, bool alt, bool shift)
+{
+	if (index > HOTKEY_QTY) return;
+
+	if (indicatorHotkey_Keycode[index] != keycode || indicatorHotkey_Ctrl[index] != ctrl ||
+		indicatorHotkey_Alt[index] != alt || indicatorHotkey_Shift[index] != ctrl)  hotkeysChanged = true;
+
+	indicatorHotkey_Keycode[index] = keycode;
+	indicatorHotkey_Ctrl[index] = ctrl;
+	indicatorHotkey_Alt[index] = alt;
+	indicatorHotkey_Shift[index] = shift;
+}
+
 IndicatorManager::IndicatorManager( void )
 {
 	for ( int i = 0; i < INDICATE_NONE; i++ )
@@ -103,22 +263,103 @@ IndicatorManager::~IndicatorManager( void )
 	FreeImages( );
 }
 
+void MakeHotkeyDescription(wchar_t *hotkeyDescription) {
+	wcscat(hotkeyDescription, L"Hotkeys:\n");
+
+	for (int i = 0; i < HOTKEY_QTY; i++) {
+		if (indicatorHotkey_Keycode[i] != 0) {
+			wchar_t tmp[256] = L"";
+
+			wsprintf(tmp, L"%s%s%s%s  -  %s\n",
+				(indicatorHotkey_Ctrl[i]) ? L"Ctrl + " : L"",
+				(indicatorHotkey_Alt[i]) ? L"Alt + " : L"",
+				(indicatorHotkey_Shift[i]) ? L"Shift + " : L"",
+				GetKeyName(indicatorHotkey_Keycode[i]).c_str(),
+				hotkeyHelpText[i]);
+
+			wcscat(hotkeyDescription, tmp);
+		}
+	}
+}
+
 bool IndicatorManager::LoadImages( void )
 {
 	for ( int i = 0; i < INDICATE_NONE; i++ )
 	{
-		//LOG_MSG( "LoadImages: loading image %d" LOG_CR, IDB_FLASHBACK+i );
-		m_images[i] = LoadBitmapFromResource( MAKEINTRESOURCE(s_image_res[i]) );
-		if ( !m_images[i] )
-		{
-			LOG_MSG( "LoadImages: load failed at %d" LOG_CR, i );
-			return false;
+		switch (i) {
+		case INDICATE_STREAM_MIC_ACTIVE:
+		case INDICATE_STREAM_MIC_IDLE:
+		case INDICATE_STREAM_MIC_MUTED:
+			m_images[i] = CreateMicIndicator(i, micIndicatorW, micIndicatorH, true);
+			break;
+		case INDICATE_MIC_ACTIVE:
+		case INDICATE_MIC_IDLE:
+		case INDICATE_MIC_MUTED:
+			m_images[i] = CreateMicIndicator(i, micIndicatorW, micIndicatorH);
+			break;
+		case INDICATE_BOOKMARK:
+			m_images[i] = CreatePopupImage(bookmarkCaption, bookmarkDescription, IDB_BOOKMARK_ICON);
+			break;
+		case INDICATE_ENABLED:
+		case INDICATE_CAPTURING: {
+				wchar_t hotkeyDescription[1024] = L"";
+
+				MakeHotkeyDescription(&hotkeyDescription[0]);
+
+				m_images[i] = CreatePopupImage(capturingCaption, hotkeyDescription);
+			}
+			break;
+		case INDICATE_CACHE_LIMIT:
+			m_images[i] = CreatePopupImage(cacheLimitCaption, cacheLimitDescription, 0, IDB_COLOR_BAR_ERROR);
+			break;
+		case INDICATE_STREAM_STOPPED:
+			m_images[i] = CreatePopupImage(streamStoppedCaption, L"", 0);
+			break;
+		case INDICATE_STREAM_STARTED:
+			m_images[i] = CreatePopupImage(streamStartedCaption, streamStartedDescription, IDB_CHECKMARK_ICON);
+			break;
+		case INDICATE_CLIP_PROCESSING:
+			m_images[i] = CreatePopupImage(clipUploadingCaption, L"", 0);
+			break;
+		case INDICATE_CLIP_PROCESSED:
+			m_images[i] = CreatePopupImage(clipUploadedCaption, clipUploadedDescription, IDB_CHECKMARK_ICON);
+			break;
+		default:
+			m_images[i] = LoadBitmapFromResource(MAKEINTRESOURCE(s_image_res[i]));
+			if (!m_images[i])
+			{
+				LOG_MSG("LoadImages: load failed at %d" LOG_CR, i);
+				return false;
+			}
+			break;
 		}
 	}
 
 	//m_image_enabled_hotkeys = LoadBitmapFromResource( MAKEINTRESOURCE(IDB_ENABLED_HOTKEYS) );
 
 	return true;
+}
+
+void IndicatorManager::UpdateImages(void)
+{
+	if (!hotkeysChanged) return;
+	hotkeysChanged = false;
+
+	if (m_images[INDICATE_ENABLED]) {
+		DeleteObject(m_images[INDICATE_ENABLED]);
+		m_images[INDICATE_ENABLED] = NULL;
+	}
+
+	wchar_t hotkeyDescription[1024];
+	memset(hotkeyDescription, 0x00, 1024 * sizeof(wchar_t));
+
+	MakeHotkeyDescription(&hotkeyDescription[0]);
+
+	m_images[INDICATE_ENABLED] = CreatePopupImage(capturingCaption, hotkeyDescription);
+
+	updateTextures = true;
+
+	return;
 }
 
 void IndicatorManager::FreeImages( void )

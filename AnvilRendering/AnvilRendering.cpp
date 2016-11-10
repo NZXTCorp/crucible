@@ -171,7 +171,6 @@ static void HandleIndicatorCommand(Object &obj)
 		{"mic_active", INDICATE_MIC_ACTIVE},
 		{"mic_muted",  INDICATE_MIC_MUTED},
 		{"enabled",    INDICATE_ENABLED},
-		{"enabled_hotkey", INDICATE_ENABLED_HOTKEY},
 		{"bookmark",   INDICATE_BOOKMARK},
 		{"cache_limit",INDICATE_CACHE_LIMIT},
 		{"clip_processing", INDICATE_CLIP_PROCESSING},
@@ -234,6 +233,8 @@ static void HandleUpdateSettings(Object &obj)
 		if (!hotkeys[hotkey])
 			return;
 
+		SetIndicatorHotkey(hotkey, static_cast<int>(code.Value()), ctrl, alt, shift);
+
 		hlog("hotkey '%s' (%s) updated", HotKeyTypeName(hotkey), setting_name);
 	};
 
@@ -244,6 +245,8 @@ static void HandleUpdateSettings(Object &obj)
 		UpdateHotkey(HOTKEY_Overlay, "highlight_key");
 		UpdateHotkey(HOTKEY_Stream, "stream_key");
 		UpdateHotkey(HOTKEY_StartStopStream, "start_stop_stream_key");
+
+		indicatorManager.UpdateImages();
 	}
 }
 
@@ -395,7 +398,9 @@ C_EXPORT bool overlay_init(void (*hlog_)(const char *fmt, ...))
 		(LPCTSTR)overlay_init, &g_hInst);
 
 	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
-	Gdiplus::Status status = Gdiplus::GdiplusStartup(&gdi_token, &gdiplusStartupInput, NULL);
+	Gdiplus::GdiplusStartupOutput gdiplusStartupOutput;
+	ULONG_PTR gdiplusToken;
+	GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, &gdiplusStartupOutput);
 
 	indicatorManager.LoadImages();
 

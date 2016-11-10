@@ -743,7 +743,7 @@ namespace AnvilCommands {
 		}
 
 		if (enabled_timeout >= os_gettime_ns())
-			indicator = display_enabled_hotkey ? "enabled_hotkey" : "enabled";
+			indicator = "enabled";
 
 		if (clipping)
 			indicator = "clip_processing";
