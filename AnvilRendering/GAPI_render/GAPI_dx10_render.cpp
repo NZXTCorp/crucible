@@ -161,6 +161,9 @@ void DX10Renderer::InitIndicatorTextures( IndicatorManager &manager )
 		HeapFree( GetProcessHeap( ), 0, pData );
 		bmp->UnlockBits( &data );
 
+		if (m_pResViewNotification[i].IsValidRefObj())
+			m_pResViewNotification[i].ReleaseRefObj();
+
 		hRes = m_pDevice->CreateShaderResourceView( m_pIndicatorTexture[i], nullptr, IREF_GETPPTR(m_pResViewNotification[i], ID3D11ShaderResourceView) );
 		if ( FAILED(hRes) )
 		{
@@ -201,6 +204,11 @@ void DX10Renderer::InitIndicatorTextures( IndicatorManager &manager )
 
 void DX10Renderer::UpdateOverlayVB(ID3D10Texture2D *tex)
 {
+	if (indicatorManager.updateTextures) {
+		InitIndicatorTextures(indicatorManager);
+		indicatorManager.updateTextures = false;
+	}
+
 	D3D10_TEXTURE2D_DESC desc;
 	tex->GetDesc(&desc);
 

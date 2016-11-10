@@ -312,14 +312,14 @@ void DX9Renderer::InitIndicatorTextures( IndicatorManager &manager )
 			return;
 		}
 
+		if ( m_pIndicatorTexture[i] )
+			m_pIndicatorTexture[i].ReleaseRefObj();
+
+		m_pDevice->CreateTexture( bmp->GetWidth( ), bmp->GetHeight( ), 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, IREF_GETPPTR(m_pIndicatorTexture[i], IDirect3DTexture9), NULL );
 		if ( !m_pIndicatorTexture[i] )
 		{
-			m_pDevice->CreateTexture( bmp->GetWidth( ), bmp->GetHeight( ), 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, IREF_GETPPTR(m_pIndicatorTexture[i], IDirect3DTexture9), NULL );
-			if ( !m_pIndicatorTexture[i] )
-			{
-				LOG_WARN( "InitIndicatorTextures: couldn't create texture!" LOG_CR );
-				break;
-			}
+			LOG_WARN( "InitIndicatorTextures: couldn't create texture!" LOG_CR );
+			break;
 		}
 
 		D3DLOCKED_RECT lr;
@@ -552,6 +552,11 @@ bool DX9Renderer::DrawOverlay(ActiveOverlay active_overlay)
 
 void DX9Renderer::UpdateOverlay()
 {
+	if (indicatorManager.updateTextures) {
+		indicatorManager.updateTextures = false;
+		InitIndicatorTextures(indicatorManager);
+	}
+
 	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++)
 		overlay_textures[i].Buffer([&](OverlayTexture_t &tex)
 		{

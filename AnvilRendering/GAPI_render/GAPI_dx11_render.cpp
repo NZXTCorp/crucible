@@ -169,6 +169,9 @@ void DX11Renderer::InitIndicatorTextures( IndicatorManager &manager )
 
 		bmp->UnlockBits( &data );
 
+		if (m_pResViewNotification[i].IsValidRefObj())
+			m_pResViewNotification[i].ReleaseRefObj();
+
 		hRes = m_pDevice->CreateShaderResourceView( m_pIndicatorTexture[i], nullptr, IREF_GETPPTR(m_pResViewNotification[i], ID3D11ShaderResourceView) );
 		if ( FAILED(hRes) )
 		{
@@ -209,6 +212,11 @@ void DX11Renderer::InitIndicatorTextures( IndicatorManager &manager )
 
 void DX11Renderer::UpdateOverlayVB(ID3D11Texture2D *tex)
 {
+	if (indicatorManager.updateTextures) {
+		InitIndicatorTextures(indicatorManager);
+		indicatorManager.updateTextures = false;
+	}
+
 	IRefPtr<ID3D11DeviceContext> pContext;
 	m_pDevice->GetImmediateContext(IREF_GETPPTR(pContext, ID3D11DeviceContext));
 

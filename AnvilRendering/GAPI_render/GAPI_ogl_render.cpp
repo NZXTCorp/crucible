@@ -440,6 +440,13 @@ void overlay_gl_free()
 static void update_overlay()
 {
 	s_glPushAttrib(GL_ALL_ATTRIB_BITS);
+
+	if (indicatorManager.updateTextures) {
+		indicatorManager.updateTextures = false;
+		render.FreeRenderer();
+		render.InitRenderer(indicatorManager);
+	}
+
 	if (!overlay_tex_initialized)
 	{
 		try {
