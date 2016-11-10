@@ -181,6 +181,30 @@
     <Image Include="GAPI_render\res\indicator_streaming_mic_mute.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="GAPI_render\res\indicator_color_bar.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\mic_icon.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\mic_icon_idle.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\mic_icon_muted.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\bookmark_icon.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\live_icon.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\icon_checkmark.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\indicator_color_bar_error.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="GAPI_render\Anvil.rc">
