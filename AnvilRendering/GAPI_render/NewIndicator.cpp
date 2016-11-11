@@ -146,8 +146,8 @@ wstring hotkeyHelpText[HOTKEY_QTY] = {
 	L"Save a screenshot",
 	L"Save a moment to upload a clip of later",
 	L"Open the in-game clipper",
-	L"Open the stream overlay that never existed",
-	L"Start or stop streaming (not really)",
+	L"Open the streaming overlay",
+	L"Start or stop streaming",
 	L"Mute or unmute microphone",
 };
 
