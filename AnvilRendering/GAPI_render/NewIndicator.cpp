@@ -14,6 +14,7 @@
 #include <string>
 
 using namespace Gdiplus;
+using namespace std;
 
 // D3DCOLOR format is high to low, Alpha, Blue, Green, Red
 const DWORD sm_IndColors[TAKSI_INDICATE_QTY] =
@@ -125,23 +126,23 @@ static Bitmap *CreateMicIndicator(int indicatorID, int w, int h, bool live = fal
 }
 
 // It doesn't actually matter if the user has deleted Arial, GDI+ will pick the default Windows font if that's the case.
-wchar_t fontFace[64] = L"Arial";
+wstring fontFace = L"Arial";
 unsigned int sizeSmall = 10, sizeMedium = 14, sizeLarge = 18;
 
-wchar_t capturingCaption[] = L"Forge is now enabled!";
-wchar_t cacheLimitCaption[] = L"Forge stopped recording";
-wchar_t bookmarkCaption[] = L"Bookmark created!";
-wchar_t streamStoppedCaption[] = L"Stream ended";
-wchar_t streamStartedCaption[] = L"You started streaming";
-wchar_t clipUploadingCaption[] = L"Uploading clip...";
-wchar_t clipUploadedCaption[] = L"Clip uploaded!";
+wstring capturingCaption = L"Forge is now enabled!";
+wstring cacheLimitCaption = L"Forge stopped recording";
+wstring bookmarkCaption = L"Bookmark created!";
+wstring streamStoppedCaption = L"Stream ended";
+wstring streamStartedCaption = L"You started streaming";
+wstring clipUploadingCaption = L"Uploading clip...";
+wstring clipUploadedCaption = L"Clip uploaded!";
 
-wchar_t bookmarkDescription[] = L"View it under the Bookmarks tab in the\nForge app when you are done playing.";
-wchar_t cacheLimitDescription[] = L"We ran out of space to record further.";
-wchar_t streamStartedDescription[] = L"You will keep streaming until you click\nthe Stop Stream button in the Forge app.";
-wchar_t clipUploadedDescription[] = L"A link to your clip has been copied to your clipboard.";
+wstring bookmarkDescription = L"View it under the Bookmarks tab in the\nForge app when you are done playing.";
+wstring cacheLimitDescription = L"We ran out of space to record further.";
+wstring streamStartedDescription = L"You will keep streaming until you click\nthe Stop Stream button in the Forge app.";
+wstring clipUploadedDescription = L"A link to your clip has been copied to your clipboard.";
 
-wchar_t *hotkeyHelpText[] = {
+wstring hotkeyHelpText[HOTKEY_QTY] = {
 	L"Save a screenshot",
 	L"Save a moment to upload a clip of later",
 	L"Open the in-game clipper",
@@ -153,7 +154,7 @@ unsigned int indicatorHotkey_Keycode[HOTKEY_QTY];
 bool indicatorHotkey_CONTROL[HOTKEY_QTY], indicatorHotkey_MENU[HOTKEY_QTY], indicatorHotkey_SHIFT[HOTKEY_QTY];
 bool hotkeysChanged = false;
 
-std::wstring GetKeyName(unsigned int virtualKey)
+wstring GetKeyName(unsigned int virtualKey)
 {
 	unsigned int scanCode = MapVirtualKey(virtualKey, MAPVK_VK_TO_VSC);
 
@@ -179,10 +180,10 @@ std::wstring GetKeyName(unsigned int virtualKey)
 		return L"[Error]";
 }
 
-static Bitmap *CreatePopupImage(wchar_t *caption, wchar_t *desc, unsigned int iconID = 0, unsigned int colorbarID = IDB_COLOR_BAR)
+static Bitmap *CreatePopupImage(wstring *caption, wstring *desc, unsigned int iconID = 0, unsigned int colorbarID = IDB_COLOR_BAR)
 {
-	Font *largeFont = new Font(fontFace, sizeLarge, FontStyleBold);
-	Font *mediumFont = new Font(fontFace, sizeMedium);
+	Font *largeFont = new Font(fontFace.c_str(), sizeLarge, FontStyleBold);
+	Font *mediumFont = new Font(fontFace.c_str(), sizeMedium);
 
 	HDC tempHDC = CreateCompatibleDC(NULL);
 	Graphics measureTemp(tempHDC);
@@ -194,13 +195,15 @@ static Bitmap *CreatePopupImage(wchar_t *caption, wchar_t *desc, unsigned int ic
 
 	RectF bound;
 
-	measureTemp.MeasureString(caption, wcslen(caption), largeFont, PointF(0.0f, 0.0f), &bound);
+	measureTemp.MeasureString(caption->c_str(), wcslen(caption->c_str()), largeFont, PointF(0.0f, 0.0f), &bound);
 	width = (int)bound.Width;
 	height += (int)bound.Height;
 
-	measureTemp.MeasureString(desc, wcslen(desc), mediumFont, PointF(0.0f, 0.0f), &bound);
-	if ((int)bound.Width > width) width = (int)bound.Width;
-	height += (int)bound.Height;
+	if (desc) {
+		measureTemp.MeasureString(desc->c_str(), wcslen(desc->c_str()), mediumFont, PointF(0.0f, 0.0f), &bound);
+		if ((int)bound.Width > width) width = (int)bound.Width;
+		height += (int)bound.Height;
+	}
 
 	measureTemp.ReleaseHDC(tempHDC);
 
@@ -213,6 +216,7 @@ static Bitmap *CreatePopupImage(wchar_t *caption, wchar_t *desc, unsigned int ic
 
 	width = width + 64 + iconWidth;
 	height = height + 32;
+	if (height < iconHeight + 32) height = iconHeight + 32;
 
 	Bitmap *tmp = new Bitmap(width, height, PixelFormat32bppARGB);
 	Graphics graphics(tmp);
@@ -226,8 +230,8 @@ static Bitmap *CreatePopupImage(wchar_t *caption, wchar_t *desc, unsigned int ic
 	graphics.Clear(popupBGColor);
 	graphics.DrawImage(colorBar, width - 48, 0, 48, 48);
 	if (iconID != 0) graphics.DrawImage(popupIcon, 16, 16, iconWidth, iconHeight);
-	graphics.DrawString(caption, wcslen(caption), largeFont, PointF(32.0f + iconWidth, 16.0f), &brush);
-	graphics.DrawString(desc, wcslen(desc), mediumFont, PointF(32.0f + iconWidth, 32.0f + sizeLarge), &brush);
+	graphics.DrawString(caption->c_str(), wcslen(caption->c_str()), largeFont, PointF(32.0f + iconWidth, 16.0f), &brush);
+	if(desc) graphics.DrawString(desc->c_str(), wcslen(desc->c_str()), mediumFont, PointF(32.0f + iconWidth, 32.0f + sizeLarge), &brush);
 
 	if (colorBar) DeleteObject(colorBar);
 	if (popupIcon) DeleteObject(popupIcon);
@@ -263,25 +267,27 @@ IndicatorManager::~IndicatorManager( void )
 	FreeImages( );
 }
 
-void MakeHotkeyDescription(wchar_t *hotkeyDescription) {
-	wcscat(hotkeyDescription, L"Hotkeys:\n");
+wstring MakeHotkeyDescription() {
+	bool noHotkeys = true;
+	wstring hotKeyDescription;
 
-#define MOD(x) (indicatorHotkey_ ## x[i] ? GetKeyName(VK_ ## x).c_str() : L""), (indicatorHotkey_ ## x[i] ? L" + " : L"")
+#define MOD(x) (indicatorHotkey_ ## x[i] ? GetKeyName(VK_ ## x) + L" + " : L"")
 
 	for (int i = 0; i < HOTKEY_QTY; i++) {
 		if (indicatorHotkey_Keycode[i] != 0) {
-			wchar_t tmp[256] = L"";
+			hotKeyDescription += MOD(CONTROL);
+			hotKeyDescription += MOD(MENU);
+			hotKeyDescription += MOD(SHIFT);
+			hotKeyDescription += GetKeyName(indicatorHotkey_Keycode[i]) + L" - " + hotkeyHelpText[i] + L"\n";
 
-			wsprintf(tmp, L"%s%s%s%s%s%s%s  -  %s\n",
-				MOD(CONTROL),
-				MOD(MENU),
-				MOD(SHIFT),
-				GetKeyName(indicatorHotkey_Keycode[i]).c_str(),
-				hotkeyHelpText[i]);
-
-			wcscat(hotkeyDescription, tmp);
+			noHotkeys = false;
 		}
 	}
+
+	if (!noHotkeys)
+		hotKeyDescription = L"Hotkeys:\n" + hotKeyDescription;
+
+	return hotKeyDescription;
 }
 
 bool IndicatorManager::LoadImages( void )
@@ -300,31 +306,27 @@ bool IndicatorManager::LoadImages( void )
 			m_images[i] = CreateMicIndicator(i, micIndicatorW, micIndicatorH);
 			break;
 		case INDICATE_BOOKMARK:
-			m_images[i] = CreatePopupImage(bookmarkCaption, bookmarkDescription, IDB_BOOKMARK_ICON);
+			m_images[i] = CreatePopupImage(&bookmarkCaption, &bookmarkDescription, IDB_BOOKMARK_ICON);
 			break;
 		case INDICATE_ENABLED:
 		case INDICATE_CAPTURING: {
-				wchar_t hotkeyDescription[1024] = L"";
-
-				MakeHotkeyDescription(&hotkeyDescription[0]);
-
-				m_images[i] = CreatePopupImage(capturingCaption, hotkeyDescription);
+				m_images[i] = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
 			}
 			break;
 		case INDICATE_CACHE_LIMIT:
-			m_images[i] = CreatePopupImage(cacheLimitCaption, cacheLimitDescription, 0, IDB_COLOR_BAR_ERROR);
+			m_images[i] = CreatePopupImage(&cacheLimitCaption, &cacheLimitDescription, 0, IDB_COLOR_BAR_ERROR);
 			break;
 		case INDICATE_STREAM_STOPPED:
-			m_images[i] = CreatePopupImage(streamStoppedCaption, L"", 0);
+			m_images[i] = CreatePopupImage(&streamStoppedCaption, NULL, 0);
 			break;
 		case INDICATE_STREAM_STARTED:
-			m_images[i] = CreatePopupImage(streamStartedCaption, streamStartedDescription, IDB_CHECKMARK_ICON);
+			m_images[i] = CreatePopupImage(&streamStartedCaption, &streamStartedDescription, IDB_CHECKMARK_ICON);
 			break;
 		case INDICATE_CLIP_PROCESSING:
-			m_images[i] = CreatePopupImage(clipUploadingCaption, L"", 0);
+			m_images[i] = CreatePopupImage(&clipUploadingCaption, NULL, 0);
 			break;
 		case INDICATE_CLIP_PROCESSED:
-			m_images[i] = CreatePopupImage(clipUploadedCaption, clipUploadedDescription, IDB_CHECKMARK_ICON);
+			m_images[i] = CreatePopupImage(&clipUploadedCaption, &clipUploadedDescription, IDB_CHECKMARK_ICON);
 			break;
 		default:
 			m_images[i] = LoadBitmapFromResource(MAKEINTRESOURCE(s_image_res[i]));
@@ -352,12 +354,7 @@ void IndicatorManager::UpdateImages(void)
 		m_images[INDICATE_ENABLED] = NULL;
 	}
 
-	wchar_t hotkeyDescription[1024];
-	memset(hotkeyDescription, 0x00, 1024 * sizeof(wchar_t));
-
-	MakeHotkeyDescription(&hotkeyDescription[0]);
-
-	m_images[INDICATE_ENABLED] = CreatePopupImage(capturingCaption, hotkeyDescription);
+	m_images[INDICATE_ENABLED] = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
 
 	updateTextures = true;
 
