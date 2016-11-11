@@ -148,6 +148,7 @@ wstring hotkeyHelpText[HOTKEY_QTY] = {
 	L"Open the in-game clipper",
 	L"Open the stream overlay that never existed",
 	L"Start or stop streaming (not really)",
+	L"Mute or unmute microphone",
 };
 
 unsigned int indicatorHotkey_Keycode[HOTKEY_QTY];

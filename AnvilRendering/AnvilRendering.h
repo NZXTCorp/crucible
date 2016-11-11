@@ -49,6 +49,7 @@ enum HOTKEY_TYPE
 	HOTKEY_Overlay,
 	HOTKEY_Stream,
 	HOTKEY_StartStopStream,
+	HOTKEY_PTT,
 	HOTKEY_QTY,
 };
 

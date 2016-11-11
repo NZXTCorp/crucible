@@ -245,6 +245,7 @@ static void HandleUpdateSettings(Object &obj)
 		UpdateHotkey(HOTKEY_Overlay, "highlight_key");
 		UpdateHotkey(HOTKEY_Stream, "stream_key");
 		UpdateHotkey(HOTKEY_StartStopStream, "start_stop_stream_key");
+		UpdateHotkey(HOTKEY_PTT, "ptt_key");
 
 		indicatorManager.UpdateImages();
 	}

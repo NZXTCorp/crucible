@@ -621,13 +621,15 @@ namespace AnvilCommands {
 	OBSData highlight_key;
 	OBSData stream_key;
 	OBSData start_stop_stream_key;
+	OBSData ptt_key;
 	OBSData cursor;
 
 	void SendForgeInfo(const char *info=nullptr);
 	void SendSettings(obs_data_t *bookmark_key_=nullptr, 
 		obs_data_t *highlight_key_ = nullptr, 
 		obs_data_t *stream_key_ = nullptr,
-		obs_data_t *start_stop_stream_key_ = nullptr);
+		obs_data_t *start_stop_stream_key_ = nullptr,
+		obs_data_t *ptt_key_ = nullptr);
 	void SendIndicator();
 	void SendCursor(obs_data_t *cmd=nullptr);
 
@@ -853,7 +855,7 @@ namespace AnvilCommands {
 		SendCommand(cmd);
 	}
 
-	void SendSettings(obs_data_t *bookmark_key_, obs_data_t *highlight_key_, obs_data_t *stream_key_, obs_data_t *start_stop_stream_key_)
+	void SendSettings(obs_data_t *bookmark_key_, obs_data_t *highlight_key_, obs_data_t *stream_key_, obs_data_t *start_stop_stream_key_, obs_data_t *ptt_key_)
 	{
 		auto cmd = CommandCreate("update_settings");
 
@@ -869,6 +871,9 @@ namespace AnvilCommands {
 		if (start_stop_stream_key_)
 			start_stop_stream_key = start_stop_stream_key_;
 
+		if (ptt_key_)
+			ptt_key = ptt_key_;
+
 		if (bookmark_key)
 			obs_data_set_obj(cmd, "bookmark_key", bookmark_key);
 		if (highlight_key)
@@ -877,6 +882,8 @@ namespace AnvilCommands {
 			obs_data_set_obj(cmd, "stream_key", stream_key);
 		if (start_stop_stream_key)
 			obs_data_set_obj(cmd, "start_stop_stream_key", start_stop_stream_key);
+		if (start_stop_stream_key)
+			obs_data_set_obj(cmd, "ptt_key", ptt_key);
 
 		SendCommand(cmd);
 	}
@@ -2466,7 +2473,8 @@ struct CrucibleContext {
 		AnvilCommands::SendSettings(bookmark_key,
 			OBSDataGetObj(settings, "highlight_key"),
 			OBSDataGetObj(settings, "stream_key"),
-			OBSDataGetObj(settings, "start_stop_stream_key"));
+			OBSDataGetObj(settings, "start_stop_stream_key"),
+			OBSDataGetObj(settings, "ptt_key"));
 #else
 		obs_key_combination_to_str(bookmark_combo, str);
 		blog(LOG_INFO, "bookmark hotkey uses '%s'", str->array);
