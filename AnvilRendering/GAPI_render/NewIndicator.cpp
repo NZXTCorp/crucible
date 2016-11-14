@@ -123,7 +123,7 @@ static unique_ptr<Bitmap> CreateMicIndicator(int indicatorID, int w, int h, bool
 
 // It doesn't actually matter if the user has deleted Arial, GDI+ will pick the default Windows font if that's the case.
 wstring fontFace = L"Arial";
-unsigned int sizeSmall = 10, sizeMedium = 14, sizeLarge = 18;
+REAL sizeSmall = 10, sizeMedium = 14, sizeLarge = 18;
 
 wstring capturingCaption = L"Forge is now enabled!";
 wstring cacheLimitCaption = L"Forge stopped recording";
