@@ -61,7 +61,6 @@ class IndicatorManager
 {
 private:
 	Gdiplus::Bitmap *m_images[INDICATE_NONE];
-	Gdiplus::Bitmap *m_image_enabled_hotkeys; // bigger 'enabled' indicator with info about default hotkeys that we'll swap in if they're set
 public:
 	IndicatorManager( void );
 	~IndicatorManager( void );

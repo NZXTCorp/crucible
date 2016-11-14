@@ -259,8 +259,6 @@ IndicatorManager::IndicatorManager( void )
 {
 	for ( int i = 0; i < INDICATE_NONE; i++ )
 		m_images[i] = nullptr;
-
-	m_image_enabled_hotkeys = nullptr;
 }
 
 IndicatorManager::~IndicatorManager( void )
@@ -340,8 +338,6 @@ bool IndicatorManager::LoadImages( void )
 		}
 	}
 
-	//m_image_enabled_hotkeys = LoadBitmapFromResource( MAKEINTRESOURCE(IDB_ENABLED_HOTKEYS) );
-
 	return true;
 }
 
@@ -371,12 +367,6 @@ void IndicatorManager::FreeImages( void )
 
 		delete m_images[i];
 		m_images[i] = nullptr;
-	}
-
-	if ( m_image_enabled_hotkeys )
-	{
-		delete m_image_enabled_hotkeys;
-		m_image_enabled_hotkeys = nullptr;
 	}
 }
 
