@@ -777,7 +777,7 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LPMSG lpM
 #ifdef HOOK_REGISTER_RAW_DEVICES
 		case WM_INPUT:
 			if (g_bBrowserShowing)
-				return DefWindowProc(hWnd, uMsg, wParam, lParam);
+				return !!DefWindowProc(hWnd, uMsg, wParam, lParam);
 			return false;
 #endif
 	}
