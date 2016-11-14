@@ -48,7 +48,7 @@ static int s_image_res[INDICATE_NONE] =
 
 int micIndicatorW = 48, micIndicatorH = 48;
 
-static Bitmap *LoadBitmapFromResource( wchar_t *resource_name )
+static unique_ptr<Bitmap> LoadBitmapFromResource( wchar_t *resource_name )
 {
 /*#ifdef _WIN64
 	HMODULE hMod = GetModuleHandle( L"Anvil64.dll" );
@@ -87,7 +87,7 @@ static Bitmap *LoadBitmapFromResource( wchar_t *resource_name )
         return nullptr;
 	}
 
-    Gdiplus::Bitmap *image = Gdiplus::Bitmap::FromStream( pStream );
+	unique_ptr<Gdiplus::Bitmap> image{ Gdiplus::Bitmap::FromStream(pStream) };
     pStream->Release( );
 
 	return image;
@@ -96,7 +96,7 @@ static Bitmap *LoadBitmapFromResource( wchar_t *resource_name )
 static Color popupBGColor = Color(192, 0, 0, 0);
 static Color textColor = Color(255, 255, 255, 255);
 
-static Bitmap *CreateMicIndicator(int indicatorID, int w, int h, bool live = false)
+static unique_ptr<Bitmap> CreateMicIndicator(int indicatorID, int w, int h, bool live = false)
 {
 	int bitmapWidth = w, bitmapHeight = h;
 	int iconAdjust = 0;
@@ -106,21 +106,17 @@ static Bitmap *CreateMicIndicator(int indicatorID, int w, int h, bool live = fal
 		iconAdjust = 24;
 	}
 
-	Bitmap *tmp = new Bitmap(bitmapWidth, bitmapHeight, PixelFormat32bppARGB);
-	Graphics graphics(tmp);
+	auto tmp = make_unique<Bitmap>(bitmapWidth, bitmapHeight, PixelFormat32bppARGB);
+	Graphics graphics(tmp.get());
 
-	Bitmap *colorBar = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_COLOR_BAR));
-	Bitmap *liveIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_LIVE_ICON));
-	Bitmap *micIcon = LoadBitmapFromResource(MAKEINTRESOURCE(s_image_res[indicatorID]));
+	auto colorBar = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_COLOR_BAR));
+	auto liveIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_LIVE_ICON));
+	auto micIcon = LoadBitmapFromResource(MAKEINTRESOURCE(s_image_res[indicatorID]));
 
 	graphics.Clear(popupBGColor);
-	graphics.DrawImage(colorBar, 0, 0, w, h);
-	graphics.DrawImage(micIcon, 0, 0 + iconAdjust, w, h);
-	if (live) graphics.DrawImage(liveIcon, 0, 4, liveIcon->GetWidth(), liveIcon->GetHeight());
-
-	if (colorBar) DeleteObject(colorBar);
-	if (micIcon) DeleteObject(micIcon);
-	if (liveIcon) DeleteObject(liveIcon);
+	graphics.DrawImage(colorBar.get(), 0, 0, w, h);
+	graphics.DrawImage(micIcon.get(), 0, 0 + iconAdjust, w, h);
+	if (live) graphics.DrawImage(liveIcon.get(), 0, 4, liveIcon->GetWidth(), liveIcon->GetHeight());
 
 	return tmp;
 }
@@ -181,7 +177,7 @@ wstring GetKeyName(unsigned int virtualKey)
 		return L"[Error]";
 }
 
-static Bitmap *CreatePopupImage(wstring *caption, wstring *desc, unsigned int iconID = 0, unsigned int colorbarID = IDB_COLOR_BAR)
+static unique_ptr<Bitmap> CreatePopupImage(wstring *caption, wstring *desc, unsigned int iconID = 0, unsigned int colorbarID = IDB_COLOR_BAR)
 {
 	Font largeFont(fontFace.c_str(), sizeLarge, FontStyleBold);
 	Font mediumFont(fontFace.c_str(), sizeMedium);
@@ -192,7 +188,7 @@ static Bitmap *CreatePopupImage(wstring *caption, wstring *desc, unsigned int ic
 	int width = 0, height = 0;
 	int iconWidth = 0, iconHeight = 0;
 
-	Bitmap *colorBar = NULL, *popupIcon = NULL;
+	unique_ptr<Bitmap> colorBar, popupIcon;
 
 	RectF bound;
 
@@ -219,8 +215,8 @@ static Bitmap *CreatePopupImage(wstring *caption, wstring *desc, unsigned int ic
 	height = height + 32;
 	if (height < iconHeight + 32) height = iconHeight + 32;
 
-	Bitmap *tmp = new Bitmap(width, height, PixelFormat32bppARGB);
-	Graphics graphics(tmp);
+	auto tmp = make_unique<Bitmap>(width, height, PixelFormat32bppARGB);
+	Graphics graphics(tmp.get());
 
 	SolidBrush brush(textColor);
 
@@ -229,13 +225,10 @@ static Bitmap *CreatePopupImage(wstring *caption, wstring *desc, unsigned int ic
 	graphics.SetSmoothingMode(SmoothingModeHighQuality);
 
 	graphics.Clear(popupBGColor);
-	graphics.DrawImage(colorBar, width - 48, 0, 48, 48);
-	if (iconID != 0) graphics.DrawImage(popupIcon, 16, 16, iconWidth, iconHeight);
+	graphics.DrawImage(colorBar.get(), width - 48, 0, 48, 48);
+	if (iconID != 0) graphics.DrawImage(popupIcon.get(), 16, 16, iconWidth, iconHeight);
 	graphics.DrawString(caption->c_str(), wcslen(caption->c_str()), &largeFont, PointF(32.0f + iconWidth, 16.0f), &brush);
 	if(desc) graphics.DrawString(desc->c_str(), wcslen(desc->c_str()), &mediumFont, PointF(32.0f + iconWidth, 32.0f + sizeLarge), &brush);
-
-	if (colorBar) DeleteObject(colorBar);
-	if (popupIcon) DeleteObject(popupIcon);
 
 	return tmp;
 }
@@ -343,11 +336,6 @@ void IndicatorManager::UpdateImages(void)
 	if (!hotkeysChanged) return;
 	hotkeysChanged = false;
 
-	if (m_images[INDICATE_ENABLED]) {
-		DeleteObject(m_images[INDICATE_ENABLED]);
-		m_images[INDICATE_ENABLED] = NULL;
-	}
-
 	m_images[INDICATE_ENABLED] = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
 
 	updateTextures = true;
@@ -357,14 +345,8 @@ void IndicatorManager::UpdateImages(void)
 
 void IndicatorManager::FreeImages( void )
 {
-	for ( int i = 0; i < INDICATE_NONE; i++ )
-	{
-		if ( !m_images[i] )
-			continue;
-
-		delete m_images[i];
-		m_images[i] = nullptr;
-	}
+	for (int i = 0; i < INDICATE_NONE; i++)
+		m_images[i].reset();
 }
 
 Gdiplus::Bitmap *IndicatorManager::GetImage( int indicator_event )
@@ -377,5 +359,5 @@ Gdiplus::Bitmap *IndicatorManager::GetImage( int indicator_event )
 		return m_image_enabled_hotkeys;*/
 
 	// otherwise show the proper image
-	return m_images[indicator_event];
+	return m_images[indicator_event].get();
 }

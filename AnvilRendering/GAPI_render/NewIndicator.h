@@ -5,6 +5,7 @@
 #define NEW_INDICATORS_DIRTY
 
 #include <gdiplus.h>
+#include <memory>
 
 // NOTE: these match the order of the resource images!
 enum IndicatorEvent
@@ -60,7 +61,7 @@ extern const DWORD sm_IndColors[TAKSI_INDICATE_QTY];
 class IndicatorManager
 {
 private:
-	Gdiplus::Bitmap *m_images[INDICATE_NONE];
+	std::unique_ptr<Gdiplus::Bitmap> m_images[INDICATE_NONE];
 public:
 	IndicatorManager( void );
 	~IndicatorManager( void );
