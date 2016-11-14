@@ -306,9 +306,8 @@ bool IndicatorManager::LoadImages( void )
 			m_images[i] = CreatePopupImage(&bookmarkCaption, &bookmarkDescription, IDB_BOOKMARK_ICON);
 			break;
 		case INDICATE_ENABLED:
-		case INDICATE_CAPTURING: {
-				m_images[i] = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
-			}
+		case INDICATE_CAPTURING:
+			m_images[i] = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
 			break;
 		case INDICATE_CACHE_LIMIT:
 			m_images[i] = CreatePopupImage(&cacheLimitCaption, &cacheLimitDescription, 0, IDB_COLOR_BAR_ERROR);
