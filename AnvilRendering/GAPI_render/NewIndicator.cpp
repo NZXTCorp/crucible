@@ -183,8 +183,8 @@ wstring GetKeyName(unsigned int virtualKey)
 
 static Bitmap *CreatePopupImage(wstring *caption, wstring *desc, unsigned int iconID = 0, unsigned int colorbarID = IDB_COLOR_BAR)
 {
-	Font *largeFont = new Font(fontFace.c_str(), sizeLarge, FontStyleBold);
-	Font *mediumFont = new Font(fontFace.c_str(), sizeMedium);
+	Font largeFont(fontFace.c_str(), sizeLarge, FontStyleBold);
+	Font mediumFont(fontFace.c_str(), sizeMedium);
 
 	HDC tempHDC = CreateCompatibleDC(NULL);
 	Graphics measureTemp(tempHDC);
@@ -196,12 +196,12 @@ static Bitmap *CreatePopupImage(wstring *caption, wstring *desc, unsigned int ic
 
 	RectF bound;
 
-	measureTemp.MeasureString(caption->c_str(), wcslen(caption->c_str()), largeFont, PointF(0.0f, 0.0f), &bound);
+	measureTemp.MeasureString(caption->c_str(), wcslen(caption->c_str()), &largeFont, PointF(0.0f, 0.0f), &bound);
 	width = (int)bound.Width;
 	height += (int)bound.Height;
 
 	if (desc) {
-		measureTemp.MeasureString(desc->c_str(), wcslen(desc->c_str()), mediumFont, PointF(0.0f, 0.0f), &bound);
+		measureTemp.MeasureString(desc->c_str(), wcslen(desc->c_str()), &mediumFont, PointF(0.0f, 0.0f), &bound);
 		if ((int)bound.Width > width) width = (int)bound.Width;
 		height += (int)bound.Height;
 	}
@@ -231,13 +231,11 @@ static Bitmap *CreatePopupImage(wstring *caption, wstring *desc, unsigned int ic
 	graphics.Clear(popupBGColor);
 	graphics.DrawImage(colorBar, width - 48, 0, 48, 48);
 	if (iconID != 0) graphics.DrawImage(popupIcon, 16, 16, iconWidth, iconHeight);
-	graphics.DrawString(caption->c_str(), wcslen(caption->c_str()), largeFont, PointF(32.0f + iconWidth, 16.0f), &brush);
-	if(desc) graphics.DrawString(desc->c_str(), wcslen(desc->c_str()), mediumFont, PointF(32.0f + iconWidth, 32.0f + sizeLarge), &brush);
+	graphics.DrawString(caption->c_str(), wcslen(caption->c_str()), &largeFont, PointF(32.0f + iconWidth, 16.0f), &brush);
+	if(desc) graphics.DrawString(desc->c_str(), wcslen(desc->c_str()), &mediumFont, PointF(32.0f + iconWidth, 32.0f + sizeLarge), &brush);
 
 	if (colorBar) DeleteObject(colorBar);
 	if (popupIcon) DeleteObject(popupIcon);
-	if (largeFont) DeleteObject(largeFont);
-	if (mediumFont) DeleteObject(mediumFont);
 
 	return tmp;
 }
