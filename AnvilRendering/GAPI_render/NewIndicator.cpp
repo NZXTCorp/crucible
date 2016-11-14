@@ -192,12 +192,12 @@ static unique_ptr<Bitmap> CreatePopupImage(wstring *caption, wstring *desc, unsi
 
 	RectF bound;
 
-	measureTemp.MeasureString(caption->c_str(), wcslen(caption->c_str()), &largeFont, PointF(0.0f, 0.0f), &bound);
+	measureTemp.MeasureString(caption->c_str(), caption->length(), &largeFont, PointF(0.0f, 0.0f), &bound);
 	width = (int)bound.Width;
 	height += (int)bound.Height;
 
 	if (desc) {
-		measureTemp.MeasureString(desc->c_str(), wcslen(desc->c_str()), &mediumFont, PointF(0.0f, 0.0f), &bound);
+		measureTemp.MeasureString(desc->c_str(), desc->length(), &mediumFont, PointF(0.0f, 0.0f), &bound);
 		if ((int)bound.Width > width) width = (int)bound.Width;
 		height += (int)bound.Height;
 	}
@@ -227,8 +227,8 @@ static unique_ptr<Bitmap> CreatePopupImage(wstring *caption, wstring *desc, unsi
 	graphics.Clear(popupBGColor);
 	graphics.DrawImage(colorBar.get(), width - 48, 0, 48, 48);
 	if (iconID != 0) graphics.DrawImage(popupIcon.get(), 16, 16, iconWidth, iconHeight);
-	graphics.DrawString(caption->c_str(), wcslen(caption->c_str()), &largeFont, PointF(32.0f + iconWidth, 16.0f), &brush);
-	if(desc) graphics.DrawString(desc->c_str(), wcslen(desc->c_str()), &mediumFont, PointF(32.0f + iconWidth, 32.0f + sizeLarge), &brush);
+	graphics.DrawString(caption->c_str(), caption->length(), &largeFont, PointF(32.0f + iconWidth, 16.0f), &brush);
+	if(desc) graphics.DrawString(desc->c_str(), desc->length(), &mediumFont, PointF(32.0f + iconWidth, 32.0f + sizeLarge), &brush);
 
 	return tmp;
 }
