@@ -1460,21 +1460,37 @@ struct CrucibleContext {
 	void InitEncoders()
 	{
 		auto vsettings = OBSDataCreate();
-		obs_data_set_int(vsettings, "bitrate", 0);
-		obs_data_set_int(vsettings, "buffer_size", 2 * target_bitrate);
-		obs_data_set_int(vsettings, "crf", 23);
-		obs_data_set_bool(vsettings, "use_bufsize", true);
+		obs_data_set_int(vsettings, "bitrate", 2 * target_bitrate);
 		obs_data_set_bool(vsettings, "cbr", false);
 		obs_data_set_string(vsettings, "profile", "high");
-		obs_data_set_string(vsettings, "preset", "veryfast");
 		obs_data_set_int(vsettings, "keyint_sec", 1);
 
-		ostringstream os;
-		os << "vbv-maxrate=" << target_bitrate;
-		obs_data_set_string(vsettings, "x264opts", os.str().c_str());
+		bool encoder_created = false;
+		try {
+			InitRef(h264, "Couldn't create nvenc video encoder", obs_encoder_release,
+				obs_video_encoder_create("ffmpeg_nvenc", "nvenc video", vsettings, nullptr));
+			encoder_created = true;
+		} catch (const char* error) {
+			blog(LOG_WARNING, "%s, using x264 instead", error);
+		}
 
-		InitRef(h264, "Couldn't create video encoder", obs_encoder_release,
+		if (!encoder_created) {
+			obs_data_set_int(vsettings, "bitrate", 0);
+			obs_data_set_int(vsettings, "buffer_size", 2 * target_bitrate);
+			obs_data_set_int(vsettings, "crf", 23);
+			obs_data_set_bool(vsettings, "use_bufsize", true);
+			obs_data_set_bool(vsettings, "cbr", false);
+			obs_data_set_string(vsettings, "profile", "high");
+			obs_data_set_string(vsettings, "preset", "veryfast");
+			obs_data_set_int(vsettings, "keyint_sec", 1);
+
+			ostringstream os;
+			os << "vbv-maxrate=" << target_bitrate;
+			obs_data_set_string(vsettings, "x264opts", os.str().c_str());
+
+			InitRef(h264, "Couldn't create video encoder", obs_encoder_release,
 				obs_video_encoder_create("obs_x264", "x264 video", vsettings, nullptr));
+		}
 
 		auto ssettings = OBSDataCreate();
 		obs_data_set_int(ssettings, "bitrate", target_stream_bitrate);
@@ -2735,18 +2751,27 @@ struct CrucibleContext {
 
 			if (h264) {
 				auto vsettings = OBSDataCreate();
-				obs_data_set_int(vsettings, "bitrate", 0);
-				obs_data_set_int(vsettings, "buffer_size", 2 * max_rate);
-				obs_data_set_int(vsettings, "crf", 23);
-				obs_data_set_bool(vsettings, "use_bufsize", true);
-				obs_data_set_bool(vsettings, "cbr", false);
-				obs_data_set_string(vsettings, "profile", "high");
-				obs_data_set_string(vsettings, "preset", "veryfast");
-				obs_data_set_int(vsettings, "keyint_sec", 1);
 
-				ostringstream os;
-				os << "vbv-maxrate=" << max_rate;
-				obs_data_set_string(vsettings, "x264opts", os.str().c_str());
+				if ("ffmpeg_nvenc"s == obs_encoder_get_id(h264)) {
+					obs_data_set_int(vsettings, "bitrate", 2 * max_rate);
+					obs_data_set_bool(vsettings, "cbr", false);
+					obs_data_set_string(vsettings, "profile", "high");
+					obs_data_set_int(vsettings, "keyint_sec", 1);
+
+				} else {
+					obs_data_set_int(vsettings, "bitrate", 0);
+					obs_data_set_int(vsettings, "buffer_size", 2 * max_rate);
+					obs_data_set_int(vsettings, "crf", 23);
+					obs_data_set_bool(vsettings, "use_bufsize", true);
+					obs_data_set_bool(vsettings, "cbr", false);
+					obs_data_set_string(vsettings, "profile", "high");
+					obs_data_set_string(vsettings, "preset", "veryfast");
+					obs_data_set_int(vsettings, "keyint_sec", 1);
+
+					ostringstream os;
+					os << "vbv-maxrate=" << max_rate;
+					obs_data_set_string(vsettings, "x264opts", os.str().c_str());
+				}
 
 				obs_encoder_update(h264, vsettings);
 			}
