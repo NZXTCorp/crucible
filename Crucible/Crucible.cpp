@@ -254,13 +254,15 @@ namespace ForgeEvents {
 		return event;
 	}
 
-	void SendRecordingStart(const char *filename, bool restarting_recording)
+	void SendRecordingStart(const char *filename, bool restarting_recording, uint32_t recording_bitrate)
 	{
 		auto event = EventCreate("started_recording");
 
 		obs_data_set_string(event, "filename", filename);
 		if (restarting_recording)
 			obs_data_set_bool(event, "restarting_recording", true);
+		if (recording_bitrate)
+			obs_data_set_int(event, "bitrate", recording_bitrate);
 
 		SendEvent(event);
 	}
@@ -1579,7 +1581,9 @@ struct CrucibleContext {
 			{
 				LOCK(updateMutex);
 				if (!recordingStartSent || restarting_recording) {
-					ForgeEvents::SendRecordingStart(obs_data_get_string(settings, "path"), restarting_recording);
+					auto encoder = obs_output_get_video_encoder(output);
+					auto encoder_settings = obs_encoder_get_settings(encoder);
+					ForgeEvents::SendRecordingStart(obs_data_get_string(settings, "path"), restarting_recording, obs_data_get_int(encoder_settings, "bitrate"));
 					recordingStartSent = true;
 					restarting_recording = false;
 				}
