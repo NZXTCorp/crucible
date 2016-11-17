@@ -1535,7 +1535,7 @@ struct CrucibleContext {
 						full_bookmarks = bookmarks;
 					}
 
-					GameSessionEnded(output, false);
+					GameSessionEnded(output, restarting_recording);
 
 					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
 						obs_output_get_total_frames(output),
@@ -1565,7 +1565,7 @@ struct CrucibleContext {
 
 			last_session = move(snap);
 
-			if (stop)
+			if (stop && !restarting_recording)
 				ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, game_pid);
 		});
 
@@ -1578,7 +1578,7 @@ struct CrucibleContext {
 			recordingStartTime = os_gettime_ns();
 			{
 				LOCK(updateMutex);
-				if (!recordingStartSent) {
+				if (!recordingStartSent || restarting_recording) {
 					ForgeEvents::SendRecordingStart(obs_data_get_string(settings, "path"), restarting_recording);
 					recordingStartSent = true;
 					restarting_recording = false;
@@ -1609,7 +1609,7 @@ struct CrucibleContext {
 			if (bookmark->id != *game_end_bookmark_id)
 				return;
 
-			GameSessionEnded(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")), false);
+			GameSessionEnded(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")), restarting_recording);
 		});
 
 		bufferSaved
@@ -2674,18 +2674,17 @@ struct CrucibleContext {
 
 		restartThread.t = thread{[=]()
 		{
+			bool split_recording = RecordingActive() && output_dimensions_changed;
 			{
 				LOCK(updateMutex);
-				sendRecordingStop = false;
+				if (!split_recording)
+					sendRecordingStop = false;
 			}
 
 			if (output_dimensions_changed) {
-				bool split_recording = RecordingActive();	// This is called when a new recording starts, so don't split the recording when it hasn't started yet
+				restarting_recording = split_recording;
 
-				if (split_recording)
-					GameSessionEnded(output, true);
-
-				StopVideo(true); // Needs to be force stopped, otherwise the output settings aren't updated.
+				StopVideo(true, restarting_recording); // Needs to be force stopped, otherwise the output settings aren't updated.
 
 				if (split_recording) { // Make a new filename for the split recording
 					auto cur = boost::posix_time::second_clock::local_time();
