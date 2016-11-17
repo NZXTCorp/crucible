@@ -285,6 +285,9 @@ bool IndicatorManager::LoadImages( void )
 	for ( int i = 0; i < INDICATE_NONE; i++ )
 	{
 		switch (i) {
+		case INDICATE_CAPTURING:
+			m_images[i] = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_COLOR_BAR));
+			break;
 		case INDICATE_STREAM_MIC_ACTIVE:
 		case INDICATE_STREAM_MIC_IDLE:
 		case INDICATE_STREAM_MIC_MUTED:
@@ -299,7 +302,6 @@ bool IndicatorManager::LoadImages( void )
 			m_images[i] = CreatePopupImage(&bookmarkCaption, &bookmarkDescription, IDB_BOOKMARK_ICON);
 			break;
 		case INDICATE_ENABLED:
-		case INDICATE_CAPTURING:
 			m_images[i] = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
 			break;
 		case INDICATE_CACHE_LIMIT:
