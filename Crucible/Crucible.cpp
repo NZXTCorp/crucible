@@ -1592,6 +1592,7 @@ struct CrucibleContext {
 				obs_data_set_bool(data, "suppress_indicator", true);
 				obs_data_set_obj(data, "extra_data", GenerateExtraData("game_begin"));
 				game_start_bookmark_id = CreateBookmark(data);
+				ForgeEvents::SendGameSessionStarted();
 			}
 		});
 
@@ -1832,7 +1833,8 @@ struct CrucibleContext {
 
 			if (!game_start_bookmark_id) {
 				add_bookmark();
-				ForgeEvents::SendGameSessionStarted();
+				if (game_start_bookmark_id)
+					ForgeEvents::SendGameSessionStarted();
 			}
 
 			if (UpdateSize(static_cast<uint32_t>(calldata_int(data, "width")),
