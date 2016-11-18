@@ -89,9 +89,19 @@ inline OBSData OBSDataCreate(const std::string &json = {})
 	return OBSTransferOwned(json.empty() ? obs_data_create() : obs_data_create_from_json(json.c_str()));
 }
 
+inline OBSDataArray OBSDataGetArray(obs_data_t *data, const char *name)
+{
+	return OBSTransferOwned(obs_data_get_array(data, name));
+}
+
 inline OBSData OBSDataGetObj(obs_data_t *data, const char *name)
 {
 	return OBSTransferOwned(obs_data_get_obj(data, name));
+}
+
+inline OBSData OBSDataArrayItem(obs_data_array_t *array, size_t idx)
+{
+	return OBSTransferOwned(obs_data_array_item(array, idx));
 }
 
 template <typename Fun>

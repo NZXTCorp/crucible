@@ -65,6 +65,10 @@ mutex startup_log_mutex;
 
 HANDLE exit_event = nullptr;
 
+static const vector<pair<string, string>> allowed_hardware_encoder_names = {
+	{ "ffmpeg_nvenc", "Nvidia NVENC" },
+};
+
 #define CONCAT2(x, y) x ## y
 #define CONCAT(x, y) CONCAT2(x, y)
 #define LOCK(x) lock_guard<decltype(x)> CONCAT(lockGuard, __LINE__){x};
@@ -580,6 +584,15 @@ namespace ForgeEvents {
 
 		obs_data_set_int(event, "width", width);
 		obs_data_set_int(event, "height", height);
+
+		SendEvent(event);
+	}
+
+	void SendQueryHardwareEncodersResponse(obs_data_array *arr)
+	{
+		auto event = EventCreate("query_hardware_encoders_response");
+
+		obs_data_set_array(event, "encoders", arr);
 
 		SendEvent(event);
 	}
@@ -3237,6 +3250,24 @@ static void HandleUpdateRecordingBufferSettings(CrucibleContext &cc, OBSData &da
 	cc.UpdateRecordingBufferSettings(OBSDataGetObj(data, "settings"));
 }
 
+static void HandleQueryHardwareEncoders(CrucibleContext&, OBSData&)
+{
+	auto arr = OBSDataArrayCreate();
+	DEFER{ ForgeEvents::SendQueryHardwareEncodersResponse(arr); };
+
+	const char *id;
+	for (size_t i = 0; obs_enum_encoder_types(i, &id) && id; i++) {
+		auto it = find_if(begin(allowed_hardware_encoder_names), end(allowed_hardware_encoder_names), [&](const auto &val) { return val.first == id; });
+		if (it == end(allowed_hardware_encoder_names))
+			continue;
+
+		auto item = OBSDataCreate();
+		obs_data_set_string(item, "id", id);
+		obs_data_set_string(item, "name", it->second.c_str());
+		obs_data_array_push_back(arr, item);
+	}
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -3272,6 +3303,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "enable_source_level_meters", HandleEnableSourceLevelMeters },
 		{ "save_screenshot", HandleSaveScreenshot },
 		{ "update_recording_buffer_settings", HandleUpdateRecordingBufferSettings },
+		{ "query_hardware_encoders", HandleQueryHardwareEncoders },
 	};
 	if (!data)
 		return;
