@@ -1498,22 +1498,42 @@ struct CrucibleContext {
 		return vsettings;
 	}
 
-	void InitEncoders()
+	void CreateRecordingEncoder()
 	{
-		bool encoder_created = false;
-		try {
-			InitRef(h264, "Couldn't create nvenc video encoder", obs_encoder_release,
-				obs_video_encoder_create("ffmpeg_nvenc", "nvenc video", CreateRecordingEncoderSettings("ffmpeg_nvenc", target_bitrate), nullptr));
-			encoder_created = true;
-		}
-		catch (const char* error) {
-			blog(LOG_WARNING, "%s, using x264 instead", error);
+		auto vsettings = OBSDataCreate();
+
+		auto create_encoder = [&](const decltype(allowed_hardware_encoder_names[0]) &info)
+		{
+			try {
+				InitRef(h264, ("Couldn't create " + info.second + " video encoder").c_str(), obs_encoder_release,
+					obs_video_encoder_create(info.first.c_str(), (info.first + " video").c_str(), vsettings, nullptr));
+				return true;
+			} catch (const char*) {
+				return false;
+			}
+		};
+
+		LOCK(updateMutex);
+
+		DEFER
+		{
+			obs_encoder_set_video(h264, obs_get_video());
+		};
+
+		for (const auto &ahe : allowed_hardware_encoder_names) {
+			vsettings = CreateRecordingEncoderSettings(ahe.first, target_bitrate);
+
+			if (create_encoder(ahe))
+				return;
 		}
 
-		if (!encoder_created) {
-			InitRef(h264, "Couldn't create video encoder", obs_encoder_release,
-				obs_video_encoder_create("obs_x264", "x264 video", CreateRecordingEncoderSettings("obs_x264", target_bitrate), nullptr));
-		}
+		InitRef(h264, "Couldn't create video encoder", obs_encoder_release,
+			obs_video_encoder_create("obs_x264", "x264 video", CreateRecordingEncoderSettings("obs_x264", target_bitrate), nullptr));
+	}
+
+	void InitEncoders()
+	{
+		CreateRecordingEncoder();
 
 		auto ssettings = OBSDataCreate();
 		obs_data_set_int(ssettings, "bitrate", target_stream_bitrate);
@@ -1530,7 +1550,6 @@ struct CrucibleContext {
 			throw "Couldn't create audio encoder";
 
 
-		obs_encoder_set_video(h264, obs_get_video());
 		obs_encoder_set_video(stream_h264, obs_get_video());
 
 		obs_encoder_set_audio(aac, obs_get_audio());
