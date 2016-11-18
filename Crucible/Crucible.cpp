@@ -24,6 +24,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 using namespace std;
 
@@ -1258,6 +1259,9 @@ struct CrucibleContext {
 		}
 	} webcam_and_theme;
 
+	unordered_set<string> disallowed_hardware_encoders;
+	bool disallowed_hardware_encoders_updated = false;
+
 	OBSData buffer_settings;
 
 	obs_video_info ovi;
@@ -1521,6 +1525,9 @@ struct CrucibleContext {
 		};
 
 		for (const auto &ahe : allowed_hardware_encoder_names) {
+			if (disallowed_hardware_encoders.find(ahe.first) != end(disallowed_hardware_encoders))
+				continue;
+			
 			vsettings = CreateRecordingEncoderSettings(ahe.first, target_bitrate);
 
 			if (create_encoder(ahe))
@@ -2210,6 +2217,11 @@ struct CrucibleContext {
 		InitRef(gameCapture, "Couldn't create game capture source", obs_source_release,
 			obs_source_create(OBS_SOURCE_TYPE_INPUT, "game_capture", "game capture", settings, nullptr));
 
+		if (disallowed_hardware_encoders_updated) {
+			CreateRecordingEncoder();
+			disallowed_hardware_encoders_updated = false;
+		}
+
 		recording_game = true;
 
 		injectFailed
@@ -2874,6 +2886,27 @@ struct CrucibleContext {
 	{
 		buffer_settings = data;
 	}
+
+	void UpdateDisallowedHardwareEncoders(OBSData &data)
+	{
+		decltype(disallowed_hardware_encoders) dhe;
+
+		auto arr = OBSDataGetArray(data, "encoders");
+		auto size = obs_data_array_count(arr);
+		for (size_t i = 0; i < size; i++)
+			dhe.emplace(obs_data_get_string(OBSDataArrayItem(arr, i), "id"));
+
+		LOCK(updateMutex);
+		if (!(disallowed_hardware_encoders_updated = disallowed_hardware_encoders != dhe))
+			return;
+
+		swap(disallowed_hardware_encoders, dhe);
+		if (obs_encoder_active(h264))
+			return;
+
+		CreateRecordingEncoder();
+		disallowed_hardware_encoders_updated = false;
+	}
 	
 	bool stopping = false;
 	void StopVideo(bool force=false, bool restart=false)
@@ -3276,6 +3309,11 @@ static void HandleQueryHardwareEncoders(CrucibleContext&, OBSData&)
 	}
 }
 
+static void HandleUpdateDisallowedHardwareEncoders(CrucibleContext &cc, OBSData &data)
+{
+	cc.UpdateDisallowedHardwareEncoders(data);
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -3312,6 +3350,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "save_screenshot", HandleSaveScreenshot },
 		{ "update_recording_buffer_settings", HandleUpdateRecordingBufferSettings },
 		{ "query_hardware_encoders", HandleQueryHardwareEncoders },
+		{ "update_disallowed_hardware_encoders", HandleUpdateDisallowedHardwareEncoders },
 	};
 	if (!data)
 		return;
