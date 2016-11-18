@@ -68,6 +68,7 @@ HANDLE exit_event = nullptr;
 
 static const vector<pair<string, string>> allowed_hardware_encoder_names = {
 	{ "ffmpeg_nvenc", "Nvidia NVENC" },
+	{ "obs_qsv11", "Intel Quick Sync Video" },
 };
 
 #define CONCAT2(x, y) x ## y
@@ -1497,6 +1498,36 @@ struct CrucibleContext {
 			obs_data_set_bool(vsettings, "cbr", false);
 			obs_data_set_string(vsettings, "profile", "high");
 			obs_data_set_int(vsettings, "keyint_sec", 1);
+
+		} else if (id == "obs_qsv11"s) {
+			obs_data_set_int(vsettings, "bitrate", 2 * bitrate);
+			obs_data_set_int(vsettings, "max_bitrate", 2 * bitrate);
+			obs_data_set_bool(vsettings, "cbr", false);
+			obs_data_set_string(vsettings, "profile", "high");
+			obs_data_set_int(vsettings, "keyint_sec", 1);
+
+			{
+				auto best = "VBR"s;
+
+				auto props = obs_get_encoder_properties(id.c_str());
+				auto rcs = obs_properties_get(props, "rate_control");
+				auto size = obs_property_list_item_count(rcs);
+				for (size_t i = 0; i < size; i++) {
+					if (obs_property_list_item_disabled(rcs, i))
+						continue;
+
+					auto rc = obs_property_list_item_string(rcs, i);
+					if (rc == "AVBR"s) {
+						best = rc;
+
+					} else if (rc == "LA"s) {
+						best = rc;
+						break;
+					}
+				}
+
+				obs_data_set_string(vsettings, "rate_control", best.c_str());
+			}
 		}
 
 		return vsettings;
