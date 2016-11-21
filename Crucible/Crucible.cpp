@@ -1558,7 +1558,7 @@ struct CrucibleContext {
 		return vsettings;
 	}
 
-	void CreateRecordingEncoder()
+	void CreateRecordingEncoder(const char *last_encoder_id = nullptr)
 	{
 		auto vsettings = OBSDataCreate();
 
@@ -1591,9 +1591,15 @@ struct CrucibleContext {
 			obs_encoder_set_video(h264, obs_get_video());
 		};
 
+		bool last_encoder_found = false;
 		for (const auto &ahe : allowed_hardware_encoder_names) {
 			if (disallowed_hardware_encoders.find(ahe.first) != end(disallowed_hardware_encoders))
 				continue;
+
+			if (last_encoder_id && !last_encoder_found) {
+				last_encoder_found = ahe.first == last_encoder_id;
+				continue;
+			}
 
 			if (!encoder_available(ahe))
 				continue;
@@ -1606,6 +1612,29 @@ struct CrucibleContext {
 
 		InitRef(h264, "Couldn't create video encoder", obs_encoder_release,
 			obs_video_encoder_create("obs_x264", "x264 video", CreateRecordingEncoderSettings("obs_x264", target_bitrate, &recording_resolution_limit), nullptr));
+	}
+
+	bool StartRecordingOutputs(obs_output_t *output, obs_output_t *buffer)
+	{
+		auto encoder = obs_output_get_video_encoder(output);
+		while (!obs_output_start(output)) {
+			auto id = obs_encoder_get_id(encoder);
+			if (id && id == "obs_x264"s)
+				return false;
+
+			if (!id)
+				id = "obs_x264"; // force software encoding
+
+			CreateRecordingEncoder(id);
+			obs_output_set_video_encoder(output, h264);
+		}
+
+		if (buffer) {
+			obs_output_set_video_encoder(buffer, h264);
+			obs_output_start(buffer);
+		}
+
+		return true;
 	}
 
 	void InitEncoders()
@@ -1987,11 +2016,7 @@ struct CrucibleContext {
 
 			auto ref = OBSGetStrongRef(weakOutput);
 			if (ref)
-				obs_output_start(ref);
-
-			ref = OBSGetStrongRef(weakBuffer);
-			if (ref)
-				obs_output_start(ref);
+				StartRecordingOutputs(ref, OBSGetStrongRef(weakBuffer));
 		}).Connect();
 	}
 
@@ -2579,8 +2604,7 @@ struct CrucibleContext {
 			StopVideo(true, true);
 			StartVideoCapture();
 
-			obs_output_start(output);
-			obs_output_start(buffer);
+			StartRecordingOutputs(output, buffer);
 		}
 	
 		ForgeEvents::SendStreamingStartExecuted(!obs_output_active(stream));
@@ -2838,8 +2862,7 @@ struct CrucibleContext {
 			
 			StartVideo();
 
-			obs_output_start(output);
-			obs_output_start(buffer);
+			StartRecordingOutputs(output, buffer);
 			if (streaming)
 				obs_output_start(stream);
 
