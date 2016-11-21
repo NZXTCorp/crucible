@@ -1270,7 +1270,6 @@ struct CrucibleContext {
 	} webcam_and_theme;
 
 	unordered_set<string> disallowed_hardware_encoders;
-	bool disallowed_hardware_encoders_updated = false;
 
 	OBSData buffer_settings;
 
@@ -2312,10 +2311,7 @@ struct CrucibleContext {
 		InitRef(gameCapture, "Couldn't create game capture source", obs_source_release,
 			obs_source_create(OBS_SOURCE_TYPE_INPUT, "game_capture", "game capture", settings, nullptr));
 
-		if (disallowed_hardware_encoders_updated) {
-			CreateRecordingEncoder();
-			disallowed_hardware_encoders_updated = false;
-		}
+		CreateRecordingEncoder();
 
 		recording_game = true;
 
@@ -2990,7 +2986,7 @@ struct CrucibleContext {
 			dhe.emplace(obs_data_get_string(OBSDataArrayItem(arr, i), "id"));
 
 		LOCK(updateMutex);
-		if (!(disallowed_hardware_encoders_updated = disallowed_hardware_encoders != dhe))
+		if (disallowed_hardware_encoders == dhe)
 			return;
 
 		swap(disallowed_hardware_encoders, dhe);
@@ -2998,7 +2994,6 @@ struct CrucibleContext {
 			return;
 
 		CreateRecordingEncoder();
-		disallowed_hardware_encoders_updated = false;
 	}
 	
 	bool stopping = false;
