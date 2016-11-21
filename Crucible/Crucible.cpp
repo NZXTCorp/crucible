@@ -1069,7 +1069,7 @@ static uint32_t gcd(uint32_t a, uint32_t b)
 	return a;
 }
 
-static boost::optional<OutputResolution> ScaleResolutionInteger(const OutputResolution &target, const OutputResolution &source)
+static boost::optional<OutputResolution> ScaleResolutionInteger(const OutputResolution &target, const OutputResolution &source, OutputResolution max_dimensions)
 {
 	auto aspect_segments = gcd(source.width, source.height);
 	auto aspect_width = source.width / aspect_segments;
@@ -1077,6 +1077,11 @@ static boost::optional<OutputResolution> ScaleResolutionInteger(const OutputReso
 
 	auto pixel_ratio = min(target.pixels() / static_cast<double>(source.pixels()), 1.0);
 	auto target_aspect_segments = static_cast<uint32_t>(floor(sqrt(pixel_ratio * aspect_segments * aspect_segments)));
+
+	if (target_aspect_segments + 1 * aspect_width > max_dimensions.width)
+		target_aspect_segments = max_dimensions.width / aspect_width - 1;
+	if (target_aspect_segments + 1 * aspect_height > max_dimensions.height)
+		target_aspect_segments = max_dimensions.height / aspect_height - 1;
 
 	for (auto i : { 0, 1, -1 }) {
 		auto target_segments = max(static_cast<uint32_t>(1), min(aspect_segments, target_aspect_segments + i));
@@ -1092,18 +1097,22 @@ static boost::optional<OutputResolution> ScaleResolutionInteger(const OutputReso
 	return boost::none;
 }
 
-static OutputResolution ScaleResolution(const OutputResolution &target, const OutputResolution &source)
+static OutputResolution ScaleResolution(const OutputResolution &target, const OutputResolution &source, OutputResolution max_dimensions = { numeric_limits<uint32_t>::max(), numeric_limits<uint32_t>::max() })
 {
 	{
-		auto res = ScaleResolutionInteger(target, source);
+		auto res = ScaleResolutionInteger(target, source, max_dimensions);
 		if (res)
 			return *res;
 	}
 
-	auto pixel_ratio = min(target.pixels() / static_cast<double>(source.pixels()), 1.0);
+	auto pixel_ratio_sqrt = sqrt(min(target.pixels() / static_cast<double>(source.pixels()), 1.0));
+	if (pixel_ratio_sqrt * source.width > max_dimensions.width)
+		pixel_ratio_sqrt = max_dimensions.width / source.width;
+	if (pixel_ratio_sqrt * source.height > max_dimensions.height)
+		pixel_ratio_sqrt = max_dimensions.height / source.height;
 	OutputResolution res{
-		static_cast<uint32_t>(source.width * sqrt(pixel_ratio)),
-		static_cast<uint32_t>(source.height * sqrt(pixel_ratio))
+		static_cast<uint32_t>(source.width * pixel_ratio_sqrt),
+		static_cast<uint32_t>(source.height * pixel_ratio_sqrt)
 	};
 
 	//libobs enforces multiple of 4 width and multiple of 2 height
@@ -1286,6 +1295,7 @@ struct CrucibleContext {
 	unique_ptr<obs_volmeter_t> micMeter;
 	OBSSignal micLevelsUpdated;
 
+	OutputResolution recording_resolution_limit{ numeric_limits<uint32_t>::max(), numeric_limits<uint32_t>::max() }; // maximum per dimension limits
 	OutputResolution target = OutputResolution{ 1280, 720 }; //thanks VS2013
 	uint32_t target_bitrate = 3500;
 	uint32_t target_fps = 30;
@@ -2759,7 +2769,7 @@ struct CrucibleContext {
 		if (streaming)
 			return false;
 
-		auto scaled = ScaleResolution(target, game_res);
+		auto scaled = ScaleResolution(target, game_res, recording_resolution_limit);
 
 		bool output_dimensions_changed = width != ovi.base_width || height != ovi.base_height; // Temporary fix because of the way the game capture source transform is handled.
 
