@@ -1562,6 +1562,17 @@ struct CrucibleContext {
 	{
 		auto vsettings = OBSDataCreate();
 
+		auto encoder_available = [&](const decltype(allowed_hardware_encoder_names[0]) &ahe)
+		{
+			size_t i = 0;
+			const char *id;
+			while (obs_enum_encoder_types(i++, &id))
+				if (id && ahe.first == id)
+					return true;
+
+			return false;
+		};
+
 		auto create_encoder = [&](const decltype(allowed_hardware_encoder_names[0]) &info)
 		{
 			try {
@@ -1582,6 +1593,9 @@ struct CrucibleContext {
 
 		for (const auto &ahe : allowed_hardware_encoder_names) {
 			if (disallowed_hardware_encoders.find(ahe.first) != end(disallowed_hardware_encoders))
+				continue;
+
+			if (!encoder_available(ahe))
 				continue;
 			
 			vsettings = CreateRecordingEncoderSettings(ahe.first, target_bitrate, &recording_resolution_limit);
