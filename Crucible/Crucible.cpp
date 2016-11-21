@@ -1485,9 +1485,12 @@ struct CrucibleContext {
 		init_display("webcam", webcam_and_theme);
 	}
 
-	OBSData CreateRecordingEncoderSettings(const string &id, uint32_t bitrate)
+	OBSData CreateRecordingEncoderSettings(const string &id, uint32_t bitrate, OutputResolution *max_encoder_resolution = nullptr)
 	{
 		auto vsettings = OBSDataCreate();
+
+		if (max_encoder_resolution)
+			*max_encoder_resolution = { numeric_limits<uint32_t>::max(), numeric_limits<uint32_t>::max() };
 
 		if (id == "obs_x264"s) {
 			obs_data_set_int(vsettings, "bitrate", 0);
@@ -1516,10 +1519,10 @@ struct CrucibleContext {
 			obs_data_set_string(vsettings, "profile", "high");
 			obs_data_set_int(vsettings, "keyint_sec", 1);
 
+			auto props = obs_get_encoder_properties(id.c_str());
+
 			{
 				auto best = "VBR"s;
-
-				auto props = obs_get_encoder_properties(id.c_str());
 				auto rcs = obs_properties_get(props, "rate_control");
 				auto size = obs_property_list_item_count(rcs);
 				for (size_t i = 0; i < size; i++) {
@@ -1534,6 +1537,18 @@ struct CrucibleContext {
 						best = rc;
 						break;
 					}
+				}
+
+				if (max_encoder_resolution) {
+					auto width = obs_properties_get(props, "max_width");
+					if (width)
+						max_encoder_resolution->width = obs_property_int_max(width);
+
+					auto height = obs_properties_get(props, "max_height");
+					if (height)
+						max_encoder_resolution->height = obs_property_int_max(height);
+
+					blog(LOG_INFO, "QSV max resolution: %ux%u", max_encoder_resolution->width, max_encoder_resolution->height);
 				}
 
 				obs_data_set_string(vsettings, "rate_control", best.c_str());
@@ -1569,14 +1584,14 @@ struct CrucibleContext {
 			if (disallowed_hardware_encoders.find(ahe.first) != end(disallowed_hardware_encoders))
 				continue;
 			
-			vsettings = CreateRecordingEncoderSettings(ahe.first, target_bitrate);
+			vsettings = CreateRecordingEncoderSettings(ahe.first, target_bitrate, &recording_resolution_limit);
 
 			if (create_encoder(ahe))
 				return;
 		}
 
 		InitRef(h264, "Couldn't create video encoder", obs_encoder_release,
-			obs_video_encoder_create("obs_x264", "x264 video", CreateRecordingEncoderSettings("obs_x264", target_bitrate), nullptr));
+			obs_video_encoder_create("obs_x264", "x264 video", CreateRecordingEncoderSettings("obs_x264", target_bitrate, &recording_resolution_limit), nullptr));
 	}
 
 	void InitEncoders()
