@@ -1976,11 +1976,11 @@ struct CrucibleContext {
 
 			auto ref = OBSGetStrongRef(weakOutput);
 			if (ref)
-				obs_output_stop(ref);
+				obs_output_stop_with_timeout(ref, 15000);
 
 			ref = OBSGetStrongRef(weakBuffer);
 			if (ref)
-				obs_output_stop(ref);
+				obs_output_stop_with_timeout(ref, 15000);
 		}).Connect();
 
 		startCapture
