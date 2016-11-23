@@ -445,6 +445,7 @@ protected:
 			display = obs_display_create(nullptr);
 
 			obs_display_add_draw_callback(display, render_cb, this);
+			obs_display_set_enabled(display, false);
 		}
 	}
 };
