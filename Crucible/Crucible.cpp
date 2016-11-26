@@ -1331,7 +1331,8 @@ struct CrucibleContext {
 			if (t.joinable())
 				t.join();
 		}
-	} restartThread;
+	};
+	ProtectedObject<RestartThread> restartThread;
 
 	bool ResetVideo()
 	{
@@ -2808,41 +2809,50 @@ struct CrucibleContext {
 
 	bool UpdateSize(uint32_t width, uint32_t height)
 	{
-		LOCK(updateMutex);
+		bool output_dimensions_changed;
+		OutputResolution new_game_res, scaled;
+		decltype(restartThread.Lock()) rt;
 
-		game_res.width = width;
-		game_res.height = height;
+		{
+			LOCK(updateMutex);
 
-		ForgeEvents::SendBrowserSizeHint(width, height);
+			new_game_res = { width, height };
 
-		if (streaming)
-			return false;
+			ForgeEvents::SendBrowserSizeHint(width, height);
 
-		auto scaled = ScaleResolution(target, game_res, recording_resolution_limit);
+			if (streaming)
+				return false;
 
-		bool output_dimensions_changed = width != ovi.base_width || height != ovi.base_height; // Temporary fix because of the way the game capture source transform is handled.
+			scaled = ScaleResolution(target, new_game_res, recording_resolution_limit);
 
-		if (width == ovi.base_width && height == ovi.base_height && !output_dimensions_changed)
-			return false;
+			output_dimensions_changed = width != ovi.base_width || height != ovi.base_height; // Temporary fix because of the way the game capture source transform is handled.
 
-		ovi.base_width = width;
-		ovi.base_height = height;
-		ovi.output_width = scaled.width;
-		ovi.output_height = scaled.height;
+			if (width == ovi.base_width && height == ovi.base_height && !output_dimensions_changed)
+				return false;
+
+			rt = restartThread.Lock();
+		}
 
 		// TODO: this is probably not really safe, should introduce a command queue soon
-		if (restartThread.t.joinable())
-			restartThread.t.join();
+		if (rt->t.joinable())
+			rt->t.join();
 
 		bool streaming = obs_output_active(stream);
 
-		restartThread.t = thread{[=]()
+		rt->t = thread{[=]()
 		{
 			bool split_recording = RecordingActive() && output_dimensions_changed;
 			{
 				LOCK(updateMutex);
 				if (!split_recording)
 					sendRecordingStop = false;
+
+				game_res = new_game_res;
+
+				ovi.base_width = width;
+				ovi.base_height = height;
+				ovi.output_width = scaled.width;
+				ovi.output_height = scaled.height;
 			}
 
 			if (output_dimensions_changed) {
