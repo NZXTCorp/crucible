@@ -293,9 +293,14 @@ namespace ForgeEvents {
 	}
 
 	void SendRecordingStop(const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
-		uint32_t width, uint32_t height, DWORD *pid, const vector<Bookmark> &full_bookmarks)
+		uint32_t width, uint32_t height, DWORD *pid, const vector<Bookmark> &full_bookmarks, bool split_recording)
 	{
-		SendRecordingStopEvent(EventCreate("stopped_recording"), filename, total_frames, duration, bookmarks, width, height, pid, full_bookmarks);
+		auto event = EventCreate("stopped_recording");
+
+		if (split_recording)
+			obs_data_set_bool(event, "split_recording", split_recording);
+
+		SendRecordingStopEvent(event, filename, total_frames, duration, bookmarks, width, height, pid, full_bookmarks);
 	}
 
 	void SendGameSessionEnded(const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
@@ -1706,7 +1711,8 @@ struct CrucibleContext {
 					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
 						obs_output_get_total_frames(output),
 						obs_output_get_output_duration(output),
-						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, recording_game ? &game_pid : nullptr, full_bookmarks);
+						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, recording_game ? &game_pid : nullptr, full_bookmarks,
+						restarting_recording);
 					AnvilCommands::ShowIdle();
 				}
 			}
