@@ -229,6 +229,22 @@ SHORT UpdateSingleKeyState( int key, SHORT state )
 // update the state of a single key from a GetRawInputData call
 void UpdateRawKeyState( PRAWKEYBOARD event )
 {
+	auto type = KEY_UNKNOWN;
+	switch (event->Message) {
+	case WM_KEYDOWN:
+	case WM_SYSKEYDOWN:
+		type = KEY_DOWN;
+		break;
+	case WM_KEYUP:
+	case WM_SYSKEYUP:
+		type = KEY_UP;
+		break;
+	case WM_CHAR:
+		type = KEY_CHAR;
+		break;
+	}
+
+	UpdateWMKeyState(event->VKey, type);
 	if (!g_bBrowserShowing)
 		return;
 
