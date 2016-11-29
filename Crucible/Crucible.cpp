@@ -1621,8 +1621,8 @@ struct CrucibleContext {
 
 	bool StartRecordingOutputs(obs_output_t *output, obs_output_t *buffer)
 	{
-		auto encoder = obs_output_get_video_encoder(output);
 		while (!obs_output_start(output)) {
+			auto encoder = obs_output_get_video_encoder(output);
 			auto id = obs_encoder_get_id(encoder);
 			if (id && id == "obs_x264"s)
 				return false;
