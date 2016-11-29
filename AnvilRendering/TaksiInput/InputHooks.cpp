@@ -550,6 +550,9 @@ void ResetOverlayCursor()
 		return;
 
 	s_HookSetCursor.Call(*overlay_cursor.Lock());
+	auto res = s_HookShowCursor.Call(true);
+	while (res)
+		res = s_HookShowCursor.Call(res > 0 ? false : true);
 }
 
 HCURSOR WINAPI Hook_GetCursor(VOID)
