@@ -87,14 +87,17 @@ static CHookJump s_HookGetCursor;
 #define DECLARE_HOOK_EX_(func, name) static FuncHook<decltype(func)> name = FuncHook<decltype(func)>{ #func, nullptr } + []
 #define DECLARE_HOOK_EX(func) DECLARE_HOOK_EX_(func, s_Hook ## func)
 
-static bool cursor_showing = false;
+int target_display_count = 0;
 
 DECLARE_HOOK_EX(ShowCursor) (BOOL bShow)
 {
-	if (g_bBrowserShowing)
-	{
-		cursor_showing = !!bShow;
-		return bShow ? 0 : -1;
+	if (g_bBrowserShowing) {
+		if (bShow)
+			target_display_count++;
+		else
+			target_display_count--;
+
+		return target_display_count;
 	}
 
 	return s_HookShowCursor.Call(bShow);
@@ -486,7 +489,7 @@ DECLARE_HOOK_EX(GetCursorInfo) (PCURSORINFO pci) -> BOOL
 			return ret;
 
 		pci->flags &= ~CURSOR_SHOWING;
-		if (cursor_showing)
+		if (target_display_count >= 0)
 			pci->flags |= CURSOR_SHOWING;
 
 		pci->hCursor = old_cursor;
@@ -499,15 +502,21 @@ DECLARE_HOOK_EX(GetCursorInfo) (PCURSORINFO pci) -> BOOL
 	return s_HookGetCursorInfo.Call(pci);
 };
 
+int GetCurrentDisplayCount()
+{
+	s_HookShowCursor.Call(true);
+	return s_HookShowCursor.Call(false);
+}
+
 void ShowOverlayCursor()
 {
 	old_cursor = s_HookSetCursor.Call(*overlay_cursor.Lock());
+	target_display_count = GetCurrentDisplayCount();
 
 	CURSORINFO info = { sizeof(CURSORINFO) };
 	if (s_HookGetCursorInfo.Call(&info)) {
 		mouse_pos_saved = true;
 		saved_mouse_pos = info.ptScreenPos;
-		cursor_showing = (info.flags & CURSOR_SHOWING);
 	}
 
 	int res = 0;
@@ -526,11 +535,10 @@ void RestoreCursor()
 	OverlayRestoreClipCursor();
 	s_HookSetCursor.Call(old_cursor);
 
-	do {
-		auto res = s_HookShowCursor.Call(false);
-		if (res < 0)
-			break;
-	} while (!cursor_showing);
+	int cur_display_count = GetCurrentDisplayCount();
+
+	while (cur_display_count != target_display_count)
+		cur_display_count = s_HookShowCursor.Call(cur_display_count > target_display_count ? false : true);
 
 	s_HookSetCursorPos.Call(saved_mouse_pos.x, saved_mouse_pos.y);
 	mouse_pos_saved = false;
