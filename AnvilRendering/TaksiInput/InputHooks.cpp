@@ -837,8 +837,8 @@ void HookWndProc()
 void DisableRawInput()
 {
 #ifdef HOOK_REGISTER_RAW_DEVICES
-	UINT num = prev_devices.size();
-	if (s_HookGetRegisteredRawInputDevices.Call(prev_devices.data(), &num, sizeof(RAWINPUTDEVICE)) != num || num != prev_devices.size())
+	UINT num = 0;
+	if (s_HookGetRegisteredRawInputDevices.Call(nullptr, &num, sizeof(RAWINPUTDEVICE)) != (UINT)-1 && num)
 	{
 		prev_devices.resize(num);
 		s_HookGetRegisteredRawInputDevices.Call(prev_devices.data(), &num, sizeof(RAWINPUTDEVICE));
