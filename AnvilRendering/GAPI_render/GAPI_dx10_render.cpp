@@ -175,11 +175,6 @@ void DX10Renderer::InitIndicatorTextures( IndicatorManager &manager )
 
 void DX10Renderer::UpdateOverlayVB(ID3D10Texture2D *tex)
 {
-	if (indicatorManager.updateTextures) {
-		InitIndicatorTextures(indicatorManager);
-		indicatorManager.updateTextures = false;
-	}
-
 	D3D10_TEXTURE2D_DESC desc;
 	tex->GetDesc(&desc);
 
@@ -784,6 +779,11 @@ bool DX10Renderer::DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_
 
 void DX10Renderer::UpdateOverlay()
 {
+	if (indicatorManager.updateTextures) {
+		InitIndicatorTextures(indicatorManager);
+		indicatorManager.updateTextures = false;
+	}
+
 	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++)
 		overlay_textures[i].Buffer([&](D3D10Texture &tex)
 		{

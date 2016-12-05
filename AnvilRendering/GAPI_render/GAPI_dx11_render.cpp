@@ -183,11 +183,6 @@ void DX11Renderer::InitIndicatorTextures( IndicatorManager &manager )
 
 void DX11Renderer::UpdateOverlayVB(ID3D11Texture2D *tex)
 {
-	if (indicatorManager.updateTextures) {
-		InitIndicatorTextures(indicatorManager);
-		indicatorManager.updateTextures = false;
-	}
-
 	IRefPtr<ID3D11DeviceContext> pContext;
 	m_pDevice->GetImmediateContext(IREF_GETPPTR(pContext, ID3D11DeviceContext));
 
@@ -851,6 +846,11 @@ bool DX11Renderer::DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_
 
 void DX11Renderer::UpdateOverlay()
 {
+	if (indicatorManager.updateTextures) {
+		InitIndicatorTextures(indicatorManager);
+		indicatorManager.updateTextures = false;
+	}
+
 	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++)
 		overlay_textures[i].Buffer([&](D3D11Texture &tex)
 		{
