@@ -140,11 +140,11 @@ wstring clipUploadedDescription = L"A link to your clip has been copied to your 
 
 wstring hotkeyHelpText[HOTKEY_QTY] = {
 	L"Save a screenshot",
-	L"Save a moment to upload a clip of later",
-	L"Open the in-game clipper",
+	L"Bookmark a moment for later",
+	L"Open in-game clipper",
 	L"Open the streaming overlay",
 	L"Start or stop streaming",
-	L"Mute or unmute microphone",
+	L"Mute/unmute microphone",
 };
 
 unsigned int indicatorHotkey_Keycode[HOTKEY_QTY];
