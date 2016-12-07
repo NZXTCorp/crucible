@@ -29,7 +29,7 @@ private:
 	void UpdateSquareBorderVB( IDirect3DVertexBuffer9 *pVB, int x, int y, int w, int h, DWORD color ); // update the square indicator border vertex buffer (it's bigger than the solid/textured quad ones)
 	void UpdateVB( IDirect3DVertexBuffer9 *pVB, int x, int y, int w, int h, DWORD color ); // update given vertex buffer position/size/color
 	void SetupRenderState( IDirect3DStateBlock9 **pStateBlock, DWORD vp_width, DWORD vp_height, bool textured ); // setup rendering state blocks. false = solid, true = textured
-	void InitIndicatorTextures( IndicatorManager &manager ); // helper to create indicator textures from the manager
+	void InitIndicatorTextures(IndicatorManager &manager, bool update = false); // helper to create indicator textures from the manager
 
 	template <typename Fun>
 	bool ProtectState(Fun &&f);

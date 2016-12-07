@@ -94,7 +94,7 @@ private:
 	//IRefPtr<ID3D11RenderTargetView> m_pRenderTargetView; // render target view of backbuffer if we don't have one
 	IRefPtr<ID3D11BlendState> m_pBlendStateTextured; // blend state for texture drawing
 
-	void InitIndicatorTextures( IndicatorManager &manager ); // helper to create indicator textures from the manager
+	void InitIndicatorTextures(IndicatorManager &manager, bool update = false); // helper to create indicator textures from the manager
 	void UpdateNotificationVB( IndicatorEvent eIndicatorEvent, BYTE alpha ); // helper to update the indicator vertex buffer
 	void UpdateSquareIndicatorVB( TAKSI_INDICATE_TYPE eIndicate ); // helper to update the indicator vertex buffer
 	void UpdateOverlayVB(ID3D11Texture2D *tex);

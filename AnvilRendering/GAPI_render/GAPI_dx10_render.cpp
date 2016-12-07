@@ -88,12 +88,16 @@ DX10Renderer::DX10Renderer( ID3D10Device *pDevice )
 	m_pDevice = pDevice;
 }
 
-void DX10Renderer::InitIndicatorTextures( IndicatorManager &manager )
+void DX10Renderer::InitIndicatorTextures(IndicatorManager &manager, bool update)
 {
 	using namespace Gdiplus;
 
 	for ( int i = 0; i < INDICATE_NONE; i++ )
 	{
+		auto ev = static_cast<IndicatorEvent>(i);
+		if (update && !manager.ImageUpdated(ev))
+			continue;
+
 		Bitmap *bmp = manager.GetImage( i );
 		BitmapData data;
 	
@@ -170,6 +174,8 @@ void DX10Renderer::InitIndicatorTextures( IndicatorManager &manager )
 			LOG_WARN( "InitIndicatorTextures: couldn't create shader resource view[%d]! 0x%08x" LOG_CR, i, hRes );
 			break;
 		}
+
+		manager.ResetImageUpdated(ev);
 	}
 }
 
@@ -780,7 +786,7 @@ bool DX10Renderer::DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_
 void DX10Renderer::UpdateOverlay()
 {
 	if (indicatorManager.updateTextures) {
-		InitIndicatorTextures(indicatorManager);
+		InitIndicatorTextures(indicatorManager, true);
 		indicatorManager.updateTextures = false;
 	}
 

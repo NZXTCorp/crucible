@@ -118,12 +118,16 @@ DX11Renderer::~DX11Renderer( void )
 	FreeRenderer( );
 }
 
-void DX11Renderer::InitIndicatorTextures( IndicatorManager &manager )
+void DX11Renderer::InitIndicatorTextures(IndicatorManager &manager, bool update)
 {
 	using namespace Gdiplus;
 
 	for ( int i = 0; i < INDICATE_NONE; i++ )
 	{
+		auto ev = static_cast<IndicatorEvent>(i);
+		if (update && !manager.ImageUpdated(ev))
+			continue;
+
 		Bitmap *bmp = manager.GetImage( i );
 		BitmapData data;
 	
@@ -178,6 +182,8 @@ void DX11Renderer::InitIndicatorTextures( IndicatorManager &manager )
 			LOG_WARN( "InitIndicatorTextures: couldn't create shader resource view! 0x%08x" LOG_CR, hRes );
 			break;
 		}
+
+		manager.ResetImageUpdated(ev);
 	}
 }
 
@@ -847,7 +853,7 @@ bool DX11Renderer::DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_
 void DX11Renderer::UpdateOverlay()
 {
 	if (indicatorManager.updateTextures) {
-		InitIndicatorTextures(indicatorManager);
+		InitIndicatorTextures(indicatorManager, true);
 		indicatorManager.updateTextures = false;
 	}
 

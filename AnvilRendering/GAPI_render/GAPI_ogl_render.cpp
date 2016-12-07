@@ -81,7 +81,7 @@ bool OpenGLRenderer::InitRenderer( IndicatorManager &manager )
 {
 	s_glGenTextures( INDICATE_NONE, m_uTexIDIndicators );
 
-	if (!UpdateIndicatorImages(manager))
+	if (!UpdateIndicatorImages(manager, true))
 		return false;
 	
 	s_glDisable( GL_ALPHA_TEST );
@@ -92,12 +92,16 @@ bool OpenGLRenderer::InitRenderer( IndicatorManager &manager )
 
 }
 
-bool OpenGLRenderer::UpdateIndicatorImages(IndicatorManager &manager)
+bool OpenGLRenderer::UpdateIndicatorImages(IndicatorManager &manager, bool force)
 {
 	using namespace Gdiplus;
 
 	for ( int i = 0; i < INDICATE_NONE; i++ )
 	{
+		auto ev = static_cast<IndicatorEvent>(i);
+		if (!force && !manager.ImageUpdated(ev))
+			continue;
+
 		Bitmap *bmp = manager.GetImage( i );
 		BitmapData data;
 	
@@ -132,6 +136,8 @@ bool OpenGLRenderer::UpdateIndicatorImages(IndicatorManager &manager)
 		s_glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
 
 		bmp->UnlockBits( &data );
+
+		manager.ResetImageUpdated(ev);
 	}
 
 	return true;

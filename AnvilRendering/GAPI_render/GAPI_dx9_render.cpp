@@ -86,7 +86,7 @@ bool DX9Renderer::InitRenderer( IDirect3DDevice9 *pDevice, IndicatorManager &man
 			m_pDevice->CreateTexture(g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, IREF_GETPPTR(tex, IDirect3DTexture9), NULL);
 		});
 	}
-	InitIndicatorTextures( manager );
+	InitIndicatorTextures(manager);
 
 	// fill buffers. most will be updated between frames anyway.
 	UpdateVB( m_pVBSquareIndicator, INDICATOR_X, INDICATOR_Y, INDICATOR_Width, INDICATOR_Height, 0xFF000000 );
@@ -291,12 +291,16 @@ void DX9Renderer::SetupRenderState( IDirect3DStateBlock9 **pStateBlock, DWORD vp
 	});
 }
 
-void DX9Renderer::InitIndicatorTextures( IndicatorManager &manager )
+void DX9Renderer::InitIndicatorTextures(IndicatorManager &manager, bool update)
 {
 	using namespace Gdiplus;
 
 	for ( int i = 0; i < INDICATE_NONE; i++ )
 	{
+		auto ev = static_cast<IndicatorEvent>(i);
+		if (update && !manager.ImageUpdated(ev))
+			continue;
+
 		Bitmap *bmp = manager.GetImage( i );
 		BitmapData data;
 	
@@ -338,6 +342,8 @@ void DX9Renderer::InitIndicatorTextures( IndicatorManager &manager )
 		bmp->UnlockBits( &data );
 
 		m_pIndicatorTexture[i]->UnlockRect( 0 );
+
+		manager.ResetImageUpdated(ev);
 	}
 }
 
@@ -554,7 +560,7 @@ void DX9Renderer::UpdateOverlay()
 {
 	if (indicatorManager.updateTextures) {
 		indicatorManager.updateTextures = false;
-		InitIndicatorTextures(indicatorManager);
+		InitIndicatorTextures(indicatorManager, true);
 	}
 
 	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++)
