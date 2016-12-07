@@ -339,6 +339,7 @@ void IndicatorManager::UpdateImages(void)
 	hotkeysChanged = false;
 
 	m_images[INDICATE_ENABLED] = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
+	image_updated[INDICATE_ENABLED] = true;
 
 	updateTextures = true;
 
@@ -362,4 +363,20 @@ Gdiplus::Bitmap *IndicatorManager::GetImage( int indicator_event )
 
 	// otherwise show the proper image
 	return m_images[indicator_event].get();
+}
+
+bool IndicatorManager::ImageUpdated(IndicatorEvent event)
+{
+	if (event < 0 || event >= INDICATE_NONE)
+		return false;
+
+	return image_updated[event];
+}
+
+void IndicatorManager::ResetImageUpdated(IndicatorEvent event)
+{
+	if (event < 0 || event >= INDICATE_NONE)
+		return;
+
+	image_updated[event] = false;
 }

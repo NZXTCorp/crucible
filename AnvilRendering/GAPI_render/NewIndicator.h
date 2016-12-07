@@ -62,6 +62,7 @@ class IndicatorManager
 {
 private:
 	std::unique_ptr<Gdiplus::Bitmap> m_images[INDICATE_NONE];
+	bool image_updated[INDICATE_NONE] = { false };
 public:
 	IndicatorManager( void );
 	~IndicatorManager( void );
@@ -72,6 +73,8 @@ public:
 	void FreeImages( void );
 	void UpdateImages( void );
 	Gdiplus::Bitmap *GetImage( int indicator_event );
+	bool ImageUpdated(IndicatorEvent event);
+	void ResetImageUpdated(IndicatorEvent event);
 };
 
 void SetIndicatorHotkey( int index, int keycode, bool ctrl, bool alt, bool shift );
