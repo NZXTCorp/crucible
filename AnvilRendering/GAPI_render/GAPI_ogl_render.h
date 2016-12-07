@@ -18,6 +18,7 @@ public:
 
 	// init all the d3d objects we'll need (including indicator textures)
 	bool InitRenderer( IndicatorManager &manager );
+	bool UpdateIndicatorImages(IndicatorManager &manager);
 	// release/free everything. could be unhooking or a device reset.
 	void FreeRenderer( void );
 

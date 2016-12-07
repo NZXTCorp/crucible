@@ -79,9 +79,22 @@ OpenGLRenderer::~OpenGLRenderer( void )
 
 bool OpenGLRenderer::InitRenderer( IndicatorManager &manager )
 {
-	using namespace Gdiplus;
-
 	s_glGenTextures( INDICATE_NONE, m_uTexIDIndicators );
+
+	if (!UpdateIndicatorImages(manager))
+		return false;
+	
+	s_glDisable( GL_ALPHA_TEST );
+	s_glEnable( GL_BLEND );
+	s_glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+	return true;
+
+}
+
+bool OpenGLRenderer::UpdateIndicatorImages(IndicatorManager &manager)
+{
+	using namespace Gdiplus;
 
 	for ( int i = 0; i < INDICATE_NONE; i++ )
 	{
@@ -90,17 +103,17 @@ bool OpenGLRenderer::InitRenderer( IndicatorManager &manager )
 	
 		if ( !bmp )
 		{
-			LOG_MSG( "InitRenderer: invalid bitmap!" LOG_CR );
+			LOG_MSG("UpdateIndicatorImages: invalid bitmap!" LOG_CR);
 			return false;
 		}
 
 		if ( bmp->LockBits(&Rect( 0, 0, bmp->GetWidth( ), bmp->GetHeight( ) ), ImageLockModeRead, PixelFormat32bppARGB, &data ) != Status::Ok )
 		{
-			LOG_MSG( "InitRenderer: bitmap[%d] data lock failed!" LOG_CR, i );
+			LOG_MSG("UpdateIndicatorImages: bitmap[%d] data lock failed!" LOG_CR, i);
 			return false;
 		}
 
-		LOG_MSG( "InitRenderer: locked bitmap %d, image stride is %d for size %dx%d" LOG_CR, i, data.Stride, bmp->GetWidth( ), bmp->GetHeight( ) );
+		LOG_MSG("UpdateIndicatorImages: locked bitmap %d, image stride is %d for size %dx%d" LOG_CR, i, data.Stride, bmp->GetWidth(), bmp->GetHeight());
 
 		m_sIndicatorSize[i].cx = bmp->GetWidth( );
 		m_sIndicatorSize[i].cy = bmp->GetHeight( );
@@ -113,17 +126,13 @@ bool OpenGLRenderer::InitRenderer( IndicatorManager &manager )
 		s_glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, bmp->GetWidth( ), bmp->GetHeight( ), 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, data.Scan0 );
 		int err = s_glGetError( );
 		if ( err )
-			LOG_WARN( "InitRenderer: unable to update OpenGL texture (%d)" LOG_CR, err );
+			LOG_WARN("UpdateIndicatorImages: unable to update OpenGL texture (%d)" LOG_CR, err);
 
 		s_glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 		s_glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
 
 		bmp->UnlockBits( &data );
 	}
-
-	s_glDisable( GL_ALPHA_TEST );
-	s_glEnable( GL_BLEND );
-	s_glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
 	return true;
 }
@@ -441,11 +450,8 @@ static void update_overlay()
 {
 	s_glPushAttrib(GL_ALL_ATTRIB_BITS);
 
-	if (indicatorManager.updateTextures) {
+	if (indicatorManager.updateTextures && render.UpdateIndicatorImages(indicatorManager))
 		indicatorManager.updateTextures = false;
-		render.FreeRenderer();
-		render.InitRenderer(indicatorManager);
-	}
 
 	if (!overlay_tex_initialized)
 	{
