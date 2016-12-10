@@ -3553,8 +3553,15 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 
 		auto handleCommand = [&](const uint8_t *data, size_t size)
 		{
+			if (!data) {
+				blog(LOG_WARNING, "Command connection died, shutting down");
+				SetEvent(exit_event);
+				return;
+			}
 			HandleCommand(crucibleContext, data, size);
 		};
+
+		exit_event = CreateEvent(nullptr, true, false, nullptr);
 
 		IPCServer remote{"ForgeCrucible", handleCommand};
 
@@ -3563,8 +3570,6 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 
 		if (start_event)
 			SetEvent(start_event);
-
-		exit_event = CreateEvent(nullptr, true, false, nullptr);
 
 		MSG msg;
 
