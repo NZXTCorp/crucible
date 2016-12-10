@@ -3674,8 +3674,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		return err.second;
 	}
 
-	if (forge)
-		store_startup_log = true;
+	store_startup_log = true;
 
 	SetUnhandledExceptionFilter(SaveCrashDump);
 
