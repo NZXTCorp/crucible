@@ -1978,10 +1978,13 @@ struct CrucibleContext {
 				blog(LOG_WARNING, "stopCapture: called with game_end_bookmark_id already set");
 			}
 
+			auto ref = OBSGetStrongRef(weakOutput);
+			if (!game_end_bookmark_id && !obs_output_active(ref))
+				ForgeEvents::SendCleanupComplete(nullptr, game_pid);
+
 			if (streaming)
 				return;
 
-			auto ref = OBSGetStrongRef(weakOutput);
 			if (ref)
 				obs_output_stop_with_timeout(ref, 15000);
 
