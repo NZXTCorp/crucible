@@ -2824,6 +2824,9 @@ struct CrucibleContext {
 		{
 			LOCK(updateMutex);
 
+			if (width == 0 || height == 0)
+				return false;
+
 			new_game_res = { width, height };
 
 			ForgeEvents::SendBrowserSizeHint(width, height);
