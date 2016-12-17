@@ -240,6 +240,9 @@ void OpenGLRenderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, BYTE alph
 	int x = g_Proc.m_Stats.m_SizeWnd.cx - w;
 	int y = g_Proc.m_Stats.m_SizeWnd.cy - m_sIndicatorSize[eIndicatorEvent].cy;
 
+	if (w == 0 || h == 0)
+		return;
+
 	s_glPushAttrib( GL_ALL_ATTRIB_BITS );
 
 	s_glMatrixMode( GL_PROJECTION );

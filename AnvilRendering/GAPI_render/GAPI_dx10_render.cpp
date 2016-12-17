@@ -528,7 +528,8 @@ void DX10Renderer::FreeRenderer( void )
 
 void DX10Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, BYTE alpha )
 {
-	if ( !m_pIndicatorTexture[eIndicatorEvent].IsValidRefObj( ) || !m_pResViewNotification[eIndicatorEvent].IsValidRefObj( ) )
+	if ( !m_pIndicatorTexture[eIndicatorEvent].IsValidRefObj( ) || !m_pResViewNotification[eIndicatorEvent].IsValidRefObj( )
+		|| g_Proc.m_Stats.m_SizeWnd.cx == 0 || g_Proc.m_Stats.m_SizeWnd.cy == 0)
 		return;
 
 	D3D10_VIEWPORT vp;

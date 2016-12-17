@@ -663,6 +663,9 @@ static inline void d3d11_restore_state(d3d11_state *state)
 
 void DX11Renderer::DrawNewIndicator( IDXGISwapChain *pSwapChain, IndicatorEvent eIndicatorEvent, BYTE alpha )
 {
+	if (g_Proc.m_Stats.m_SizeWnd.cx == 0 || g_Proc.m_Stats.m_SizeWnd.cy == 0)
+		return;
+
 	IRefPtr<ID3D11DeviceContext> pContext;
 	m_pDevice->GetImmediateContext( IREF_GETPPTR(pContext, ID3D11DeviceContext) );
 

@@ -514,7 +514,7 @@ bool DX9Renderer::RenderTex(Fun &&f)
 
 void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color )
 {
-	if (eIndicatorEvent >= INDICATE_NONE)
+	if (eIndicatorEvent >= INDICATE_NONE || g_Proc.m_Stats.m_SizeWnd.cx == 0 || g_Proc.m_Stats.m_SizeWnd.cy == 0)
 		return;
 
 	D3DSURFACE_DESC desc;
