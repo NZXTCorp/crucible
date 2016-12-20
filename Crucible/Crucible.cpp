@@ -1328,15 +1328,7 @@ struct CrucibleContext {
 
 	vector<pair<string, long long>> requested_screenshots;
 
-	struct RestartThread {
-		thread t;
-		~RestartThread()
-		{
-			if (t.joinable())
-				t.join();
-		}
-	};
-	ProtectedObject<RestartThread> restartThread;
+	ProtectedObject<vector<JoiningThread>> restartThread;
 
 	bool ResetVideo()
 	{
@@ -2844,13 +2836,15 @@ struct CrucibleContext {
 			rt = restartThread.Lock();
 		}
 
-		// TODO: this is probably not really safe, should introduce a command queue soon
-		if (rt->t.joinable())
-			rt->t.join();
+		rt->erase(remove_if(begin(*rt), end(*rt), [](JoiningThread &t)
+		{
+			return t.TryJoin();
+		}), end(*rt));
 
 		bool streaming = obs_output_active(stream);
 
-		rt->t = thread{[=]()
+		rt->emplace_back();
+		rt->back().Run([=]()
 		{
 			bool split_recording = RecordingActive() && output_dimensions_changed;
 			{
@@ -2887,7 +2881,7 @@ struct CrucibleContext {
 				LOCK(updateMutex);
 				sendRecordingStop = true;
 			}
-		}};
+		});
 
 		return true;
 	}
