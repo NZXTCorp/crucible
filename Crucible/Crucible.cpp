@@ -1331,8 +1331,6 @@ struct CrucibleContext {
 
 	vector<pair<string, long long>> requested_screenshots;
 
-	ProtectedObject<vector<JoiningThread>> restartThread;
-
 	bool ResetVideo()
 	{
 		ovi.colorspace = VIDEO_CS_601;
@@ -2870,7 +2868,6 @@ struct CrucibleContext {
 	{
 		bool output_dimensions_changed;
 		OutputResolution new_game_res, scaled;
-		decltype(restartThread.Lock()) rt;
 
 		{
 			LOCK(updateMutex);
@@ -2891,19 +2888,10 @@ struct CrucibleContext {
 
 			if (width == ovi.base_width && height == ovi.base_height && !output_dimensions_changed)
 				return false;
-
-			rt = restartThread.Lock();
 		}
-
-		rt->erase(remove_if(begin(*rt), end(*rt), [](JoiningThread &t)
-		{
-			return t.TryJoin();
-		}), end(*rt));
 
 		bool streaming = obs_output_active(stream);
 
-		rt->emplace_back();
-		rt->back().Run([=]()
 		{
 			bool split_recording = RecordingActive() && output_dimensions_changed;
 			{
@@ -2940,7 +2928,7 @@ struct CrucibleContext {
 				LOCK(updateMutex);
 				sendRecordingStop = true;
 			}
-		});
+		}
 
 		return true;
 	}
