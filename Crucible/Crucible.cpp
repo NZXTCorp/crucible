@@ -74,6 +74,9 @@ static const vector<pair<string, string>> allowed_hardware_encoder_names = {
 #define CONCAT(x, y) CONCAT2(x, y)
 #define LOCK(x) lock_guard<decltype(x)> CONCAT(lockGuard, __LINE__){x};
 
+template <typename Fun>
+static void QueueOperation(Fun &&f);
+
 // logging lifted straight out of the test app
 void do_log(int log_level, const char *msg, va_list args, void *param)
 {
@@ -1681,127 +1684,157 @@ struct CrucibleContext {
 			.SetSignal("stop")
 			.SetFunc([=](calldata *data)
 		{
-			recording_stream = false;
-
-			auto output = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
-			bool stop;
-			string profiler_path;
+			auto weakOutput = OBSGetWeakRef(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")));
+			QueueOperation([=]
 			{
-				LOCK(updateMutex);
-				if (stop = sendRecordingStop) {
-					profiler_path = profiler_filename;
-					auto data = OBSTransferOwned(obs_output_get_settings(output));
-					decltype(bookmarks) full_bookmarks;
-					{
-						LOCK(bookmarkMutex);
-						full_bookmarks = bookmarks;
+				recording_stream = false;
+
+				auto output = OBSGetStrongRef(weakOutput);
+				bool stop;
+				string profiler_path;
+				{
+					LOCK(updateMutex);
+					if (stop = sendRecordingStop) {
+						profiler_path = profiler_filename;
+						auto data = OBSTransferOwned(obs_output_get_settings(output));
+						decltype(bookmarks) full_bookmarks;
+						{
+							LOCK(bookmarkMutex);
+							full_bookmarks = bookmarks;
+						}
+
+						GameSessionEnded(output, restarting_recording);
+
+						ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
+							obs_output_get_total_frames(output),
+							obs_output_get_output_duration(output),
+							BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, recording_game ? &game_pid : nullptr, full_bookmarks,
+							restarting_recording);
+						AnvilCommands::ShowIdle();
 					}
-
-					GameSessionEnded(output, restarting_recording);
-
-					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
-						obs_output_get_total_frames(output),
-						obs_output_get_output_duration(output),
-						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, recording_game ? &game_pid : nullptr, full_bookmarks,
-						restarting_recording);
-					AnvilCommands::ShowIdle();
 				}
-			}
-			StopVideo(); // leak here!!!
+				StopVideo(); // leak here!!!
 
-			ClearBookmarks();
+				ClearBookmarks();
 
-			auto snap = ProfileSnapshotCreate();
-			auto diff = unique_ptr<profiler_snapshot_t>{profile_snapshot_diff(last_session.get(), snap.get())};
+				auto snap = ProfileSnapshotCreate();
+				auto diff = unique_ptr<profiler_snapshot_t>{ profile_snapshot_diff(last_session.get(), snap.get()) };
 
-			profiler_print(diff.get());
-			profiler_print_time_between_calls(diff.get());
+				profiler_print(diff.get());
+				profiler_print_time_between_calls(diff.get());
 
-			if (!profiler_path.empty()) {
-				if (!profiler_snapshot_dump_csv_gz(diff.get(), profiler_path.c_str())) {
-					blog(LOG_INFO, "Failed to dump profiler data to '%s'", profiler_path.c_str());
-					profiler_path = "";
-				} else {
-					blog(LOG_INFO, "Profiler data dumped to '%s'", profiler_path.c_str());
+				if (!profiler_path.empty()) {
+					if (!profiler_snapshot_dump_csv_gz(diff.get(), profiler_path.c_str())) {
+						blog(LOG_INFO, "Failed to dump profiler data to '%s'", profiler_path.c_str());
+						profiler_path = "";
+					}
+					else {
+						blog(LOG_INFO, "Profiler data dumped to '%s'", profiler_path.c_str());
+					}
 				}
-			}
 
-			last_session = move(snap);
+				last_session = move(snap);
 
-			if (stop && !restarting_recording)
-				ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, game_pid);
+				if (stop && !restarting_recording)
+					ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, game_pid);
+			});
 		});
 
 		startRecording
 			.SetSignal("start")
 			.SetFunc([=](calldata *data)
 		{
-			auto output = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
-			auto settings = OBSTransferOwned(obs_output_get_settings(output));
-			recordingStartTime = os_gettime_ns();
+			auto weakOutput = OBSGetWeakRef(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")));
+			QueueOperation([=]
 			{
-				LOCK(updateMutex);
-				if (!recordingStartSent || restarting_recording) {
-					auto encoder = obs_output_get_video_encoder(output);
-					auto encoder_settings = obs_encoder_get_settings(encoder);
-					ForgeEvents::SendRecordingStart(obs_data_get_string(settings, "path"), restarting_recording, obs_data_get_int(encoder_settings, "bitrate"));
-					recordingStartSent = true;
-					restarting_recording = false;
+				auto output = OBSGetStrongRef(weakOutput);
+				auto settings = OBSTransferOwned(obs_output_get_settings(output));
+				recordingStartTime = os_gettime_ns();
+				{
+					LOCK(updateMutex);
+					if (!recordingStartSent || restarting_recording) {
+						auto encoder = obs_output_get_video_encoder(output);
+						auto encoder_settings = obs_encoder_get_settings(encoder);
+						ForgeEvents::SendRecordingStart(obs_data_get_string(settings, "path"), restarting_recording, obs_data_get_int(encoder_settings, "bitrate"));
+						recordingStartSent = true;
+						restarting_recording = false;
+					}
 				}
-			}
-			AnvilCommands::ShowRecording();
+				AnvilCommands::ShowRecording();
 
-			if (!game_start_bookmark_id && recording_game) {
-				// this can happen in recording only mode; requesting the bookmark earlier could cause us to not be notified of the tracked frame
-				auto data = OBSDataCreate();
-				obs_data_set_bool(data, "suppress_indicator", true);
-				obs_data_set_obj(data, "extra_data", GenerateExtraData("game_begin"));
-				game_start_bookmark_id = CreateBookmark(data);
-				ForgeEvents::SendGameSessionStarted();
-			}
+				if (!game_start_bookmark_id && recording_game) {
+					// this can happen in recording only mode; requesting the bookmark earlier could cause us to not be notified of the tracked frame
+					auto data = OBSDataCreate();
+					obs_data_set_bool(data, "suppress_indicator", true);
+					obs_data_set_obj(data, "extra_data", GenerateExtraData("game_begin"));
+					game_start_bookmark_id = CreateBookmark(data);
+					ForgeEvents::SendGameSessionStarted();
+				}
+			});
 		});
 
 		sentTrackedFrame
 			.SetSignal("sent_tracked_frame")
 			.SetFunc([=](calldata *data)
 		{
-			auto bookmark = FinalizeBookmark(estimatedBookmarks, bookmarks, calldata_int(data, "id"),
-				calldata_int(data, "pts"), static_cast<uint32_t>(calldata_int(data, "timebase_den")));
+			auto id_ = calldata_int(data, "id");
+			auto pts = calldata_int(data, "pts");
+			auto timebase = static_cast<uint32_t>(calldata_int(data, "timebase_den"));
+			auto weakOutput = OBSGetWeakRef(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")));
+			QueueOperation([=]
+			{
+				auto bookmark = FinalizeBookmark(estimatedBookmarks, bookmarks, id_,
+					pts, timebase);
 
-			if (!bookmark || !game_end_bookmark_id)
-				return;
+				if (!bookmark || !game_end_bookmark_id)
+					return;
 
-			if (bookmark->id != *game_end_bookmark_id)
-				return;
+				if (bookmark->id != *game_end_bookmark_id)
+					return;
 
-			GameSessionEnded(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")), restarting_recording);
+				GameSessionEnded(OBSGetStrongRef(weakOutput), restarting_recording);
+			});
 		});
 
 		bufferSaved
 			.SetSignal("buffer_output_finished")
 			.SetFunc([=](calldata_t *data)
 		{
-			auto filename = calldata_string(data, "filename");
+			string filename = calldata_string(data, "filename");
 			video_tracked_frame_id tracked_id = calldata_int(data, "tracked_frame_id");
-			ForgeEvents::SendBufferReady(filename, static_cast<uint32_t>(calldata_int(data, "frames")),
-				calldata_float(data, "duration"), BookmarkTimes(bufferBookmarks, calldata_int(data, "start_pts")),
-				ovi.base_width, ovi.base_height, FindBookmark(bookmarks, tracked_id));
+			auto frames = static_cast<uint32_t>(calldata_int(data, "frames"));
+			auto duration = calldata_float(data, "duration");
+			auto start_pts = calldata_int(data, "start_pts");
+			QueueOperation([=]
+			{
+				ForgeEvents::SendBufferReady(filename.c_str(), frames,
+					duration, BookmarkTimes(bufferBookmarks, start_pts),
+					ovi.base_width, ovi.base_height, FindBookmark(bookmarks, tracked_id));
+			});
 		});
 
 		bufferSaveFailed
 			.SetSignal("buffer_output_failed")
 			.SetFunc([=](calldata_t *data)
 		{
-			auto filename = calldata_string(data, "filename");
-			ForgeEvents::SendBufferFailure(filename);
+			string filename = calldata_string(data, "filename");
+			QueueOperation([=]
+			{
+				ForgeEvents::SendBufferFailure(filename.c_str());
+			});
 		});
 
 		bufferSentTrackedFrame
 			.SetSignal("sent_tracked_frame")
 			.SetFunc([=](calldata *data)
 		{
-			FinalizeBookmark(estimatedBufferBookmarks, bufferBookmarks, calldata_int(data, "id"),
-				calldata_int(data, "pts"), static_cast<uint32_t>(calldata_int(data, "timebase_den")));
+			auto id_ = calldata_int(data, "id");
+			auto pts = calldata_int(data, "pts");
+			auto timebase_den = static_cast<uint32_t>(calldata_int(data, "timebase_den"));
+			QueueOperation([=]
+			{
+				FinalizeBookmark(estimatedBufferBookmarks, bufferBookmarks, id_, pts, timebase_den);
+			});
 		});
 
 		stopCapture
@@ -1821,53 +1854,71 @@ struct CrucibleContext {
 			.SetSignal("inject_request")
 			.SetFunc([](calldata_t *data)
 		{
-			ForgeEvents::SendInjectRequest(calldata_bool(data, "process_is_64bit"), calldata_bool(data, "anti_cheat"),
-				static_cast<DWORD>(calldata_int(data, "process_thread_id")));
+			auto is_64bit = calldata_bool(data, "process_is_64bit");
+			auto anti_cheat = calldata_bool(data, "anti_cheat");
+			auto pid = static_cast<DWORD>(calldata_int(data, "process_thread_id"));
+			QueueOperation([=]
+			{
+				ForgeEvents::SendInjectRequest(is_64bit, anti_cheat, pid);
+			});
 		});
 
 		monitorProcess
 			.SetSignal("monitor_process")
 			.SetFunc([](calldata_t *data)
 		{
-			ForgeEvents::SendMonitorProcess(static_cast<DWORD>(calldata_int(data, "process_id")));
+			auto pid = static_cast<DWORD>(calldata_int(data, "process_id"));
+			QueueOperation([=]
+			{
+				ForgeEvents::SendMonitorProcess(pid);
+			});
 		});
 
 		screenshotSaved
 			.SetSignal("screenshot_saved")
 			.SetFunc([=](calldata_t *data)
 		{
-			auto filename = calldata_string(data, "filename");
+			string filename = calldata_string(data, "filename");
 			auto id = calldata_int(data, "screenshot_id");
+			QueueOperation([=]
+			{
+				LOCK(updateMutex);
+				auto rs = find_if(begin(requested_screenshots), end(requested_screenshots), [&](const pair<string, long long> &p) { return p.second == id; });
+				if (rs == end(requested_screenshots))
+					return;
 
-			LOCK(updateMutex);
-			auto rs = find_if(begin(requested_screenshots), end(requested_screenshots), [&](const pair<string, long long> &p) { return p.second == id; });
-			if (rs == end(requested_screenshots))
-				return;
-
-			ForgeEvents::SendSavedGameScreenshot(rs->first.c_str(), filename);
-			requested_screenshots.erase(rs);
+				ForgeEvents::SendSavedGameScreenshot(rs->first.c_str(), filename.c_str());
+				requested_screenshots.erase(rs);
+			});
 		});
 
 		startStreaming
 			.SetSignal("start")
 			.SetFunc([=](calldata*)
 		{
-			stream_active = true;
-			AnvilCommands::StreamStatus(stream_active);
-			ForgeEvents::SendStreamingStart();
+			QueueOperation([=]
+			{
+				stream_active = true;
+				AnvilCommands::StreamStatus(stream_active);
+				ForgeEvents::SendStreamingStart();
+			});
 		});
 
 		stopStreaming
 			.SetSignal("stop")
 			.SetFunc([=](calldata *data)
 		{
-			auto stream_ = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
-			if (stream_ == stream) // check if stop wasn't requested
-				streaming = false;
+			auto weakStream = OBSGetWeakRef(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")));
+			auto code = calldata_int(data, "code");
+			QueueOperation([=]
+			{
+				if (OBSGetStrongRef(weakStream) == stream) // check if stop wasn't requested
+					streaming = false;
 
-			stream_active = false;
-			AnvilCommands::StreamStatus(stream_active);
-			ForgeEvents::SendStreamingStop(calldata_int(data, "code"));
+				stream_active = false;
+				AnvilCommands::StreamStatus(stream_active);
+				ForgeEvents::SendStreamingStop(code);
+			});
 		});
 
 	}
@@ -1948,40 +1999,44 @@ struct CrucibleContext {
 			.SetOwner(gameCapture)
 			.SetFunc([=](calldata_t*)
 		{
-			recording_game = false;
+			QueueOperation([=]
+			{
+				recording_game = false;
 
-			if (auto ref = OBSGetStrongRef(weakGameCapture)) {
-				auto settings = OBSTransferOwned(obs_source_get_settings(ref));
-				obs_data_set_int(settings, "process_id", 0);
-				obs_data_set_int(settings, "thread_id", 0);
-				obs_source_update(ref, settings);
+				if (auto ref = OBSGetStrongRef(weakGameCapture)) {
+					auto settings = OBSTransferOwned(obs_source_get_settings(ref));
+					obs_data_set_int(settings, "process_id", 0);
+					obs_data_set_int(settings, "thread_id", 0);
+					obs_source_update(ref, settings);
 
-				if (OBSGetOutputSource(0) == ref)
-					obs_set_output_source(0, nullptr);
-			}
+					if (OBSGetOutputSource(0) == ref)
+						obs_set_output_source(0, nullptr);
+				}
 
-			if (!game_end_bookmark_id) {
-				auto data = OBSDataCreate();
-				obs_data_set_bool(data, "suppress_indicator", true);
-				obs_data_set_obj(data, "extra_data", GenerateExtraData("game_exit"));
-				game_end_bookmark_id = CreateBookmark(data);
-			} else {
-				blog(LOG_WARNING, "stopCapture: called with game_end_bookmark_id already set");
-			}
+				if (!game_end_bookmark_id) {
+					auto data = OBSDataCreate();
+					obs_data_set_bool(data, "suppress_indicator", true);
+					obs_data_set_obj(data, "extra_data", GenerateExtraData("game_exit"));
+					game_end_bookmark_id = CreateBookmark(data);
+				}
+				else {
+					blog(LOG_WARNING, "stopCapture: called with game_end_bookmark_id already set");
+				}
 
-			auto ref = OBSGetStrongRef(weakOutput);
-			if (!game_end_bookmark_id && !obs_output_active(ref))
-				ForgeEvents::SendCleanupComplete(nullptr, game_pid);
+				auto ref = OBSGetStrongRef(weakOutput);
+				if (!game_end_bookmark_id && !obs_output_active(ref))
+					ForgeEvents::SendCleanupComplete(nullptr, game_pid);
 
-			if (streaming)
-				return;
+				if (streaming)
+					return;
 
-			if (ref)
-				obs_output_stop_with_timeout(ref, 15000);
+				if (ref)
+					obs_output_stop_with_timeout(ref, 15000);
 
-			ref = OBSGetStrongRef(weakBuffer);
-			if (ref)
-				obs_output_stop_with_timeout(ref, 15000);
+				ref = OBSGetStrongRef(weakBuffer);
+				if (ref)
+					obs_output_stop_with_timeout(ref, 15000);
+			});
 		}).Connect();
 
 		startCapture
@@ -1989,34 +2044,38 @@ struct CrucibleContext {
 			.SetOwner(gameCapture)
 			.SetFunc([=](calldata_t *data)
 		{
-			AnvilCommands::Connect(game_pid);
-
-			auto add_bookmark = [&]
+			auto width = static_cast<uint32_t>(calldata_int(data, "width"));
+			auto height = static_cast<uint32_t>(calldata_int(data, "height"));
+			QueueOperation([=]
 			{
-				auto data = OBSDataCreate();
-				obs_data_set_bool(data, "suppress_indicator", true);
-				obs_data_set_obj(data, "extra_data", GenerateExtraData("game_begin"));
-				game_start_bookmark_id = CreateBookmark(data);
-			};
+				AnvilCommands::Connect(game_pid);
 
-			if (!game_start_bookmark_id) {
-				add_bookmark();
-				if (game_start_bookmark_id)
-					ForgeEvents::SendGameSessionStarted();
-			}
+				auto add_bookmark = [&]
+				{
+					auto data = OBSDataCreate();
+					obs_data_set_bool(data, "suppress_indicator", true);
+					obs_data_set_obj(data, "extra_data", GenerateExtraData("game_begin"));
+					game_start_bookmark_id = CreateBookmark(data);
+				};
 
-			if (UpdateSize(static_cast<uint32_t>(calldata_int(data, "width")),
-				static_cast<uint32_t>(calldata_int(data, "height")))) {
-				add_bookmark();
-				return;
-			}
+				if (!game_start_bookmark_id) {
+					add_bookmark();
+					if (game_start_bookmark_id)
+						ForgeEvents::SendGameSessionStarted();
+				}
 
-			if (streaming)
-				return;
+				if (UpdateSize(width, height)) {
+					add_bookmark();
+					return;
+				}
 
-			auto ref = OBSGetStrongRef(weakOutput);
-			if (ref)
-				StartRecordingOutputs(ref, OBSGetStrongRef(weakBuffer));
+				if (streaming)
+					return;
+
+				auto ref = OBSGetStrongRef(weakOutput);
+				if (ref)
+					StartRecordingOutputs(ref, OBSGetStrongRef(weakBuffer));
+			});
 		}).Connect();
 	}
 
@@ -3478,10 +3537,37 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 	if (elem == cend(known_commands))
 		return blog(LOG_WARNING, "Unknown command: %s", str);
 
-	elem->second(cc, obj);
+	QueueOperation([=, &cc]() mutable
+	{
+		elem->second(cc, obj);
+	});
 
 	// TODO: Handle changes to frame rate, target resolution, encoder type,
 	//       ...
+}
+
+static DWORD main_thread_id = 0;
+
+template <typename Fun>
+static void QueueOperation(Fun &&f)
+{
+	auto ptr = make_unique<function<void()>>(f);
+	PostThreadMessageA(main_thread_id, WM_APP, reinterpret_cast<WPARAM>(ptr.release()), 0);
+}
+
+static bool HandleQueuedOperation(MSG &msg)
+{
+	if (msg.hwnd)
+		return false;
+
+	if (msg.message != WM_APP)
+		return false;
+
+	unique_ptr<function<void()>> ptr;
+	ptr.reset(reinterpret_cast<function<void()>*>(msg.wParam));
+	(*ptr)();
+
+	return true;
 }
 
 
@@ -3590,6 +3676,8 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 			if ((!forge && reason == WAIT_OBJECT_0 + 1) || (forge && reason == WAIT_OBJECT_0 + 2)) {
 				while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 				{
+					if (HandleQueuedOperation(msg))
+						continue;
 					TranslateMessage(&msg);
 					DispatchMessage(&msg);
 				}
@@ -3655,6 +3743,8 @@ static DStr GetConfigDirectory(const char *subdir)
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmd)
 {
+	main_thread_id = GetCurrentThreadId();
+
 	base_set_log_handler(do_log, nullptr);
 
 	unique_ptr<profiler_name_store_t> profiler_names{profiler_name_store_create()};
