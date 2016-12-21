@@ -681,7 +681,7 @@ namespace AnvilCommands {
 					return;
 			}
 
-			SendIndicator();
+			QueueOperation(SendIndicator);
 		});
 
 		SendIndicator();
