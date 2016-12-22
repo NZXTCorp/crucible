@@ -128,7 +128,7 @@ void DX11Renderer::InitIndicatorTextures(IndicatorManager &manager, bool update)
 		if (update && !manager.ImageUpdated(ev))
 			continue;
 
-		Bitmap *bmp = manager.GetImage( i );
+		auto bmp = manager.GetImage( i );
 		BitmapData data;
 	
 		if ( !bmp )

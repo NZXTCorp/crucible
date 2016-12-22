@@ -6,6 +6,7 @@
 
 #include <gdiplus.h>
 #include <memory>
+#include "../Crucible/ProtectedObject.hpp"
 
 // NOTE: these match the order of the resource images!
 enum IndicatorEvent
@@ -61,7 +62,7 @@ extern const DWORD sm_IndColors[TAKSI_INDICATE_QTY];
 class IndicatorManager
 {
 private:
-	std::unique_ptr<Gdiplus::Bitmap> m_images[INDICATE_NONE];
+	ProtectedObject<std::shared_ptr<Gdiplus::Bitmap>> m_images[INDICATE_NONE];
 	bool image_updated[INDICATE_NONE] = { false };
 public:
 	IndicatorManager( void );
@@ -72,7 +73,7 @@ public:
 	bool LoadImages( void );
 	void FreeImages( void );
 	void UpdateImages( void );
-	Gdiplus::Bitmap *GetImage( int indicator_event );
+	std::shared_ptr<Gdiplus::Bitmap> GetImage( int indicator_event );
 	bool ImageUpdated(IndicatorEvent event);
 	void ResetImageUpdated(IndicatorEvent event);
 };

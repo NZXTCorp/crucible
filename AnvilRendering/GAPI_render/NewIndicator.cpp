@@ -248,8 +248,6 @@ void SetIndicatorHotkey(int index, int keycode, bool ctrl, bool alt, bool shift)
 
 IndicatorManager::IndicatorManager( void )
 {
-	for ( int i = 0; i < INDICATE_NONE; i++ )
-		m_images[i] = nullptr;
 }
 
 IndicatorManager::~IndicatorManager( void )
@@ -286,42 +284,42 @@ bool IndicatorManager::LoadImages( void )
 	{
 		switch (i) {
 		case INDICATE_CAPTURING:
-			m_images[i] = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_COLOR_BAR));
+			*m_images[i].Lock() = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_COLOR_BAR));
 			break;
 		case INDICATE_STREAM_MIC_ACTIVE:
 		case INDICATE_STREAM_MIC_IDLE:
 		case INDICATE_STREAM_MIC_MUTED:
-			m_images[i] = CreateMicIndicator(i, micIndicatorW, micIndicatorH, true);
+			*m_images[i].Lock() = CreateMicIndicator(i, micIndicatorW, micIndicatorH, true);
 			break;
 		case INDICATE_MIC_ACTIVE:
 		case INDICATE_MIC_IDLE:
 		case INDICATE_MIC_MUTED:
-			m_images[i] = CreateMicIndicator(i, micIndicatorW, micIndicatorH);
+			*m_images[i].Lock() = CreateMicIndicator(i, micIndicatorW, micIndicatorH);
 			break;
 		case INDICATE_BOOKMARK:
-			m_images[i] = CreatePopupImage(&bookmarkCaption, &bookmarkDescription, IDB_BOOKMARK_ICON);
+			*m_images[i].Lock() = CreatePopupImage(&bookmarkCaption, &bookmarkDescription, IDB_BOOKMARK_ICON);
 			break;
 		case INDICATE_ENABLED:
-			m_images[i] = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
+			*m_images[i].Lock() = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
 			break;
 		case INDICATE_CACHE_LIMIT:
-			m_images[i] = CreatePopupImage(&cacheLimitCaption, &cacheLimitDescription, 0, IDB_COLOR_BAR_ERROR);
+			*m_images[i].Lock() = CreatePopupImage(&cacheLimitCaption, &cacheLimitDescription, 0, IDB_COLOR_BAR_ERROR);
 			break;
 		case INDICATE_STREAM_STOPPED:
-			m_images[i] = CreatePopupImage(&streamStoppedCaption, NULL, 0);
+			*m_images[i].Lock() = CreatePopupImage(&streamStoppedCaption, NULL, 0);
 			break;
 		case INDICATE_STREAM_STARTED:
-			m_images[i] = CreatePopupImage(&streamStartedCaption, &streamStartedDescription, IDB_CHECKMARK_ICON);
+			*m_images[i].Lock() = CreatePopupImage(&streamStartedCaption, &streamStartedDescription, IDB_CHECKMARK_ICON);
 			break;
 		case INDICATE_CLIP_PROCESSING:
-			m_images[i] = CreatePopupImage(&clipUploadingCaption, NULL, 0);
+			*m_images[i].Lock() = CreatePopupImage(&clipUploadingCaption, NULL, 0);
 			break;
 		case INDICATE_CLIP_PROCESSED:
-			m_images[i] = CreatePopupImage(&clipUploadedCaption, &clipUploadedDescription, IDB_CHECKMARK_ICON);
+			*m_images[i].Lock() = CreatePopupImage(&clipUploadedCaption, &clipUploadedDescription, IDB_CHECKMARK_ICON);
 			break;
 		default:
-			m_images[i] = LoadBitmapFromResource(MAKEINTRESOURCE(s_image_res[i]));
-			if (!m_images[i])
+			*m_images[i].Lock() = LoadBitmapFromResource(MAKEINTRESOURCE(s_image_res[i]));
+			if (!m_images[i].Lock())
 			{
 				LOG_MSG("LoadImages: load failed at %d" LOG_CR, i);
 				return false;
@@ -338,7 +336,7 @@ void IndicatorManager::UpdateImages(void)
 	if (!hotkeysChanged) return;
 	hotkeysChanged = false;
 
-	m_images[INDICATE_ENABLED] = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
+	*m_images[INDICATE_ENABLED].Lock() = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
 	image_updated[INDICATE_ENABLED] = true;
 
 	updateTextures = true;
@@ -349,10 +347,10 @@ void IndicatorManager::UpdateImages(void)
 void IndicatorManager::FreeImages( void )
 {
 	for (int i = 0; i < INDICATE_NONE; i++)
-		m_images[i].reset();
+		m_images[i].Lock()->reset();
 }
 
-Gdiplus::Bitmap *IndicatorManager::GetImage( int indicator_event )
+shared_ptr<Gdiplus::Bitmap> IndicatorManager::GetImage( int indicator_event )
 {
 	if ( indicator_event < 0 || indicator_event >= INDICATE_NONE )
 		return nullptr;
@@ -362,7 +360,7 @@ Gdiplus::Bitmap *IndicatorManager::GetImage( int indicator_event )
 		return m_image_enabled_hotkeys;*/
 
 	// otherwise show the proper image
-	return m_images[indicator_event].get();
+	return *m_images[indicator_event].Lock();
 }
 
 bool IndicatorManager::ImageUpdated(IndicatorEvent event)

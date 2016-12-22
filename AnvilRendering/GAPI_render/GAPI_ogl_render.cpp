@@ -102,7 +102,7 @@ bool OpenGLRenderer::UpdateIndicatorImages(IndicatorManager &manager, bool force
 		if (!force && !manager.ImageUpdated(ev))
 			continue;
 
-		Bitmap *bmp = manager.GetImage( i );
+		auto bmp = manager.GetImage( i );
 		BitmapData data;
 	
 		if ( !bmp )
