@@ -68,6 +68,7 @@ HANDLE exit_event = nullptr;
 static const vector<pair<string, string>> allowed_hardware_encoder_names = {
 	{ "ffmpeg_nvenc", "Nvidia NVENC" },
 	{ "obs_qsv11", "Intel Quick Sync Video" },
+	{ "amd_amf_h264", "AMD AMF Video Encoder" },
 };
 
 #define CONCAT2(x, y) x ## y
@@ -1584,6 +1585,18 @@ struct CrucibleContext {
 
 				obs_data_set_string(vsettings, "rate_control", best.c_str());
 			}
+
+		} else if (id == "amd_amf_h264"s) {
+			obs_data_set_int(vsettings, "bitrate", 2 * bitrate);
+			obs_data_set_string(vsettings, "profile", "high");
+			obs_data_set_int(vsettings, "keyint_sec", 1);
+
+			obs_data_set_int(vsettings, "AMF.H264.Profile", 100); // VCEProfile_High
+			obs_data_set_int(vsettings, "AMF.H264.RateControlMethod", 2); // VCERateControlMethod_VariableBitrate_PeakConstrained
+			obs_data_set_int(vsettings, "AMF.H264.Bitrate.Target", 2 * bitrate);
+			obs_data_set_int(vsettings, "AMF.H264.Bitrate.Peak", 2 * bitrate);
+			obs_data_set_int(vsettings, "AMF.H264.EnforceHRDCompatibility", 0);
+			obs_data_set_double(vsettings, "AMF.H264.KeyframeInterval", 1.0);
 		}
 
 		return vsettings;
