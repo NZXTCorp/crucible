@@ -1592,11 +1592,11 @@ struct CrucibleContext {
 			obs_data_set_int(vsettings, "keyint_sec", 1);
 
 			obs_data_set_int(vsettings, "AMF.H264.Profile", 100); // VCEProfile_High
-			obs_data_set_int(vsettings, "AMF.H264.RateControlMethod", 2); // VCERateControlMethod_VariableBitrate_PeakConstrained
+			obs_data_set_int(vsettings, "AMF.H264.RateControlMethod", 1); // VCERateControlMethod_ConstantBitrate
 			obs_data_set_int(vsettings, "AMF.H264.Bitrate.Target", 2 * bitrate);
-			obs_data_set_int(vsettings, "AMF.H264.Bitrate.Peak", 2 * bitrate);
 			obs_data_set_int(vsettings, "AMF.H264.EnforceHRDCompatibility", 0);
-			obs_data_set_double(vsettings, "AMF.H264.KeyframeInterval", 1.0);
+			obs_data_set_double(vsettings, "AMF.H264.KeyframeInterval", 2.0); // 1.0 seems to produce a keyframe interval of .5 seconds
+			obs_data_set_int(vsettings, "AMF.H264.FillerData", 0);
 		}
 
 		return vsettings;
