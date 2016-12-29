@@ -1738,10 +1738,9 @@ struct CrucibleContext {
 			.SetSignal("start")
 			.SetFunc([=](calldata *data)
 		{
-			auto weakOutput = OBSGetWeakRef(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")));
+			OBSOutput output = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
 			QueueOperation([=]
 			{
-				auto output = OBSGetStrongRef(weakOutput);
 				auto settings = OBSTransferOwned(obs_output_get_settings(output));
 				recordingStartTime = os_gettime_ns();
 				{
@@ -1774,7 +1773,7 @@ struct CrucibleContext {
 			auto id_ = calldata_int(data, "id");
 			auto pts = calldata_int(data, "pts");
 			auto timebase = static_cast<uint32_t>(calldata_int(data, "timebase_den"));
-			auto weakOutput = OBSGetWeakRef(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")));
+			OBSOutput output = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
 			QueueOperation([=]
 			{
 				auto bookmark = FinalizeBookmark(estimatedBookmarks, bookmarks, id_,
@@ -1786,7 +1785,7 @@ struct CrucibleContext {
 				if (bookmark->id != *game_end_bookmark_id)
 					return;
 
-				GameSessionEnded(OBSGetStrongRef(weakOutput), restarting_recording);
+				GameSessionEnded(output, restarting_recording);
 			});
 		});
 
