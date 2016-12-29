@@ -184,6 +184,48 @@ static OBSData GenerateExtraData(const string &type)
 	return res;
 }
 
+struct OutputStatus {
+	bool started = false;
+	bool stopped = false;
+	bool stopping_for_restart = false;
+	bool restarting = false;
+};
+
+string to_string(OutputStatus os)
+{
+	auto to_s = [](bool b)
+	{
+		return b ? "true"s : "false"s;
+	};
+
+	return "OutputStatus { started = " + to_s(os.started) + ", stopped = " + to_s(os.stopped) + ", stopping_for_restart = " + to_s(os.stopping_for_restart) + ", restarting = " + to_s(os.restarting) +" }";
+}
+
+OutputStatus GetOutputStatus(obs_data_t *data)
+{
+	auto val = OBSDataGetObj(data, "CrucibleOutputStatus");
+
+	OutputStatus res;
+	res.started = obs_data_get_bool(val, "started");
+	res.stopped = obs_data_get_bool(val, "stopped");
+	res.stopping_for_restart = obs_data_get_bool(val, "stopping_for_restart");
+	res.restarting = obs_data_get_bool(val, "restarting");
+
+	return res;
+}
+
+void SetOutputStatus(obs_data_t *data, OutputStatus os)
+{
+	auto val = OBSDataCreate();
+
+	obs_data_set_bool(val, "started", os.started);
+	obs_data_set_bool(val, "stopped", os.stopped);
+	obs_data_set_bool(val, "stopping_for_restart", os.stopping_for_restart);
+	obs_data_set_bool(val, "restarting", os.restarting);
+
+	obs_data_set_obj(data, "CrucibleOutputStatus", val);
+}
+
 struct Bookmark {
 	int id = 0;
 	video_tracked_frame_id tracked_id = 0;
@@ -1205,12 +1247,7 @@ struct CrucibleContext {
 	int next_bookmark_id = 0;
 
 	uint64_t recordingStartTime = 0;
-	bool recordingStartSent = false;
-	bool sendRecordingStop = true;
-
-	bool restart_recording = false;
-	bool restarting_recording = false;
-
+	
 	struct {
 		OBSScene scene;
 		OBSSceneItem game, webcam, theme;
@@ -1684,30 +1721,38 @@ struct CrucibleContext {
 			{
 				recording_stream = false;
 
+				auto data = OBSTransferOwned(obs_output_get_settings(output));
+				auto status = GetOutputStatus(data);
+				if (!status.started || status.stopped) {
+					blog(LOG_WARNING, "output '%s'(%p) signals stop after it was already stopped (%s)", obs_output_get_name(output), output, to_string(status).c_str());
+					return;
+				}
+
+				status.stopped = true;
+				SetOutputStatus(data, status);
+
+				auto restarting_recording = status.stopping_for_restart;
+
 				bool stop;
 				string profiler_path;
 				{
-					LOCK(updateMutex);
-					if (stop = sendRecordingStop) {
-						profiler_path = profiler_filename;
-						auto data = OBSTransferOwned(obs_output_get_settings(output));
-						decltype(bookmarks) full_bookmarks;
-						{
-							LOCK(bookmarkMutex);
-							full_bookmarks = bookmarks;
-						}
-
-						GameSessionEnded(output, restarting_recording);
-
-						ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
-							obs_output_get_total_frames(output),
-							obs_output_get_output_duration(output),
-							BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, recording_game ? &game_pid : nullptr, full_bookmarks,
-							restarting_recording);
-						AnvilCommands::ShowIdle();
+					profiler_path = profiler_filename;
+					decltype(bookmarks) full_bookmarks;
+					{
+						LOCK(bookmarkMutex);
+						full_bookmarks = bookmarks;
 					}
+
+					GameSessionEnded(output, restarting_recording);
+
+					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
+						obs_output_get_total_frames(output),
+						obs_output_get_output_duration(output),
+						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, recording_game ? &game_pid : nullptr, full_bookmarks,
+						restarting_recording);
+					AnvilCommands::ShowIdle();
 				}
-				StopVideo(); // leak here!!!
+				//StopVideo(); // leak here!!!
 
 				ClearBookmarks();
 
@@ -1729,7 +1774,7 @@ struct CrucibleContext {
 
 				last_session = move(snap);
 
-				if (stop && !restarting_recording)
+				if (!restarting_recording)
 					ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, game_pid);
 			});
 		});
@@ -1742,16 +1787,23 @@ struct CrucibleContext {
 			QueueOperation([=]
 			{
 				auto settings = OBSTransferOwned(obs_output_get_settings(output));
+
+				auto status = GetOutputStatus(settings);
+				if (status.started) {
+					blog(LOG_WARNING, "output '%s'(%p) signals start after it was already started (%s)", obs_output_get_name(output), output, to_string(status).c_str());
+					return;
+				}
+
+				status.started = true;
+				SetOutputStatus(settings, status);
+
+				auto restarting_recording = status.restarting;
+
 				recordingStartTime = os_gettime_ns();
 				{
-					LOCK(updateMutex);
-					if (!recordingStartSent || restarting_recording) {
-						auto encoder = obs_output_get_video_encoder(output);
-						auto encoder_settings = obs_encoder_get_settings(encoder);
-						ForgeEvents::SendRecordingStart(obs_data_get_string(settings, "path"), restarting_recording, obs_data_get_int(encoder_settings, "bitrate"));
-						recordingStartSent = true;
-						restarting_recording = false;
-					}
+					auto encoder = obs_output_get_video_encoder(output);
+					auto encoder_settings = obs_encoder_get_settings(encoder);
+					ForgeEvents::SendRecordingStart(obs_data_get_string(settings, "path"), restarting_recording, obs_data_get_int(encoder_settings, "bitrate"));
 				}
 				AnvilCommands::ShowRecording();
 
@@ -1785,7 +1837,8 @@ struct CrucibleContext {
 				if (bookmark->id != *game_end_bookmark_id)
 					return;
 
-				GameSessionEnded(output, restarting_recording);
+				auto status = GetOutputStatus(OBSTransferOwned(obs_output_get_settings(output)));
+				GameSessionEnded(output, status.stopping_for_restart);
 			});
 		});
 
@@ -2072,11 +2125,17 @@ struct CrucibleContext {
 		}).Connect();
 	}
 
-	void CreateOutput()
+	void CreateOutput(bool restarting = false)
 	{
 		auto osettings = OBSDataCreate();
 		obs_data_set_string(osettings, "path", filename.c_str());
 		obs_data_set_string(osettings, "muxer_settings", muxerSettings.c_str());
+
+		{
+			OutputStatus status;
+			status.restarting = restarting;
+			SetOutputStatus(osettings, status);
+		}
 
 		InitRef(output, "Couldn't create output", obs_output_release,
 				obs_output_create("ffmpeg_muxer", "ffmpeg recorder", osettings, nullptr));
@@ -2648,10 +2707,10 @@ struct CrucibleContext {
 			streaming = true;
 			recording_stream = true;
 
-			restarting_recording = obs_output_active(output);
+			auto restarting_recording = obs_output_active(output);
 
-			StopVideo(true, true);
-			StartVideoCapture();
+			StopVideo(true, restarting_recording);
+			StartVideoCapture(restarting_recording);
 
 			StartRecordingOutputs(output, buffer);
 		}
@@ -2891,8 +2950,6 @@ struct CrucibleContext {
 			bool split_recording = RecordingActive() && output_dimensions_changed;
 			{
 				LOCK(updateMutex);
-				if (!split_recording)
-					sendRecordingStop = false;
 
 				game_res = new_game_res;
 
@@ -2903,9 +2960,7 @@ struct CrucibleContext {
 			}
 
 			if (output_dimensions_changed) {
-				restarting_recording = split_recording;
-
-				StopVideo(true, restarting_recording); // Needs to be force stopped, otherwise the output settings aren't updated.
+				StopVideo(true, split_recording); // Needs to be force stopped, otherwise the output settings aren't updated.
 
 				if (split_recording) { // Make a new filename for the split recording
 					auto cur = boost::posix_time::second_clock::local_time();
@@ -2913,16 +2968,11 @@ struct CrucibleContext {
 				}
 			}
 			
-			StartVideo();
+			StartVideo(split_recording);
 
 			StartRecordingOutputs(output, buffer);
 			if (streaming)
 				obs_output_start(stream);
-
-			{
-				LOCK(updateMutex);
-				sendRecordingStop = true;
-			}
 		}
 
 		return true;
@@ -3060,17 +3110,26 @@ struct CrucibleContext {
 		if (!force && (stopping || streaming || recording_game))
 			return;
 
+		stopping = true;
+
 		ProfileScope(profile_store_name(obs_get_profiler_name_store(), "StopVideo()"));
 
-		auto stop_func = force ? obs_output_force_stop : obs_output_stop;
+		auto stop_ = [&](obs_output_t *out)
+		{
+			if (!obs_output_active(out))
+				return;
 
-		restart_recording = restart;
+			if (restart) {
+				auto settings = OBSTransferOwned(obs_output_get_settings(out));
+				auto status = GetOutputStatus(settings);
+				status.stopping_for_restart = true;
+				SetOutputStatus(settings, status);
+			}
+			(force ? obs_output_force_stop : obs_output_stop)(out);
+		};
 
-		stopping = true;
-		if (obs_output_active(output))
-			stop_func(output);
-		if (obs_output_active(buffer))
-			stop_func(buffer);
+		stop_(output);
+		stop_(buffer);
 
 		output = nullptr;
 		buffer = nullptr;
@@ -3081,10 +3140,9 @@ struct CrucibleContext {
 		}
 
 		stopping = false;
-		restart_recording = false;
 	}
 
-	void StartVideo()
+	void StartVideo(bool restarting = false)
 	{
 		LOCK(updateMutex);
 		auto name = profile_store_name(obs_get_profiler_name_store(),
@@ -3104,19 +3162,16 @@ struct CrucibleContext {
 
 		obs_encoder_set_audio(aac, obs_get_audio());
 		
-		CreateOutput();
+		CreateOutput(restarting);
 	}
 
-	void StartVideoCapture()
+	void StartVideoCapture(bool restarting = false)
 	{
 		LOCK(updateMutex);
 		if (obs_output_active(output))
 			return;
 
-		recordingStartSent = false;
-		sendRecordingStop = true;
-
-		StartVideo();
+		StartVideo(restarting);
 	}
 };
 
