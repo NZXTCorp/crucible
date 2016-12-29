@@ -262,13 +262,13 @@ namespace ForgeEvents {
 		return event;
 	}
 
-	void SendRecordingStart(const char *filename, bool restarting_recording, uint32_t recording_bitrate)
+	void SendRecordingStart(const char *filename, bool split_recording, uint32_t recording_bitrate)
 	{
 		auto event = EventCreate("started_recording");
 
 		obs_data_set_string(event, "filename", filename);
-		if (restarting_recording)
-			obs_data_set_bool(event, "restarting_recording", true);
+		if (split_recording)
+			obs_data_set_bool(event, "split_recording", true);
 		if (recording_bitrate)
 			obs_data_set_int(event, "bitrate", recording_bitrate);
 
@@ -307,7 +307,7 @@ namespace ForgeEvents {
 
 	void SendGameSessionEnded(const char *filename, int total_frames, double duration, const vector<double> &bookmarks,
 		uint32_t width, uint32_t height, DWORD pid, const vector<Bookmark> &full_bookmarks, boost::optional<int> game_start_id, boost::optional<int> game_end_id,
-		bool restart_recording, bool split_recording)
+		bool split_recording)
 	{
 		auto event = EventCreate("game_session_ended");
 
@@ -327,9 +327,6 @@ namespace ForgeEvents {
 		obs_data_set_double(event, "game_end", game_end);
 		obs_data_set_double(event, "game_duration", game_end - game_start);
 		obs_data_set_bool(event, "split_recording", split_recording);
-
-		if (restart_recording)
-			obs_data_set_bool(event, "restart_recording", true);
 
 		SendRecordingStopEvent(event, filename, total_frames, duration, bookmarks, width, height, &pid, full_bookmarks);
 	}
@@ -1979,7 +1976,7 @@ struct CrucibleContext {
 			obs_output_get_total_frames(output),
 			obs_output_get_output_duration(output),
 			BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, game_pid, full_bookmarks,
-			game_start_bookmark_id, game_end_bookmark_id, restart_recording, split_recording);
+			game_start_bookmark_id, game_end_bookmark_id, split_recording);
 
 		game_start_bookmark_id = boost::none;
 		game_end_bookmark_id = boost::none;
