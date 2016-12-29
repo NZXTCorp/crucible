@@ -1682,12 +1682,11 @@ struct CrucibleContext {
 			.SetSignal("stop")
 			.SetFunc([=](calldata *data)
 		{
-			auto weakOutput = OBSGetWeakRef(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")));
+			OBSOutput output = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
 			QueueOperation([=]
 			{
 				recording_stream = false;
 
-				auto output = OBSGetStrongRef(weakOutput);
 				bool stop;
 				string profiler_path;
 				{
