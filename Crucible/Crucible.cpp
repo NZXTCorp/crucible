@@ -3631,6 +3631,46 @@ struct FreeHandle
 };
 using ProcessHandle = unique_ptr<void, FreeHandle>;
 
+
+static auto WaitForObjects(const std::initializer_list<HANDLE> &handles, DWORD timeout)
+{
+	return WaitForMultipleObjects(handles.size(), begin(handles), false, timeout);
+}
+
+JoiningThread message_watchdog;
+static void StartWatchdog()
+{
+	shared_ptr<void> ev{ CreateEvent(nullptr, true, false, nullptr), HandleDeleter{} };
+	message_watchdog.make_joinable = [ev] { SetEvent(ev.get()); };
+
+	message_watchdog.t = thread([=]
+	{
+		using clock = chrono::steady_clock;
+
+		unique_ptr<void, HandleDeleter> message_handled_event{ CreateEvent(nullptr, false, false, nullptr) };
+		clock::duration wait_time = 5s;
+		while (WaitForObjects({ ev.get() }, chrono::duration_cast<chrono::milliseconds>(wait_time).count()) != WAIT_OBJECT_0) {
+			auto next_queue_at = clock::now() + 60s;
+			QueueOperation([&]
+			{
+				SetEvent(message_handled_event.get());
+			});
+
+			auto res = WaitForObjects({ ev.get(), message_handled_event.get() }, 40 * 1000);
+			switch (res) {
+			case WAIT_OBJECT_0:
+				return;
+
+			case WAIT_OBJECT_0 + 1:
+				wait_time = max(chrono::duration_cast<clock::duration>(5s), next_queue_at - clock::now());
+				continue;
+			}
+
+			abort(); // Message wasn't handled
+		}
+	});
+}
+
 void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_event)
 {
 	try
@@ -3707,6 +3747,8 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 		if (start_event)
 			SetEvent(start_event);
 
+		StartWatchdog();
+
 		MSG msg;
 
 		DWORD reason = WAIT_TIMEOUT;
@@ -3738,6 +3780,7 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 			throw "Unexpected value from MsgWaitForMultipleObjects";
 		}
 
+		message_watchdog.Join();
 		crucibleContext.StopVideo();
 		Display::StopAll();
 	}
