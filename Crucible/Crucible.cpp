@@ -3840,6 +3840,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	main_thread_id = GetCurrentThreadId();
 
 	base_set_log_handler(do_log, nullptr);
+	base_set_crash_handler([](const char*, va_list, void*)
+	{
+		abort();
+	}, nullptr);
 
 	unique_ptr<profiler_name_store_t> profiler_names{profiler_name_store_create()};
 	profiler_start();
