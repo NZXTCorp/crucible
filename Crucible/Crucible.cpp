@@ -3666,7 +3666,10 @@ static void StartWatchdog()
 				continue;
 			}
 
-			abort(); // Message wasn't handled
+			if (IsDebuggerPresent())
+				__debugbreak();
+			else
+				abort(); // Message wasn't handled
 		}
 	});
 }
