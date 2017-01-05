@@ -2089,12 +2089,17 @@ struct CrucibleContext {
 				if (streaming)
 					return;
 
-				if (ref)
-					obs_output_stop_with_timeout(ref, 15000);
+				auto stop_ = [&](obs_weak_output_t *weak, OBSOutput &out)
+				{
+					if (auto ref = OBSGetStrongRef(weak)) {
+						obs_output_stop_with_timeout(ref, 15000);
+						if (ref == out)
+							out = nullptr;
+					}
+				};
 
-				ref = OBSGetStrongRef(weakBuffer);
-				if (ref)
-					obs_output_stop_with_timeout(ref, 15000);
+				stop_(weakOutput, output);
+				stop_(weakBuffer, buffer);
 			});
 		}).Connect();
 
