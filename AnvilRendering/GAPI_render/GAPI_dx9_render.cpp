@@ -600,19 +600,38 @@ void DX9Renderer::UseSwapChain(IDirect3DSwapChain9 *swap_)
 	swap = swap_;
 }
 
-static bool get_back_buffer_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
+static void set_size(LONG &cx, LONG &cy, LONG width, LONG height, const RECT *rect)
 {
-	IDirect3DSurface9 *back_buffer = nullptr;
+	if (rect) {
+		cx = rect->right - rect->left;
+		cy = rect->bottom - rect->top;
 
-	auto hr = dev->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &back_buffer);
-	if (FAILED(hr)) {
-		return false;
+		if (cx >= 1 && cx <= width && cy >= 1 && cy <= height)
+			return;
+	}
+
+	cx = width;
+	cy = height;
+}
+
+static bool get_back_buffer_size(IDirect3DDevice9 *dev, IDirect3DSurface9 *back_buffer, const RECT *rect, LONG &cx, LONG &cy)
+{
+	HRESULT hr;
+	bool release_back_buffer = false;
+
+	if (!back_buffer) {
+		hr = dev->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &back_buffer);
+		if (FAILED(hr)) {
+			return false;
+		}
+		release_back_buffer = true;
 	}
 
 	D3DSURFACE_DESC desc;
 
 	hr = back_buffer->GetDesc(&desc);
-	back_buffer->Release();
+	if (release_back_buffer)
+		back_buffer->Release();
 
 	if (FAILED(hr)) {
 		hlog("d3d9_init_format_backbuffer: Failed to get "
@@ -620,24 +639,29 @@ static bool get_back_buffer_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
 		return false;
 	}
 
-	cx = desc.Width;
-	cy = desc.Height;
+	set_size(cx, cy, desc.Width, desc.Height, rect);
 	return true;
 }
 
-static bool get_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy, HWND &win)
+static bool get_size(IDirect3DDevice9 *dev, IDirect3DSwapChain9 *swap, IDirect3DSurface9 *backbuffer,
+	HWND override_window, const RECT *rect, LONG &cx, LONG &cy, HWND &win)
 {
-	IDirect3DSwapChain9 *swap = nullptr;
+	HRESULT hr;
+	bool release_swap = false;
 
-	auto hr = dev->GetSwapChain(0, &swap);
-	if (FAILED(hr)) {
-		hlog("d3d9_get_swap_desc: Failed to get swap chain (%#x)", hr);
-		return false;
+	if (!swap) {
+		hr = dev->GetSwapChain(0, &swap);
+		if (FAILED(hr)) {
+			hlog("d3d9_get_swap_desc: Failed to get swap chain (%#x)", hr);
+			return false;
+		}
+		release_swap = true;
 	}
 
 	D3DPRESENT_PARAMETERS pp;
 	hr = swap->GetPresentParameters(&pp);
-	swap->Release();
+	if (release_swap)
+		swap->Release();
 
 	if (FAILED(hr)) {
 		hlog("d3d9_get_swap_desc: Failed to get "
@@ -645,12 +669,11 @@ static bool get_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy, HWND &win)
 		return false;
 	}
 
-	if (!get_back_buffer_size(dev, cx, cy)) {
-		cx = pp.BackBufferWidth;
-		cy = pp.BackBufferHeight;
+	if (!get_back_buffer_size(dev, backbuffer, rect, cx, cy)) {
+		set_size(cx, cy, pp.BackBufferWidth, pp.BackBufferHeight, rect);
 	}
 
-	win = pp.hDeviceWindow;
+	win = override_window ? override_window : pp.hDeviceWindow;
 	return true;
 }
 
@@ -682,11 +705,13 @@ static bool show_browser_tex(const ActiveOverlay &active_overlay = ::active_over
 	return renderer->DrawOverlay(active_overlay);
 }
 
-C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
+C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev, IDirect3DSurface9 *backbuffer,
+		IDirect3DSwapChain9 *swap, HWND override_window, const RECT *src_rect)
 {
 	LOCK(render_mutex);
 	if (!initialized) {
-		if (!(get_size(dev, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, window)))
+		if (!(get_size(dev, swap, backbuffer, override_window, src_rect,
+			g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, window)))
 			return;
 
 		if (!renderer && !(renderer = new DX9Renderer{}))
@@ -706,6 +731,7 @@ C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev)
 	HandleInputHook(window);
 
 	renderer->UpdateOverlay();
+	renderer->UseSwapChain(swap);
 
 	if (g_bBrowserShowing && show_browser_tex())
 		return;
