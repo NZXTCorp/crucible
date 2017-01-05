@@ -12,6 +12,7 @@ class DX9Renderer
 {
 private:
 	IDirect3DDevice9 *m_pDevice;
+	IDirect3DSwapChain9 *swap = nullptr;
 
 	IRefPtr<IDirect3DVertexBuffer9> m_pVBSquareIndicator;
 	IRefPtr<IDirect3DVertexBuffer9> m_pVBSquareBorder;
@@ -51,6 +52,7 @@ public:
 	// draw overlay
 	bool DrawOverlay(ActiveOverlay active_overlay);
 	void UpdateOverlay();
+	void UseSwapChain(IDirect3DSwapChain9 *swap_);
 };
 
 #endif

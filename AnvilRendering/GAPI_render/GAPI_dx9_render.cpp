@@ -443,7 +443,10 @@ bool DX9Renderer::ProtectState(Fun &&f)
 	CHEK(m_pDevice->GetStreamSource(0, stream_data.get_PPtr(), &stream_offset, &stream_stride));
 
 	IRefPtr<IDirect3DSurface9> back_buffer;
-	CHEK(m_pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, back_buffer.get_PPtr()));
+	if (swap)
+		CHEK(swap->GetBackBuffer(0, D3DBACKBUFFER_TYPE_MONO, back_buffer.get_PPtr()));
+	if (!back_buffer)
+		CHEK(m_pDevice->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, back_buffer.get_PPtr()));
 
 	bool render_target_set = false;
 	if (back_buffer && back_buffer != render_target) {
@@ -590,6 +593,11 @@ void DX9Renderer::UpdateOverlay()
 			tex->UnlockRect(0);
 			return true;
 		});
+}
+
+void DX9Renderer::UseSwapChain(IDirect3DSwapChain9 *swap_)
+{
+	swap = swap_;
 }
 
 static bool get_back_buffer_size(IDirect3DDevice9 *dev, LONG &cx, LONG &cy)
