@@ -305,7 +305,7 @@ namespace ForgeEvents {
 		return event;
 	}
 
-	void SendRecordingStart(const char *filename, bool split_recording, uint32_t recording_bitrate)
+	void SendRecordingStart(const char *filename, bool split_recording, uint32_t recording_bitrate, uint32_t width, uint32_t height)
 	{
 		auto event = EventCreate("started_recording");
 
@@ -314,6 +314,8 @@ namespace ForgeEvents {
 			obs_data_set_bool(event, "split_recording", true);
 		if (recording_bitrate)
 			obs_data_set_int(event, "bitrate", recording_bitrate);
+		obs_data_set_int(event, "width", width);
+		obs_data_set_int(event, "height", height);
 
 		SendEvent(event);
 	}
@@ -1816,7 +1818,8 @@ struct CrucibleContext {
 				{
 					auto encoder = obs_output_get_video_encoder(output);
 					auto encoder_settings = obs_encoder_get_settings(encoder);
-					ForgeEvents::SendRecordingStart(obs_data_get_string(settings, "path"), restarting_recording, obs_data_get_int(encoder_settings, "bitrate"));
+					ForgeEvents::SendRecordingStart(obs_data_get_string(settings, "path"), restarting_recording, obs_data_get_int(encoder_settings, "bitrate"),
+						ovi.base_width, ovi.base_height);
 				}
 				AnvilCommands::ShowRecording();
 
