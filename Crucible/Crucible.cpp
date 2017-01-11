@@ -2117,24 +2117,21 @@ struct CrucibleContext {
 			{
 				AnvilCommands::Connect(game_pid);
 
-				auto add_bookmark = [&]
+				DEFER
 				{
+					if (game_start_bookmark_id)
+						return;
+
 					auto data = OBSDataCreate();
 					obs_data_set_bool(data, "suppress_indicator", true);
 					obs_data_set_obj(data, "extra_data", GenerateExtraData("game_begin"));
 					game_start_bookmark_id = CreateBookmark(data);
-				};
-
-				if (!game_start_bookmark_id) {
-					add_bookmark();
 					if (game_start_bookmark_id)
 						ForgeEvents::SendGameSessionStarted();
-				}
+				};
 
-				if (UpdateSize(width, height)) {
-					add_bookmark();
+				if (UpdateSize(width, height))
 					return;
-				}
 
 				if (streaming)
 					return;
