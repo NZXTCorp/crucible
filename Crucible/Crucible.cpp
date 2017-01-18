@@ -3289,9 +3289,10 @@ static void HandleCreateBookmark(CrucibleContext &cc, OBSData &obj)
 	cc.CreateBookmark(obj);
 }
 
-static void HandleStopRecording(CrucibleContext &cc, OBSData &)
+static void HandleStopRecording(CrucibleContext &cc, OBSData &obj)
 {
-	AnvilCommands::ShowCacheLimitExceeded();
+	if (obs_data_get_bool(obj, "cache_limit_exceeded"))
+		AnvilCommands::ShowCacheLimitExceeded();
 
 	cc.StopVideo(true);
 }
