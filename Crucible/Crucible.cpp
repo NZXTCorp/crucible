@@ -3870,6 +3870,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	store_startup_log = true;
 
+	blog(LOG_INFO, "Crucible PID %lu", GetCurrentProcessId());
+
 	try
 	{
 		if (!obs_startup("en-US", GetConfigDirectory("obs-module-config"), profiler_names.get()))
