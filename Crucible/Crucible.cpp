@@ -23,6 +23,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 using namespace std;
@@ -64,6 +65,9 @@ vector<string> startup_logs;
 mutex startup_log_mutex;
 
 HANDLE exit_event = nullptr;
+
+static void AddWaitHandleCallback(HANDLE h, function<void()> cb);
+static void RemoveWaitHandle(HANDLE h);
 
 static const vector<pair<string, string>> allowed_hardware_encoder_names = {
 	{ "ffmpeg_nvenc", "Nvidia NVENC" },
@@ -3680,6 +3684,28 @@ static void StartWatchdog()
 	});
 }
 
+static vector<HANDLE> wait_handles;
+static unordered_map<HANDLE, function<void()>> handle_callbacks;
+static void AddWaitHandleCallback(HANDLE h, function<void()> cb)
+{
+	wait_handles.push_back(h);
+	handle_callbacks.emplace(h, cb);
+}
+
+static void RemoveWaitHandle(HANDLE h)
+{
+	{
+		auto it = find(begin(wait_handles), end(wait_handles), h);
+		if (it != end(wait_handles))
+			wait_handles.erase(it);
+	}
+	{
+		auto it = handle_callbacks.find(h);
+		if (it != end(handle_callbacks))
+			handle_callbacks.erase(h);
+	}
+}
+
 void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_event)
 {
 	try
@@ -3758,24 +3784,41 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 
 		StartWatchdog();
 
-		MSG msg;
+		wait_handles.emplace_back(exit_event);
+		if (forge)
+			wait_handles.emplace_back(forge.get());
 
+		MSG msg;
 		DWORD reason = WAIT_TIMEOUT;
-		HANDLE hs[] = { exit_event, forge.get() };
 		while (true)
 		{
-			reason = MsgWaitForMultipleObjects(forge ? 2 : 1, hs, false, INFINITE, QS_ALLINPUT);
-			if (reason == WAIT_OBJECT_0) {
-				blog(LOG_INFO, "Exit requested");
-				break;
-			}
+			reason = MsgWaitForMultipleObjects(wait_handles.size(), wait_handles.data(), false, INFINITE, QS_ALLINPUT);
+			if (reason >= WAIT_OBJECT_0 && (reason - WAIT_OBJECT_0) < wait_handles.size()) {
+				auto &handle = wait_handles[reason - WAIT_OBJECT_0];
 
-			if (forge && reason == WAIT_OBJECT_0 + 1) {
-				blog(LOG_INFO, "Forge exited, exiting");
-				break;
+				if (handle == exit_event) {
+					blog(LOG_INFO, "Exit requested");
+					break;
+				}
+
+				if (forge && handle == forge.get()) {
+					blog(LOG_INFO, "Forge exited, exiting");
+					break;
+				}
+
+				auto it = handle_callbacks.find(handle);
+				if (it != end(handle_callbacks)) {
+					auto cb = move(it->second);
+					handle_callbacks.erase(it);
+					wait_handles.erase(begin(wait_handles) + (reason - WAIT_OBJECT_0));
+					cb();
+					continue;
+				} else {
+					blog(LOG_WARNING, "Signaled object doesn't have an associated callback");
+				}
 			}
 			
-			if ((!forge && reason == WAIT_OBJECT_0 + 1) || (forge && reason == WAIT_OBJECT_0 + 2)) {
+			if (reason == (WAIT_OBJECT_0 + wait_handles.size())) {
 				while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 				{
 					if (HandleQueuedOperation(msg))
