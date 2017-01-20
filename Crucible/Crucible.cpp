@@ -2122,6 +2122,25 @@ struct CrucibleContext {
 
 			stop_(weakOutput, output);
 			stop_(weakBuffer, buffer);
+
+			shared_ptr<void> force_stop_timer{ CreateWaitableTimer(nullptr, true, nullptr), HandleDeleter{} };
+			LARGE_INTEGER timeout = { 0 };
+			timeout.QuadPart = -175000000LL; // 17.5 seconds
+			SetWaitableTimer(force_stop_timer.get(), &timeout, 0, nullptr, nullptr, false);
+
+			AddWaitHandleCallback(force_stop_timer.get(), [=, timer=force_stop_timer]
+			{
+				auto force_stop = [](obs_weak_output *out)
+				{
+					if (auto ref = OBSGetStrongRef(out))
+					{
+						blog(LOG_INFO, "Force stopping output '%s' (%p)", obs_output_get_name(ref), ref);
+						obs_output_force_stop(ref);
+					}
+				};
+				force_stop(weakOutput);
+				force_stop(weakBuffer);
+			});
 		};
 
 		if (game_process)
