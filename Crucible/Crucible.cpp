@@ -1350,7 +1350,7 @@ struct CrucibleContext {
 	OutputResolution game_res = OutputResolution{ 0, 0 };
 	bool sli_compatibility = false;
 
-	DWORD game_pid = -1;
+	boost::optional<DWORD> game_pid;
 	bool recording_game = false;
 	boost::optional<int> game_start_bookmark_id, game_end_bookmark_id;
 
@@ -1767,7 +1767,7 @@ struct CrucibleContext {
 					ForgeEvents::SendRecordingStop(obs_data_get_string(data, "path"),
 						obs_output_get_total_frames(output),
 						obs_output_get_output_duration(output),
-						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, recording_game ? &game_pid : nullptr, full_bookmarks,
+						BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, recording_game && game_pid ? game_pid.get_ptr() : nullptr, full_bookmarks,
 						restarting_recording);
 					AnvilCommands::ShowIdle();
 				}
@@ -1794,7 +1794,7 @@ struct CrucibleContext {
 				last_session = move(snap);
 
 				if (!restarting_recording)
-					ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, game_pid);
+					ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, game_pid ? *game_pid : 0);
 			});
 		});
 
@@ -2047,7 +2047,7 @@ struct CrucibleContext {
 		ForgeEvents::SendGameSessionEnded(obs_data_get_string(data, "path"),
 			obs_output_get_total_frames(output),
 			obs_output_get_output_duration(output),
-			BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, game_pid, full_bookmarks,
+			BookmarkTimes(bookmarks), ovi.base_width, ovi.base_height, game_pid ? *game_pid : 0, full_bookmarks,
 			game_start_bookmark_id, game_end_bookmark_id, split_recording);
 
 		game_start_bookmark_id = boost::none;
@@ -2091,7 +2091,7 @@ struct CrucibleContext {
 
 				auto ref = OBSGetStrongRef(weakOutput);
 				if (!game_end_bookmark_id && !obs_output_active(ref))
-					ForgeEvents::SendCleanupComplete(nullptr, game_pid);
+					ForgeEvents::SendCleanupComplete(nullptr, game_pid ? *game_pid : 0);
 
 				if (streaming)
 					return;
@@ -2119,7 +2119,10 @@ struct CrucibleContext {
 			auto height = static_cast<uint32_t>(calldata_int(data, "height"));
 			QueueOperation([=]
 			{
-				AnvilCommands::Connect(game_pid);
+				if (game_pid)
+					AnvilCommands::Connect(*game_pid);
+				else
+					blog(LOG_WARNING, "startCapture: not sending AnvilCommands::Connect because game_pid is missing");
 
 				DEFER
 				{
