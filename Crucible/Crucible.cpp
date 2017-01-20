@@ -1351,6 +1351,7 @@ struct CrucibleContext {
 	bool sli_compatibility = false;
 
 	boost::optional<DWORD> game_pid;
+	shared_ptr<void> game_process;
 	bool recording_game = false;
 	boost::optional<int> game_start_bookmark_id, game_end_bookmark_id;
 
@@ -2060,6 +2061,72 @@ struct CrucibleContext {
 		auto weakOutput = OBSGetWeakRef(output);
 		auto weakBuffer = OBSGetWeakRef(buffer);
 
+		blog(LOG_INFO, "ResetCaptureSignals: weakGameCapture = %p", weakGameCapture);
+
+		RemoveWaitHandle(game_process.get());
+		game_process.reset();
+
+		if (game_pid)
+			game_process = { OpenProcess(SYNCHRONIZE, false, *game_pid), HandleDeleter{} };
+
+		auto end_capture = [=, proc=game_process]
+		{
+			recording_game = false;
+
+			{
+				auto ref = OBSGetStrongRef(weakGameCapture);
+				if (!ref) {
+					blog(LOG_INFO, "end_capture: called with expired game capture (weakGameCapture = %p)", weakGameCapture);
+					return;
+				}
+
+				blog(LOG_INFO, "end_capture: ending capture (weakGameCapture = %p)", weakGameCapture);
+
+				auto settings = OBSTransferOwned(obs_source_get_settings(ref));
+				obs_data_set_int(settings, "process_id", 0);
+				obs_data_set_int(settings, "thread_id", 0);
+				obs_source_update(ref, settings);
+
+				if (OBSGetOutputSource(0) == ref)
+					obs_set_output_source(0, nullptr);
+
+				if (ref == gameCapture)
+					DeleteGameCapture();
+			}
+
+			if (!game_end_bookmark_id) {
+				auto data = OBSDataCreate();
+				obs_data_set_bool(data, "suppress_indicator", true);
+				obs_data_set_obj(data, "extra_data", GenerateExtraData("game_exit"));
+				game_end_bookmark_id = CreateBookmark(data);
+			}
+			else {
+				blog(LOG_WARNING, "stopCapture: called with game_end_bookmark_id already set");
+			}
+
+			auto ref = OBSGetStrongRef(weakOutput);
+			if (!game_end_bookmark_id && !obs_output_active(ref))
+				ForgeEvents::SendCleanupComplete(nullptr, game_pid ? *game_pid : 0);
+
+			if (streaming)
+				return;
+
+			auto stop_ = [&](obs_weak_output_t *weak, OBSOutput &out)
+			{
+				if (auto ref = OBSGetStrongRef(weak)) {
+					obs_output_stop_with_timeout(ref, 15000);
+					if (ref == out)
+						out = nullptr;
+				}
+			};
+
+			stop_(weakOutput, output);
+			stop_(weakBuffer, buffer);
+		};
+
+		if (game_process)
+			AddWaitHandleCallback(game_process.get(), end_capture);
+
 		stopCapture
 			.Disconnect()
 			.SetOwner(gameCapture)
@@ -2067,46 +2134,9 @@ struct CrucibleContext {
 		{
 			QueueOperation([=]
 			{
-				recording_game = false;
-
-				if (auto ref = OBSGetStrongRef(weakGameCapture)) {
-					auto settings = OBSTransferOwned(obs_source_get_settings(ref));
-					obs_data_set_int(settings, "process_id", 0);
-					obs_data_set_int(settings, "thread_id", 0);
-					obs_source_update(ref, settings);
-
-					if (OBSGetOutputSource(0) == ref)
-						obs_set_output_source(0, nullptr);
-				}
-
-				if (!game_end_bookmark_id) {
-					auto data = OBSDataCreate();
-					obs_data_set_bool(data, "suppress_indicator", true);
-					obs_data_set_obj(data, "extra_data", GenerateExtraData("game_exit"));
-					game_end_bookmark_id = CreateBookmark(data);
-				}
-				else {
-					blog(LOG_WARNING, "stopCapture: called with game_end_bookmark_id already set");
-				}
-
-				auto ref = OBSGetStrongRef(weakOutput);
-				if (!game_end_bookmark_id && !obs_output_active(ref))
-					ForgeEvents::SendCleanupComplete(nullptr, game_pid ? *game_pid : 0);
-
-				if (streaming)
-					return;
-
-				auto stop_ = [&](obs_weak_output_t *weak, OBSOutput &out)
-				{
-					if (auto ref = OBSGetStrongRef(weak)) {
-						obs_output_stop_with_timeout(ref, 15000);
-						if (ref == out)
-							out = nullptr;
-					}
-				};
-
-				stop_(weakOutput, output);
-				stop_(weakBuffer, buffer);
+				if (game_process)
+					RemoveWaitHandle(game_process.get());
+				end_capture();
 			});
 		}).Connect();
 
