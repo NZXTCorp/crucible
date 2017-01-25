@@ -2125,12 +2125,15 @@ struct CrucibleContext {
 			if (!game_end_bookmark_id && !obs_output_active(ref))
 				ForgeEvents::SendCleanupComplete(nullptr, game_pid ? *game_pid : 0);
 
-			if (streaming)
+			if (streaming) {
+				blog(LOG_INFO, "end_capture: Not stopping outputs because stream is active");
 				return;
+			}
 
 			auto stop_ = [&](obs_weak_output_t *weak, OBSOutput &out)
 			{
 				if (auto ref = OBSGetStrongRef(weak)) {
+					blog(LOG_INFO, "end_capture: Stopping output '%s'", obs_output_get_name(ref));
 					obs_output_stop_with_timeout(ref, 15000);
 					if (ref == out)
 						out = nullptr;
@@ -2151,7 +2154,7 @@ struct CrucibleContext {
 				{
 					if (auto ref = OBSGetStrongRef(out))
 					{
-						blog(LOG_INFO, "Force stopping output '%s' (%p)", obs_output_get_name(ref), ref);
+						blog(LOG_INFO, "end_capture: Force stopping output '%s' (%p)", obs_output_get_name(ref), ref);
 						obs_output_force_stop(ref);
 					}
 				};
