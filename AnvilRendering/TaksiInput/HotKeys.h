@@ -75,7 +75,7 @@ struct CTaksiHotKeys
 	// Taksi DLL HotKey state information
 	// Changed by user pressing specific keys.
 public:
-	CTaksiHotKeys( ): m_bAttachedHotKeys(false), m_dwHotKeyMask(0), m_events(30) // shouldn't need a huge input queue, there's only a few keys to worry about
+	CTaksiHotKeys( ): m_bAttachedHotKeys(false), m_dwHotKeyMask(0)
 	{
 	}
 
