@@ -2078,7 +2078,7 @@ struct CrucibleContext {
 		auto weakOutput = OBSGetWeakRef(output);
 		auto weakBuffer = OBSGetWeakRef(buffer);
 
-		blog(LOG_INFO, "ResetCaptureSignals: weakGameCapture = %p", weakGameCapture);
+		blog(LOG_INFO, "ResetCaptureSignals: weakGameCapture = %p", static_cast<obs_weak_source_t*>(weakGameCapture));
 
 		RemoveWaitHandle(game_process.get());
 		game_process.reset();
@@ -2093,11 +2093,11 @@ struct CrucibleContext {
 			{
 				auto ref = OBSGetStrongRef(weakGameCapture);
 				if (!ref) {
-					blog(LOG_INFO, "end_capture: called with expired game capture (weakGameCapture = %p)", weakGameCapture);
+					blog(LOG_INFO, "end_capture: called with expired game capture (weakGameCapture = %p)", static_cast<obs_weak_source_t*>(weakGameCapture));
 					return;
 				}
 
-				blog(LOG_INFO, "end_capture: ending capture (weakGameCapture = %p)", weakGameCapture);
+				blog(LOG_INFO, "end_capture: ending capture (weakGameCapture = %p)", static_cast<obs_weak_source_t*>(weakGameCapture));
 
 				auto settings = OBSTransferOwned(obs_source_get_settings(ref));
 				obs_data_set_int(settings, "process_id", 0);
