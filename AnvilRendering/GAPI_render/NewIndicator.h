@@ -26,6 +26,7 @@ enum IndicatorEvent
 	INDICATE_STREAM_MIC_IDLE, // streaming replacement for INDICATE_MIC_IDLE
 	INDICATE_STREAM_MIC_ACTIVE, // streaming replacement for INDICATE_MIC_ACTIVE
 	INDICATE_STREAM_MIC_MUTED, // streaming replacement for INDICATE_MIC_MUTE
+	INDICATE_SCREENSHOT_SAVED,
 	INDICATE_NONE            // no image for this one, just a placeholder for loops and to tell graphics code we're not drawing anything
 };
 

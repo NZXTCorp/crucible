@@ -108,6 +108,7 @@ namespace ForgeEvent
 	bool ShowBrowser(const BrowserConnectionDescription &server, LONG width, LONG height);
 	bool HideBrowser();
 	bool CreateBookmark();
+	bool SaveScreenshot();
 	bool StartStopStream(); // For the new Start/Stop stream hotkey
 	bool StartStream();
 	bool StopStream();

@@ -306,6 +306,8 @@ static void ProcessHotKeys()
 				ForgeEvent::CreateBookmark();
 			break;
 		case HOTKEY_Screenshot:
+			if (event.event == HKEVENT_PRESS)
+				ForgeEvent::SaveScreenshot();
 			break;
 		case HOTKEY_Stream:
 			if (event.event == HKEVENT_PRESS)

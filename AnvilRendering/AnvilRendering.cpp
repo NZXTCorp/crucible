@@ -109,6 +109,11 @@ namespace ForgeEvent
 		return SendEvent(EventCreate("create_bookmark"));
 	}
 
+	bool SaveScreenshot()
+	{
+		return SendEvent(EventCreate("save_screenshot"));
+	}
+
 	bool StartStopStream()
 	{
 		return SendEvent(EventCreate("start_stop_stream_hotkey"));
@@ -181,6 +186,7 @@ static void HandleIndicatorCommand(Object &obj)
 		{"stream_mic_idle", INDICATE_STREAM_MIC_IDLE},
 		{"stream_mic_active", INDICATE_STREAM_MIC_ACTIVE},
 		{"stream_mic_muted", INDICATE_STREAM_MIC_MUTED},
+		{"screenshot", INDICATE_SCREENSHOT_SAVED},
 	};
 
 	auto indicator = static_cast<String>(obj["indicator"]).Value();
@@ -240,12 +246,12 @@ static void HandleUpdateSettings(Object &obj)
 
 	{
 		LOCK(hotkeys_mutex);
-		//UpdateHotkey(HOTKEY_Screenshot, "...?");
 		UpdateHotkey(HOTKEY_Bookmark, "bookmark_key");
 		UpdateHotkey(HOTKEY_Overlay, "highlight_key");
 		UpdateHotkey(HOTKEY_Stream, "stream_key");
 		UpdateHotkey(HOTKEY_StartStopStream, "start_stop_stream_key");
 		UpdateHotkey(HOTKEY_PTT, "ptt_key");
+		UpdateHotkey(HOTKEY_Screenshot, "screenshot_key");
 
 		indicatorManager.UpdateImages();
 	}

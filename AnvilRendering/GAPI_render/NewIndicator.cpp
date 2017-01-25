@@ -132,11 +132,13 @@ wstring streamStoppedCaption = L"Stream ended";
 wstring streamStartedCaption = L"You started streaming";
 wstring clipUploadingCaption = L"Uploading clip...";
 wstring clipUploadedCaption = L"Clip uploaded!";
+wstring screenshotSavedCaption = L"You took a screenshot!";
 
 wstring bookmarkDescription = L"View it under the Bookmarks tab in the\nForge app when you are done playing.";
 wstring cacheLimitDescription = L"We ran out of space to record further.";
 wstring streamStartedDescription = L"You will keep streaming until you click\nthe Stop Stream button in the Forge app.";
 wstring clipUploadedDescription = L"A link to your clip has been copied to your clipboard.";
+wstring screenshotSavedDescription = L"A link to your screenshot has been copied to your clipboard.";
 
 wstring hotkeyHelpText[HOTKEY_QTY] = {
 	L"Save a screenshot",
@@ -316,6 +318,9 @@ bool IndicatorManager::LoadImages( void )
 			break;
 		case INDICATE_CLIP_PROCESSED:
 			*m_images[i].Lock() = CreatePopupImage(&clipUploadedCaption, &clipUploadedDescription, IDB_CHECKMARK_ICON);
+			break;
+		case INDICATE_SCREENSHOT_SAVED:
+			*m_images[i].Lock() = CreatePopupImage(&screenshotSavedCaption, &screenshotSavedDescription, IDB_CHECKMARK_ICON);
 			break;
 		default:
 			*m_images[i].Lock() = LoadBitmapFromResource(MAKEINTRESOURCE(s_image_res[i]));

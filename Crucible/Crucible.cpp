@@ -681,6 +681,9 @@ namespace AnvilCommands {
 	const uint64_t clip_finished_timeout_seconds = 5;
 	atomic<uint64_t> clip_finished_timeout = 0;
 
+	const uint64_t screenshot_timeout_seconds = 5;
+	atomic<uint64_t> screenshot_timeout = 0;
+
 	const uint64_t stream_timeout_seconds = 3;
 	atomic<uint64_t> stream_timeout = 0;
 
@@ -692,6 +695,7 @@ namespace AnvilCommands {
 	OBSData stream_key;
 	OBSData start_stop_stream_key;
 	OBSData ptt_key;
+	OBSData screenshot_key;
 	OBSData cursor;
 
 	void SendForgeInfo(const char *info=nullptr);
@@ -699,7 +703,8 @@ namespace AnvilCommands {
 		obs_data_t *highlight_key_ = nullptr, 
 		obs_data_t *stream_key_ = nullptr,
 		obs_data_t *start_stop_stream_key_ = nullptr,
-		obs_data_t *ptt_key_ = nullptr);
+		obs_data_t *ptt_key_ = nullptr,
+		obs_data_t *screenshot_key_ = nullptr);
 	void SendIndicator();
 	void SendCursor(obs_data_t *cmd=nullptr);
 
@@ -829,6 +834,9 @@ namespace AnvilCommands {
 		if (clip_finished_timeout >= os_gettime_ns())
 			indicator = "clip_processed";
 
+		if (screenshot_timeout >= os_gettime_ns())
+			indicator = "screenshot";
+
 		if (stream_timeout >= os_gettime_ns())
 			indicator = streaming ? "stream_started" : "stream_stopped";
 
@@ -886,6 +894,11 @@ namespace AnvilCommands {
 		CreateIndicatorUpdater(bookmark_timeout_seconds, bookmark_timeout);
 	}
 
+	void ShowScreenshot()
+	{
+		CreateIndicatorUpdater(screenshot_timeout_seconds, screenshot_timeout);
+	}
+
 	void HotkeyMatches(bool matches)
 	{
 		bool changed = display_enabled_hotkey != matches;
@@ -925,7 +938,7 @@ namespace AnvilCommands {
 		SendCommand(cmd);
 	}
 
-	void SendSettings(obs_data_t *bookmark_key_, obs_data_t *highlight_key_, obs_data_t *stream_key_, obs_data_t *start_stop_stream_key_, obs_data_t *ptt_key_)
+	void SendSettings(obs_data_t *bookmark_key_, obs_data_t *highlight_key_, obs_data_t *stream_key_, obs_data_t *start_stop_stream_key_, obs_data_t *ptt_key_, obs_data_t *screenshot_key_)
 	{
 		auto cmd = CommandCreate("update_settings");
 
@@ -943,6 +956,8 @@ namespace AnvilCommands {
 
 		if (ptt_key_)
 			ptt_key = ptt_key_;
+		if (screenshot_key_)
+			screenshot_key = screenshot_key_;
 
 		if (bookmark_key)
 			obs_data_set_obj(cmd, "bookmark_key", bookmark_key);
@@ -954,6 +969,8 @@ namespace AnvilCommands {
 			obs_data_set_obj(cmd, "start_stop_stream_key", start_stop_stream_key);
 		if (start_stop_stream_key)
 			obs_data_set_obj(cmd, "ptt_key", ptt_key);
+		if (start_stop_stream_key)
+			obs_data_set_obj(cmd, "screenshot_key", screenshot_key);
 
 		SendCommand(cmd);
 	}
@@ -2826,7 +2843,8 @@ struct CrucibleContext {
 			OBSDataGetObj(settings, "highlight_key"),
 			OBSDataGetObj(settings, "stream_key"),
 			OBSDataGetObj(settings, "start_stop_stream_key"),
-			OBSDataGetObj(settings, "ptt_key"));
+			OBSDataGetObj(settings, "ptt_key"),
+			OBSDataGetObj(settings, "screenshot_key"));
 #else
 		obs_key_combination_to_str(bookmark_combo, str);
 		blog(LOG_INFO, "bookmark hotkey uses '%s'", str->array);
@@ -3589,6 +3607,11 @@ static void HandleUpdateDisallowedHardwareEncoders(CrucibleContext &cc, OBSData 
 	cc.UpdateDisallowedHardwareEncoders(data);
 }
 
+static void ShowScreenshotSaved(CrucibleContext &cc, OBSData &data)
+{
+	AnvilCommands::ShowScreenshot();
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -3626,6 +3649,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "update_recording_buffer_settings", HandleUpdateRecordingBufferSettings },
 		{ "query_hardware_encoders", HandleQueryHardwareEncoders },
 		{ "update_disallowed_hardware_encoders", HandleUpdateDisallowedHardwareEncoders },
+		{ "screenshot_saved", ShowScreenshotSaved },
 	};
 	if (!data)
 		return;
