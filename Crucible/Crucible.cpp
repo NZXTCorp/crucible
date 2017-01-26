@@ -2154,6 +2154,14 @@ struct CrucibleContext {
 					obs_output_stop_with_timeout(ref, 15000);
 					if (ref == out)
 						out = nullptr;
+				} else {
+					auto name = obs_output_get_name(out);
+					if (name)
+						blog(LOG_INFO, "end_capture: weak ref for output '%s' expired (weak = %p, output = %p)",
+							name, weak, static_cast<obs_output_t*>(out));
+					else
+						blog(LOG_INFO, "end_capture: weak ref and output expired (weak = %p, output = %p)",
+							weak, static_cast<obs_output_t*>(out));
 				}
 			};
 
@@ -2169,10 +2177,11 @@ struct CrucibleContext {
 			{
 				auto force_stop = [](obs_weak_output *out)
 				{
-					if (auto ref = OBSGetStrongRef(out))
-					{
+					if (auto ref = OBSGetStrongRef(out)) {
 						blog(LOG_INFO, "end_capture: Force stopping output '%s' (%p)", obs_output_get_name(ref), ref);
 						obs_output_force_stop(ref);
+					} else {
+						blog(LOG_INFO, "end_capture: weak ref expired when trying to force stop (weak = %p)", out);
 					}
 				};
 				force_stop(weakOutput);
