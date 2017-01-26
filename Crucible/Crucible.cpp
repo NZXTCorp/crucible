@@ -906,11 +906,14 @@ namespace AnvilCommands {
 		SendIndicator();
 	}
 
-	void ShowScreenshot()
+	void ShowScreenshot(bool success)
 	{
 		screenshotting = false;
 
-		CreateIndicatorUpdater(screenshot_timeout_seconds, screenshot_timeout);
+		if (success)
+			CreateIndicatorUpdater(screenshot_timeout_seconds, screenshot_timeout);
+		else
+			SendIndicator();
 	}
 
 	void HotkeyMatches(bool matches)
@@ -3626,7 +3629,7 @@ static void HandleUpdateDisallowedHardwareEncoders(CrucibleContext &cc, OBSData 
 
 static void ShowScreenshotSaved(CrucibleContext &cc, OBSData &data)
 {
-	AnvilCommands::ShowScreenshot();
+	AnvilCommands::ShowScreenshot(obs_data_get_bool(data, "success"));
 }
 
 static void ShowScreenshotUploading(CrucibleContext &cc, OBSData &data)
