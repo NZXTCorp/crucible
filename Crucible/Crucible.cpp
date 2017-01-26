@@ -668,6 +668,7 @@ namespace AnvilCommands {
 	atomic<bool> mic_muted = false;
 	atomic<bool> display_enabled_hotkey = false;
 	atomic<bool> streaming = false;
+	atomic<bool> screenshotting = false;
 
 	const uint64_t enabled_timeout_seconds = 10;
 	atomic<uint64_t> enabled_timeout = 0;
@@ -825,6 +826,9 @@ namespace AnvilCommands {
 		if (clipping)
 			indicator = "clip_processing";
 
+		if (screenshotting)
+			indicator = "screenshot_processing";
+
 		if (bookmark_timeout >= os_gettime_ns())
 			indicator = "bookmark";
 
@@ -894,8 +898,18 @@ namespace AnvilCommands {
 		CreateIndicatorUpdater(bookmark_timeout_seconds, bookmark_timeout);
 	}
 
+	void ShowScreenshotting()
+	{
+		if (screenshotting.exchange(true))
+			return;
+
+		SendIndicator();
+	}
+
 	void ShowScreenshot()
 	{
+		screenshotting = false;
+
 		CreateIndicatorUpdater(screenshot_timeout_seconds, screenshot_timeout);
 	}
 
@@ -3615,6 +3629,11 @@ static void ShowScreenshotSaved(CrucibleContext &cc, OBSData &data)
 	AnvilCommands::ShowScreenshot();
 }
 
+static void ShowScreenshotUploading(CrucibleContext &cc, OBSData &data)
+{
+	AnvilCommands::ShowScreenshotting();
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -3652,6 +3671,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "update_recording_buffer_settings", HandleUpdateRecordingBufferSettings },
 		{ "query_hardware_encoders", HandleQueryHardwareEncoders },
 		{ "update_disallowed_hardware_encoders", HandleUpdateDisallowedHardwareEncoders },
+		{ "screenshot_uploading", ShowScreenshotUploading },
 		{ "screenshot_saved", ShowScreenshotSaved },
 	};
 	if (!data)

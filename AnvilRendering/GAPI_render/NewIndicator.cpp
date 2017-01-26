@@ -131,6 +131,7 @@ wstring bookmarkCaption = L"Bookmark created!";
 wstring streamStoppedCaption = L"Stream ended";
 wstring streamStartedCaption = L"You started streaming";
 wstring clipUploadingCaption = L"Uploading clip...";
+wstring screenshotUploadingCaption = L"Uploading screenshot...";
 wstring clipUploadedCaption = L"Clip uploaded!";
 wstring screenshotSavedCaption = L"You took a screenshot!";
 
@@ -318,6 +319,9 @@ bool IndicatorManager::LoadImages( void )
 			break;
 		case INDICATE_CLIP_PROCESSED:
 			*m_images[i].Lock() = CreatePopupImage(&clipUploadedCaption, &clipUploadedDescription, IDB_CHECKMARK_ICON);
+			break;
+		case INDICATE_SCREENSHOT_PROCESSING:
+			*m_images[i].Lock() = CreatePopupImage(&screenshotUploadingCaption, NULL, 0);
 			break;
 		case INDICATE_SCREENSHOT_SAVED:
 			*m_images[i].Lock() = CreatePopupImage(&screenshotSavedCaption, &screenshotSavedDescription, IDB_CHECKMARK_ICON);

@@ -186,6 +186,7 @@ static void HandleIndicatorCommand(Object &obj)
 		{"stream_mic_idle", INDICATE_STREAM_MIC_IDLE},
 		{"stream_mic_active", INDICATE_STREAM_MIC_ACTIVE},
 		{"stream_mic_muted", INDICATE_STREAM_MIC_MUTED},
+		{"screenshot_processing", INDICATE_SCREENSHOT_PROCESSING},
 		{"screenshot", INDICATE_SCREENSHOT_SAVED},
 	};
 
