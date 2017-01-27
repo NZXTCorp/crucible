@@ -205,6 +205,21 @@
     <Image Include="GAPI_render\res\indicator_color_bar_error.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="GAPI_render\res\forge_indicator_icon.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\mic_shortcut_icon.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\replay_icon.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\screenshot_icon.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="GAPI_render\res\empty_icon.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="GAPI_render\Anvil.rc">
