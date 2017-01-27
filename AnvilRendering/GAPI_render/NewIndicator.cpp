@@ -93,8 +93,10 @@ static unique_ptr<Bitmap> LoadBitmapFromResource( wchar_t *resource_name )
 	return image;
 }
 
-static Color popupBGColor = Color(192, 0, 0, 0);
+static Color popupBGColor = Color(192, 25, 32, 36);
+static Color popupBGColorBright = Color(192, 41, 53, 58);
 static Color textColor = Color(255, 255, 255, 255);
+static Color textColorHotkey = Color(255, 32, 209, 137);
 
 static unique_ptr<Bitmap> CreateMicIndicator(int indicatorID, int w, int h, bool live = false)
 {
@@ -123,7 +125,7 @@ static unique_ptr<Bitmap> CreateMicIndicator(int indicatorID, int w, int h, bool
 
 // It doesn't actually matter if the user has deleted Arial, GDI+ will pick the default Windows font if that's the case.
 wstring fontFace = L"Arial";
-REAL sizeSmall = 10, sizeMedium = 14, sizeLarge = 18;
+REAL sizeSmall = 10, sizeMedium = 14, sizeLarge = 18, sizeMediumWelcome = 13;
 
 wstring capturingCaption = L"Forge is now enabled!";
 wstring cacheLimitCaption = L"Forge stopped recording";
@@ -141,13 +143,31 @@ wstring streamStartedDescription = L"You will keep streaming until you click\nth
 wstring clipUploadedDescription = L"A link to your clip has been copied to your clipboard.";
 wstring screenshotSavedDescription = L"A link to your screenshot has been copied to your clipboard.";
 
-wstring hotkeyHelpText[HOTKEY_QTY] = {
+wstring hotkeyHelpText_Basic[HOTKEY_QTY] = {
 	L"Save a screenshot",
 	L"Bookmark a moment for later",
 	L"Open in-game clipper",
 	L"Open the streaming overlay",
 	L"Start or stop streaming",
 	L"Mute/unmute microphone",
+};
+
+wstring hotkeyHelpText[HOTKEY_QTY] = {
+	L"Screenshot",
+	L"Bookmark",
+	L"Replay",
+	L"Stream overlay",
+	L"Start/stop stream",
+	L"Mute/unmute microphone",
+};
+
+int hotkeyIconOrder[HOTKEY_QTY] = {
+	HOTKEY_Bookmark,
+	HOTKEY_Overlay,
+	HOTKEY_Screenshot,
+	HOTKEY_PTT,
+	HOTKEY_Stream,
+	HOTKEY_StartStopStream,
 };
 
 unsigned int indicatorHotkey_Keycode[HOTKEY_QTY];
@@ -225,11 +245,12 @@ static unique_ptr<Bitmap> CreatePopupImage(wstring *caption, wstring *desc, unsi
 
 	graphics.SetTextRenderingHint(TextRenderingHintAntiAlias);
 	graphics.SetCompositingMode(CompositingModeSourceOver);
-	graphics.SetSmoothingMode(SmoothingModeHighQuality);
 
 	graphics.Clear(popupBGColor);
 	graphics.DrawImage(colorBar.get(), width - 48, 0, 48, 48);
 	if (iconID != 0) graphics.DrawImage(popupIcon.get(), 16, 16, iconWidth, iconHeight);
+
+	graphics.SetSmoothingMode(SmoothingModeHighQuality);
 	graphics.DrawString(caption->c_str(), caption->length(), &largeFont, PointF(32.0f + iconWidth, 16.0f), &brush);
 	if(desc) graphics.DrawString(desc->c_str(), desc->length(), &mediumFont, PointF(32.0f + iconWidth, 32.0f + sizeLarge), &brush);
 
@@ -258,7 +279,21 @@ IndicatorManager::~IndicatorManager( void )
 	FreeImages( );
 }
 
-wstring MakeHotkeyDescription() {
+wstring GetHotkeyText(int index)
+{
+	wstring hotKeyDescription;
+
+#define MOD_SIMPLE(x) (indicatorHotkey_ ## x[index] ? GetKeyName(VK_ ## x) + L" + " : L"")
+
+	hotKeyDescription += MOD_SIMPLE(CONTROL);
+	hotKeyDescription += MOD_SIMPLE(MENU);
+	hotKeyDescription += MOD_SIMPLE(SHIFT);
+	hotKeyDescription += GetKeyName(indicatorHotkey_Keycode[index]);
+
+	return hotKeyDescription;
+}
+
+wstring MakeHotkeyDescription(bool excludeHotkeyCaption = false) {
 	bool noHotkeys = true;
 	wstring hotKeyDescription;
 
@@ -266,19 +301,123 @@ wstring MakeHotkeyDescription() {
 
 	for (int i = 0; i < HOTKEY_QTY; i++) {
 		if (indicatorHotkey_Keycode[i] != 0) {
+			if (excludeHotkeyCaption) {
+				hotKeyDescription += hotkeyHelpText[i] + L"\n";
+				hotKeyDescription += L"Press ";
+			}
 			hotKeyDescription += MOD(CONTROL);
 			hotKeyDescription += MOD(MENU);
 			hotKeyDescription += MOD(SHIFT);
-			hotKeyDescription += GetKeyName(indicatorHotkey_Keycode[i]) + L" - " + hotkeyHelpText[i] + L"\n";
+			if (!excludeHotkeyCaption)
+				hotKeyDescription += GetKeyName(indicatorHotkey_Keycode[i]) + L" - " + hotkeyHelpText_Basic[i] + L"\n";
+			else
+				hotKeyDescription += GetKeyName(indicatorHotkey_Keycode[i]) + L"\n";
 
 			noHotkeys = false;
 		}
 	}
 
-	if (!noHotkeys)
+	if (!noHotkeys && !excludeHotkeyCaption)
 		hotKeyDescription = L"Hotkeys:\n" + hotKeyDescription;
 
 	return hotKeyDescription;
+}
+
+static unique_ptr<Bitmap> CreateWelcomeImage()
+{
+	Font largeFont(fontFace.c_str(), sizeLarge, FontStyleBold);
+	Font mediumFont(fontFace.c_str(), sizeMediumWelcome, FontStyleBold);
+
+	HDC tempHDC = CreateCompatibleDC(NULL);
+	Graphics measureTemp(tempHDC);
+
+	int width = 0, height = 64, hotkeyTextPos = 64 + 12;
+	int iconWidth = 48, iconHeight = 48, numHotkeys = 0;
+
+	unique_ptr<Bitmap> colorBar, forgeIcon, bookmarkIcon, micIcon, replayIcon, screenshotIcon, noIcon;
+
+	RectF bound;
+
+	bool cycleBG = true;
+
+	colorBar = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_COLOR_BAR));
+	forgeIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_FORGE_INDICATOR_ICON));
+	bookmarkIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_BOOKMARK_ICON));
+	micIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_MIC_SHORTCUT_ICON));
+	replayIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_REPLAY_ICON));
+	screenshotIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_SCREENSHOT_ICON));
+	noIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_NO_ICON));
+
+	measureTemp.MeasureString(capturingCaption.c_str(), capturingCaption.length(), &largeFont, PointF(0.0f, 0.0f), &bound);
+	width = (int)bound.Width;
+	measureTemp.MeasureString(MakeHotkeyDescription(true).c_str(), MakeHotkeyDescription(true).length(), &mediumFont, PointF(0.0f, 0.0f), &bound);
+	if (bound.Width > width) width = (int)bound.Width;
+
+	for (int i = 0; i < HOTKEY_QTY; i++) {
+		if (indicatorHotkey_Keycode[i] != 0) {
+			numHotkeys++;
+		}
+	}
+
+	height += numHotkeys * 64;
+	width = width + 64 + iconWidth;
+
+	measureTemp.ReleaseHDC(tempHDC);
+
+	auto tmp = make_unique<Bitmap>(width, height, PixelFormat32bppARGB);
+	Graphics graphics(tmp.get());
+
+	SolidBrush brush(textColor);
+	SolidBrush hotkeyBrush(textColorHotkey);
+	SolidBrush brightBG(popupBGColorBright);
+
+	graphics.SetTextRenderingHint(TextRenderingHintAntiAlias);
+	graphics.SetCompositingMode(CompositingModeSourceOver);
+
+	graphics.Clear(popupBGColor);
+	graphics.DrawImage(colorBar.get(), width - 48, 0, 48, 48);
+
+	graphics.DrawImage(forgeIcon.get(), 16, 8, iconWidth, iconHeight);
+
+	graphics.SetSmoothingMode(SmoothingModeHighQuality);
+	graphics.DrawString(capturingCaption.c_str(), capturingCaption.length(), &largeFont, PointF(32.0f + iconWidth, 20.0f), &brush);
+
+	for (int i = 0; i < HOTKEY_QTY; i++) {
+		wstring hotkeyText = L"Press ";
+
+		if (indicatorHotkey_Keycode[hotkeyIconOrder[i]] != 0) {
+			cycleBG = !cycleBG;
+			if (!cycleBG) {
+				graphics.SetSmoothingMode(SmoothingModeNone);
+				graphics.FillRectangle(&brightBG, 0, (i + 1) * 64, width, 64);
+			}
+
+			switch (hotkeyIconOrder[i]) {
+			case HOTKEY_Bookmark:
+				graphics.DrawImage(bookmarkIcon.get(), 16, 8 + (i + 1) * 64, iconWidth, iconHeight);
+				break;
+			case HOTKEY_Overlay:
+				graphics.DrawImage(replayIcon.get(), 16, 8 + (i + 1) * 64, iconWidth, iconHeight);
+				break;
+			case HOTKEY_Screenshot:
+				graphics.DrawImage(screenshotIcon.get(), 16, 8 + (i + 1) * 64, iconWidth, iconHeight);
+				break;
+			case HOTKEY_PTT:
+				graphics.DrawImage(micIcon.get(), 16, 8 + (i + 1) * 64, iconWidth, iconHeight);
+				break;
+			default:
+				graphics.DrawImage(noIcon.get(), 16, 8 + (i + 1) * 64, iconWidth, iconHeight);
+				break;
+			}
+
+			graphics.SetSmoothingMode(SmoothingModeHighQuality);
+			graphics.DrawString(hotkeyHelpText[hotkeyIconOrder[i]].c_str(), hotkeyHelpText[hotkeyIconOrder[i]].length(), &mediumFont, PointF(32.0f + iconWidth, 12.0f + (i + 1) * 64.0f), &brush);
+			hotkeyText += GetHotkeyText(hotkeyIconOrder[i]);
+			graphics.DrawString(hotkeyText.c_str(), hotkeyText.length(), &mediumFont, PointF(32.0f + iconWidth, 32.0f + (i + 1) * 64.0f), &hotkeyBrush);
+		}
+	}
+
+	return tmp;
 }
 
 bool IndicatorManager::LoadImages( void )
@@ -303,7 +442,8 @@ bool IndicatorManager::LoadImages( void )
 			*m_images[i].Lock() = CreatePopupImage(&bookmarkCaption, &bookmarkDescription, IDB_BOOKMARK_ICON);
 			break;
 		case INDICATE_ENABLED:
-			*m_images[i].Lock() = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
+			//*m_images[i].Lock() = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
+			*m_images[i].Lock() = CreateWelcomeImage();
 			break;
 		case INDICATE_CACHE_LIMIT:
 			*m_images[i].Lock() = CreatePopupImage(&cacheLimitCaption, &cacheLimitDescription, 0, IDB_COLOR_BAR_ERROR);
@@ -345,7 +485,8 @@ void IndicatorManager::UpdateImages(void)
 	if (!hotkeysChanged) return;
 	hotkeysChanged = false;
 
-	*m_images[INDICATE_ENABLED].Lock() = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
+	//*m_images[INDICATE_ENABLED].Lock() = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
+	*m_images[INDICATE_ENABLED].Lock() = CreateWelcomeImage();
 	image_updated[INDICATE_ENABLED] = true;
 
 	updateTextures = true;
