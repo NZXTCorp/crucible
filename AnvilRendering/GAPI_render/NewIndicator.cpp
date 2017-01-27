@@ -324,7 +324,7 @@ bool IndicatorManager::LoadImages( void )
 			*m_images[i].Lock() = CreatePopupImage(&screenshotUploadingCaption, NULL, 0);
 			break;
 		case INDICATE_SCREENSHOT_SAVED:
-			*m_images[i].Lock() = CreatePopupImage(&screenshotSavedCaption, &screenshotSavedDescription, IDB_CHECKMARK_ICON);
+			*m_images[i].Lock() = CreatePopupImage(&screenshotSavedCaption, &screenshotSavedDescription, IDB_SCREENSHOT_ICON);
 			break;
 		default:
 			*m_images[i].Lock() = LoadBitmapFromResource(MAKEINTRESOURCE(s_image_res[i]));
