@@ -3364,13 +3364,28 @@ static void HandleQueryMicsCommand(CrucibleContext&, OBSData&)
 	unique_ptr<obs_properties_t> props{obs_get_source_properties(OBS_SOURCE_TYPE_INPUT, "wasapi_input_capture")};
 
 	auto devices = OBSDataArrayCreate();
+	
+	{
+		auto data = OBSDataCreate();
+		obs_data_set_string(data, "name", "Default");
+		obs_data_set_string(data, "device", "default");
+		obs_data_array_push_back(devices, data);
+	}
 
 	auto prop = obs_properties_get(props.get(), "device_id");
 
 	for (size_t i = 0, c = obs_property_list_item_count(prop); i < c; i++) {
+		auto name = obs_property_list_item_name(prop, i);
+		if (!name || name == "Default"s)
+			continue;
+
+		auto dev = obs_property_list_item_string(prop, i);
+		if (!dev || dev == "default"s)
+			continue;
+
 		auto device = OBSDataCreate();
-		obs_data_set_string(device, "name", obs_property_list_item_name(prop, i));
-		obs_data_set_string(device, "device", obs_property_list_item_string(prop, i));
+		obs_data_set_string(device, "name", name);
+		obs_data_set_string(device, "device", dev);
 		obs_data_array_push_back(devices, device);
 	}
 
@@ -3498,6 +3513,13 @@ static void HandleQueryDesktopAudioDevices(CrucibleContext&, OBSData&)
 		ForgeEvents::SendQueryDesktopAudioDevicesResponse(result);
 	};
 
+	{
+		auto data = OBSDataCreate();
+		obs_data_set_string(data, "name", "Default");
+		obs_data_set_string(data, "device", "default");
+		obs_data_array_push_back(result, data);
+	}
+
 	auto prop = obs_properties_get(props, "device_id");
 	if (prop) {
 		auto count = obs_property_list_item_count(prop);
@@ -3505,9 +3527,17 @@ static void HandleQueryDesktopAudioDevices(CrucibleContext&, OBSData&)
 			if (obs_property_list_item_disabled(prop, i))
 				continue;
 
+			auto name = obs_property_list_item_name(prop, i);
+			if (!name || name == "Default"s)
+				continue;
+
+			auto device = obs_property_list_item_string(prop, i);
+			if (!device || device == "default"s)
+				continue;
+
 			auto data = OBSDataCreate();
-			obs_data_set_string(data, "name", obs_property_list_item_name(prop, i));
-			obs_data_set_string(data, "device", obs_property_list_item_string(prop, i));
+			obs_data_set_string(data, "name", name);
+			obs_data_set_string(data, "device", device);
 
 			obs_data_array_push_back(result, data);
 		}
