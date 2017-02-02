@@ -849,9 +849,9 @@ namespace AnvilCommands {
 		SendCommand(cmd);
 	}
 
-	void ResetShowWelcome()
+	void ResetShowWelcome(bool show=true)
 	{
-		show_welcome = true;
+		show_welcome = show;
 	}
 
 	void ShowRecording()
@@ -3352,7 +3352,7 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 
 	blog(LOG_INFO, "Starting new capture");
 
-	AnvilCommands::ResetShowWelcome();
+	AnvilCommands::ResetShowWelcome(obs_data_get_bool(obj, "show_welcome"));
 
 	recording_filename_prefix = string(obs_data_get_string(obj, "filename_prefix"));
 
