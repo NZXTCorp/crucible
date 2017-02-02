@@ -206,7 +206,9 @@ void CTaksiDI::ProcessDirectInput()
 
 	for ( int i=0; i<HOTKEY_QTY; i++ )
 	{
-		WORD wHotKey = GetHotKey( (HOTKEY_TYPE)i );
+		auto type = static_cast<HOTKEY_TYPE>(i);
+
+		WORD wHotKey = GetHotKey(type);
 		if (!wHotKey)
 			continue;
 
@@ -225,7 +227,7 @@ void CTaksiDI::ProcessDirectInput()
 			continue;
 
 		// action on key up.
-		g_HotKeys.ScheduleHotKey((HOTKEY_TYPE) i );
+		g_HotKeys.ScheduleHotKey(type);
 	}
 }
 
@@ -314,7 +316,9 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 
 			for (int i = 0; i < HOTKEY_QTY; i++ )
 			{
-				WORD wHotKey = GetHotKey( (HOTKEY_TYPE)i );
+				auto type = static_cast<HOTKEY_TYPE>(i);
+
+				WORD wHotKey = GetHotKey(type);
 				if (!wHotKey)
 					continue;
 
@@ -323,8 +327,8 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 				if (bHotMask != HIBYTE(wHotKey))
 					continue;
 				g_UserKeyboard.m_bKeysPressed[i] = false; // clear the 'pressed' state
-				if (!(eat_key = g_HotKeys.DoHotKey( (HOTKEY_TYPE)i, HKEVENT_RELEASE, wHotKey)))
-					g_HotKeys.AddEvent( (HOTKEY_TYPE)i, HKEVENT_RELEASE );
+				if (!(eat_key = g_HotKeys.DoHotKey(type, HKEVENT_RELEASE, wHotKey)))
+					g_HotKeys.AddEvent(type, HKEVENT_RELEASE );
 			}
 
 			switch ( wParam)
@@ -358,7 +362,9 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 
 			for (int i = 0; i < HOTKEY_QTY; i++ )
 			{
-				WORD wHotKey = GetHotKey( (HOTKEY_TYPE)i );
+				auto type = static_cast<HOTKEY_TYPE>(i);
+
+				WORD wHotKey = GetHotKey(type);
 				if (!wHotKey)
 					continue;
 
@@ -371,8 +377,8 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 				if ( !g_UserKeyboard.m_bKeysPressed[i] )
 				{
 					g_UserKeyboard.m_bKeysPressed[i] = true;
-					if (!(eat_key = g_HotKeys.DoHotKey((HOTKEY_TYPE)i, HKEVENT_PRESS, wHotKey)))
-						g_HotKeys.AddEvent( (HOTKEY_TYPE)i, HKEVENT_PRESS );
+					if (!(eat_key = g_HotKeys.DoHotKey(type, HKEVENT_PRESS, wHotKey)))
+						g_HotKeys.AddEvent(type, HKEVENT_PRESS );
 				}
 			}
 		}

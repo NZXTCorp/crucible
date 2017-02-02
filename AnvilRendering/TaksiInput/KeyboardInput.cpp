@@ -151,7 +151,9 @@ static void HandleHotkeys(T s_keys, U keys)
 	auto prev_mods = Modifiers(s_keys);
 	for (int i = 0; i < HOTKEY_QTY; i++)
 	{
-		WORD wHotKey = GetHotKey((HOTKEY_TYPE)i);
+		auto type = static_cast<HOTKEY_TYPE>(i);
+
+		WORD wHotKey = GetHotKey(type);
 		if (!wHotKey)
 			continue;
 
@@ -160,10 +162,10 @@ static void HandleHotkeys(T s_keys, U keys)
 		bool pressed = Pressed(keys, vk) && (!k_mods || (mods & k_mods) != 0);
 		bool was_pressed = Pressed(s_keys, vk) && (!k_mods || (prev_mods & k_mods) != 0);
 
-		if (pressed && !was_pressed && !(g_HotKeys.DoHotKey((HOTKEY_TYPE)i, HKEVENT_PRESS, wHotKey)))
-			g_HotKeys.AddEvent((HOTKEY_TYPE)i, HKEVENT_PRESS);
-		else if (!pressed && was_pressed && !(g_HotKeys.DoHotKey((HOTKEY_TYPE)i, HKEVENT_RELEASE, wHotKey)))
-			g_HotKeys.AddEvent((HOTKEY_TYPE)i, HKEVENT_RELEASE);
+		if (pressed && !was_pressed && !(g_HotKeys.DoHotKey(type, HKEVENT_PRESS, wHotKey)))
+			g_HotKeys.AddEvent(type, HKEVENT_PRESS);
+		else if (!pressed && was_pressed && !(g_HotKeys.DoHotKey(type, HKEVENT_RELEASE, wHotKey)))
+			g_HotKeys.AddEvent(type, HKEVENT_RELEASE);
 	}
 }
 
