@@ -154,7 +154,11 @@ void ShowCurrentIndicator(const std::function<void(IndicatorEvent, BYTE /*alpha*
 }
 
 mutex hotkeys_mutex;
-static WORD hotkeys[HOTKEY_QTY] = { 0 };
+static struct {
+	BYTE modifier_whitelist;
+	BYTE modifier_blacklist;
+	BYTE virtual_key;
+} hotkeys[HOTKEY_QTY] = { 0 };
 
 ProtectedObject<HCURSOR> overlay_cursor;
 
@@ -217,7 +221,7 @@ static void HandleUpdateSettings(Object &obj)
 	{
 		Object key_data = obj[setting_name];
 		if (!key_data.HasMember("keycode")) {
-			hotkeys[hotkey] = 0;
+			hotkeys[hotkey] = { 0 };
 			hlog("hotkey '%s' (%s) disabled", HotKeyTypeName(hotkey), setting_name);
 			return;
 		}
@@ -231,13 +235,13 @@ static void HandleUpdateSettings(Object &obj)
 		Boolean alt = key_data["alt"];
 		Number code = key_data["keycode"];
 
-		WORD mods = ((shift ? HOTKEYF_SHIFT : 0) |
+		hotkeys[hotkey].modifier_whitelist = ((shift ? HOTKEYF_SHIFT : 0) |
 			(ctrl ? HOTKEYF_CONTROL : 0) |
-			(alt ? HOTKEYF_ALT : 0)) << 8;
+			(alt ? HOTKEYF_ALT : 0));
 
-		hotkeys[hotkey] =  mods | static_cast<int>(code.Value());
+		hotkeys[hotkey].virtual_key = static_cast<BYTE>(code.Value());
 
-		if (!hotkeys[hotkey])
+		if (!hotkeys[hotkey].virtual_key)
 			return;
 
 		SetIndicatorHotkey(hotkey, static_cast<int>(code.Value()), ctrl, alt, shift);
@@ -255,6 +259,21 @@ static void HandleUpdateSettings(Object &obj)
 		UpdateHotkey(HOTKEY_Screenshot, "screenshot_key");
 
 		indicatorManager.UpdateImages();
+
+		for (size_t i = 0; i < HOTKEY_QTY; i++) {
+			auto &hk = hotkeys[i];
+			if (!hk.virtual_key)
+				continue;
+
+			hk.modifier_blacklist = 0;
+			for (size_t j = 0; j < HOTKEY_QTY; j++) {
+				auto other_hk = hotkeys[j];
+				if (i == j || !other_hk.virtual_key || hk.virtual_key != other_hk.virtual_key)
+					continue;
+
+				hk.modifier_blacklist |= other_hk.modifier_whitelist & ~hk.modifier_whitelist;
+			}
+		}
 	}
 }
 
@@ -340,12 +359,23 @@ bool g_bBrowserShowing = false;
 
 ActiveOverlay active_overlay = OVERLAY_HIGHLIGHTER;
 
-WORD GetHotKey(HOTKEY_TYPE t)
+bool HotkeyModifiersMatch(HOTKEY_TYPE t, BYTE modifiers)
 {
 	if (t >= 0 && t < HOTKEY_QTY)
 	{
 		LOCK(hotkeys_mutex);
-		return hotkeys[t];
+		return (modifiers & hotkeys[t].modifier_whitelist) == hotkeys[t].modifier_whitelist &&
+			(modifiers & hotkeys[t].modifier_blacklist) == 0;
+	}
+	return false;
+}
+
+BYTE GetHotKey(HOTKEY_TYPE t)
+{
+	if (t >= 0 && t < HOTKEY_QTY)
+	{
+		LOCK(hotkeys_mutex);
+		return hotkeys[t].virtual_key;
 	}
 	return 0;
 }
@@ -361,7 +391,7 @@ static void RestartCrucibleServer()
 	{
 		LOCK(hotkeys_mutex);
 		for (int t = 0; t < HOTKEY_QTY; t++)
-			hotkeys[t] = 0;
+			hotkeys[t] = { 0 };
 	}
 	DismissOverlay(true);
 	*overlay_cursor.Lock() = LoadCursorW(nullptr, IDC_ARROW);

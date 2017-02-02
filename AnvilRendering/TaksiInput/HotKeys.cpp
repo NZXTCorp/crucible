@@ -208,11 +208,11 @@ void CTaksiDI::ProcessDirectInput()
 	{
 		auto type = static_cast<HOTKEY_TYPE>(i);
 
-		WORD wHotKey = GetHotKey(type);
+		auto wHotKey = GetHotKey(type);
 		if (!wHotKey)
 			continue;
 
-		BYTE iScanCode = ::MapVirtualKey( LOBYTE(wHotKey), 0);
+		BYTE iScanCode = ::MapVirtualKey( wHotKey, 0);
 		if ( buffer[iScanCode] & 0x80 ) 
 		{
 			// key down.
@@ -223,7 +223,7 @@ void CTaksiDI::ProcessDirectInput()
 		if ( ! m_abHotKey[i] )
 			continue;
 		m_abHotKey[i] = false;
-		if ( HIBYTE(wHotKey) != bHotMask )
+		if (!HotkeyModifiersMatch(type, bHotMask));
 			continue;
 
 		// action on key up.
@@ -318,13 +318,13 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 			{
 				auto type = static_cast<HOTKEY_TYPE>(i);
 
-				WORD wHotKey = GetHotKey(type);
+				auto wHotKey = GetHotKey(type);
 				if (!wHotKey)
 					continue;
 
-				if (wParam != LOBYTE(wHotKey))
+				if (wParam != wHotKey)
 					continue;
-				if (bHotMask != HIBYTE(wHotKey))
+				if (!HotkeyModifiersMatch(type, bHotMask))
 					continue;
 				g_UserKeyboard.m_bKeysPressed[i] = false; // clear the 'pressed' state
 				if (!(eat_key = g_HotKeys.DoHotKey(type, HKEVENT_RELEASE, wHotKey)))
@@ -364,14 +364,14 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 			{
 				auto type = static_cast<HOTKEY_TYPE>(i);
 
-				WORD wHotKey = GetHotKey(type);
+				auto wHotKey = GetHotKey(type);
 				if (!wHotKey)
 					continue;
 
-				if (wParam != LOBYTE(wHotKey))
+				if (wParam != wHotKey)
 					continue;
 
-				if (bHotMask != HIBYTE(wHotKey))
+				if (!HotkeyModifiersMatch(type, bHotMask))
 					continue;
 
 				if ( !g_UserKeyboard.m_bKeysPressed[i] )

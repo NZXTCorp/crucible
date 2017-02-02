@@ -77,7 +77,8 @@ enum HOTKEY_EVENT
 	HKEVENT_QTY
 };
 
-WORD GetHotKey(HOTKEY_TYPE t);
+bool HotkeyModifiersMatch(HOTKEY_TYPE t, BYTE modifiers);
+BYTE GetHotKey(HOTKEY_TYPE t);
 
 enum ActiveOverlay
 {
