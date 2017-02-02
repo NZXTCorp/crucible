@@ -2451,6 +2451,7 @@ struct CrucibleContext {
 		calldata_init(&param);
 		calldata_set_string(&param, "filename", filename);
 		calldata_set_float(&param, "extra_recording_duration", obs_data_get_double(settings, "extra_recording_duration"));
+		calldata_set_float(&param, "save_duration", obs_data_get_double(settings, "save_duration"));
 
 		bool continue_recording = obs_data_has_user_value(settings, "extra_recording_duration");
 
