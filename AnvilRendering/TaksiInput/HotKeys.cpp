@@ -223,7 +223,7 @@ void CTaksiDI::ProcessDirectInput()
 		if ( ! m_abHotKey[i] )
 			continue;
 		m_abHotKey[i] = false;
-		if (!HotkeyModifiersMatch(type, bHotMask));
+		if (!HotkeyModifiersMatch(type, bHotMask))
 			continue;
 
 		// action on key up.
