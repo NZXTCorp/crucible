@@ -3352,7 +3352,7 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 
 	blog(LOG_INFO, "Starting new capture");
 
-	AnvilCommands::ResetShowWelcome(obs_data_get_bool(obj, "show_welcome"));
+	AnvilCommands::ResetShowWelcome(!obs_data_get_bool(obj, "hide_welcome"));
 
 	recording_filename_prefix = string(obs_data_get_string(obj, "filename_prefix"));
 
