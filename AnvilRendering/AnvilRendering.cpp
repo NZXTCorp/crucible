@@ -119,9 +119,10 @@ namespace ForgeEvent
 		return SendEvent(EventCreate("save_screenshot"));
 	}
 
-	bool SaveQuickClip()
+	bool SaveQuickClip(bool tutorial_active)
 	{
-		return SendEvent(EventCreate("save_quick_clip"));
+		return SendEvent(EventCreate("save_quick_clip")
+			.Set("tutorial_active", tutorial_active));
 	}
 
 	bool StartStopStream()

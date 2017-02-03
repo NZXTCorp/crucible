@@ -116,7 +116,7 @@ namespace ForgeEvent
 	bool StartStopStream(); // For the new Start/Stop stream hotkey
 	bool StartStream();
 	bool StopStream();
-	bool SaveQuickClip();
+	bool SaveQuickClip(bool tutorial_active=false);
 }
 
 std::vector<uint8_t> *ReadNewFramebuffer(ActiveOverlay ov);

@@ -305,7 +305,7 @@ static void ProcessHotKeys()
 		case HOTKEY_QuickClip:
 			if (event.event == HKEVENT_PRESS) {
 				ForgeEvent::HideTutorial();
-				ForgeEvent::SaveQuickClip();
+				ForgeEvent::SaveQuickClip(TutorialLockStatus());
 				SetTutorialLock(false);
 			}
 			break;
