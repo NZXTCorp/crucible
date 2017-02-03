@@ -28,6 +28,7 @@ enum IndicatorEvent
 	INDICATE_STREAM_MIC_MUTED, // streaming replacement for INDICATE_MIC_MUTE
 	INDICATE_SCREENSHOT_SAVED,
 	INDICATE_SCREENSHOT_PROCESSING,
+	INDICATE_TUTORIAL,
 	INDICATE_NONE            // no image for this one, just a placeholder for loops and to tell graphics code we're not drawing anything
 };
 
@@ -80,6 +81,8 @@ public:
 	void ResetImageUpdated(IndicatorEvent event);
 };
 
-void SetIndicatorHotkey( int index, int keycode, bool ctrl, bool alt, bool shift );
+void SetIndicatorHotkey(int index, int keycode, bool ctrl, bool alt, bool shift);
+void SetTutorialLock(bool locked);
+bool TutorialLockStatus();
 
 #endif

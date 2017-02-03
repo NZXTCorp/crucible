@@ -104,6 +104,11 @@ namespace ForgeEvent
 		return SendEvent(EventCreate("hide_browser"));
 	}
 
+	bool HideTutorial()
+	{
+		return SendEvent(EventCreate("hide_tutorial"));
+	}
+
 	bool CreateBookmark()
 	{
 		return SendEvent(EventCreate("create_bookmark"));
@@ -197,6 +202,7 @@ static void HandleIndicatorCommand(Object &obj)
 		{"stream_mic_muted", INDICATE_STREAM_MIC_MUTED},
 		{"screenshot_processing", INDICATE_SCREENSHOT_PROCESSING},
 		{"screenshot", INDICATE_SCREENSHOT_SAVED},
+		{"first_time_tutorial", INDICATE_TUTORIAL},
 	};
 
 	auto indicator = static_cast<String>(obj["indicator"]).Value();
@@ -204,6 +210,9 @@ static void HandleIndicatorCommand(Object &obj)
 	auto elem = indicators.find(indicator);
 	if (elem == end(indicators))
 		return hlog("Got invalid indicator '%s'", indicator.c_str());
+
+	if (indicator == "first_time_tutorial")
+		SetTutorialLock(true);
 
 	currentIndicator = elem->second;
 }

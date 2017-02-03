@@ -669,6 +669,7 @@ namespace AnvilCommands {
 	atomic<bool> display_enabled_hotkey = false;
 	atomic<bool> streaming = false;
 	atomic<bool> screenshotting = false;
+	atomic<bool> showingtutorial = false;
 
 	const uint64_t enabled_timeout_seconds = 10;
 	atomic<uint64_t> enabled_timeout = 0;
@@ -846,6 +847,9 @@ namespace AnvilCommands {
 		if (stream_timeout >= os_gettime_ns())
 			indicator = streaming ? "stream_started" : "stream_stopped";
 
+		if (showingtutorial)
+			indicator = "first_time_tutorial";
+
 		obs_data_set_string(cmd, "indicator", indicator);
 
 		SendCommand(cmd);
@@ -904,6 +908,21 @@ namespace AnvilCommands {
 	{
 		if (screenshotting.exchange(true))
 			return;
+
+		SendIndicator();
+	}
+
+	void ShowFirstTimeTutorial()
+	{
+		if (showingtutorial.exchange(true))
+			return;
+
+		SendIndicator();
+	}
+
+	void HideFirstTimeTutorial()
+	{
+		showingtutorial = false;
 
 		SendIndicator();
 	}
@@ -3684,6 +3703,16 @@ static void ShowScreenshotUploading(CrucibleContext &cc, OBSData &data)
 	AnvilCommands::ShowScreenshotting();
 }
 
+static void ShowFirstTimeTutorial(CrucibleContext &cc, OBSData &data)
+{
+	AnvilCommands::ShowFirstTimeTutorial();
+}
+
+static void HideFirstTimeTutorial(CrucibleContext &cc, OBSData &data)
+{
+	AnvilCommands::HideFirstTimeTutorial();
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -3722,6 +3751,8 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "query_hardware_encoders", HandleQueryHardwareEncoders },
 		{ "update_disallowed_hardware_encoders", HandleUpdateDisallowedHardwareEncoders },
 		{ "screenshot_uploading", ShowScreenshotUploading },
+		{ "show_first_time_tutorial", ShowFirstTimeTutorial },
+		{ "hide_first_time_tutorial", HideFirstTimeTutorial },
 		{ "screenshot_saved", ShowScreenshotSaved },
 	};
 	if (!data)

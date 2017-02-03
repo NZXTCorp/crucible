@@ -110,6 +110,7 @@ namespace ForgeEvent
 	bool InitBrowser(const std::array<BrowserConnectionDescription, OVERLAY_COUNT> &browsers, LONG width, LONG height);
 	bool ShowBrowser(const BrowserConnectionDescription &server, LONG width, LONG height);
 	bool HideBrowser();
+	bool HideTutorial();
 	bool CreateBookmark();
 	bool SaveScreenshot();
 	bool StartStopStream(); // For the new Start/Stop stream hotkey

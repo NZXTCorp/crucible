@@ -282,6 +282,18 @@ IndicatorManager::~IndicatorManager( void )
 	FreeImages( );
 }
 
+static bool tutorial_lock = false;
+
+void SetTutorialLock(bool locked)
+{
+	tutorial_lock = locked;
+}
+
+bool TutorialLockStatus()
+{
+	return tutorial_lock;
+}
+
 wstring GetHotkeyText(int index)
 {
 	wstring hotKeyDescription;
@@ -428,6 +440,93 @@ static unique_ptr<Bitmap> CreateWelcomeImage()
 	return tmp;
 }
 
+wstring tutorialCaption = L"Welcome to Forge!";
+wstring tutorialDesc[2] = {
+	L"Uploads your latest 15 seconds of gampeplay as a clip to Forge\nand copies the URL to your clipboard for easy sharing.",
+	L"Press the hotkey to upload your first clip and dismiss this message!",
+};
+
+static unique_ptr<Bitmap> CreateTutorialPopup()
+{
+	Font hugeFont(fontFace.c_str(), 42, FontStyleBold);
+	Font largeFont(fontFace.c_str(), sizeLarge, FontStyleBold);
+	Font mediumFont(fontFace.c_str(), 10);
+
+	HDC tempHDC = CreateCompatibleDC(NULL);
+	Graphics measureTemp(tempHDC);
+
+	int width = 0, height = 256, hotkeyWidth = 0, hotkeyHeight = 0, descWidth[2] = { 0, 0 };
+	int iconWidth = 48, iconHeight = 48, numHotkeys = 0, itemsRendered = 0;
+
+	unique_ptr<Bitmap> colorBar, forgeIcon, bookmarkIcon, micIcon, replayIcon, screenshotIcon, noIcon;
+
+	RectF bound;
+
+	bool cycleBG = true;
+
+	colorBar = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_COLOR_BAR));
+	forgeIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_FORGE_INDICATOR_ICON));
+
+	measureTemp.MeasureString(tutorialCaption.c_str(), tutorialCaption.length(), &largeFont, PointF(0.0f, 0.0f), &bound);
+	width = (int)bound.Width;
+
+	for (int i = 0; i < 2; i++) {
+		measureTemp.MeasureString(tutorialDesc[i].c_str(), tutorialDesc[i].length(), &mediumFont, PointF(0.0f, 0.0f), &bound);
+		if (bound.Width > width) width = (int)bound.Width;
+		descWidth[i] = (int)bound.Width;
+	}
+
+	measureTemp.MeasureString(GetHotkeyText(HOTKEY_QuickClip).c_str(), GetHotkeyText(HOTKEY_QuickClip).length(), &hugeFont, PointF(0.0f, 0.0f), &bound);
+	hotkeyWidth = (int)bound.Width;
+	hotkeyHeight = (int)bound.Height;
+	if (bound.Width > width) width = (int)bound.Width;
+
+	width = width + 64 + iconWidth;
+
+	measureTemp.ReleaseHDC(tempHDC);
+
+	auto tmp = make_unique<Bitmap>(width, height, PixelFormat32bppARGB);
+	Graphics graphics(tmp.get());
+
+	SolidBrush brush(textColor);
+	SolidBrush hotkeyBrush(Color(39, 146, 176));
+	SolidBrush brightBG(popupBGColorBright);
+
+	StringFormat centered = new StringFormat();
+	centered.SetAlignment(StringAlignmentCenter);
+	centered.SetLineAlignment(StringAlignmentNear);
+
+	Pen rectanglePen(Color(39, 146, 176), 2.0F);
+
+	graphics.SetTextRenderingHint(TextRenderingHintAntiAlias);
+	graphics.SetCompositingMode(CompositingModeSourceOver);
+
+	graphics.Clear(popupBGColor);
+	graphics.DrawImage(colorBar.get(), width - 48, 0, 48, 48);
+
+	graphics.DrawImage(forgeIcon.get(), 16, 8, iconWidth, iconHeight);
+
+	graphics.SetSmoothingMode(SmoothingModeNone);
+	graphics.FillRectangle(&brightBG, 0, 64, width, height - 96);
+
+	graphics.SetSmoothingMode(SmoothingModeHighQuality);
+	graphics.DrawString(tutorialCaption.c_str(), tutorialCaption.length(), &largeFont, PointF(32.0f + iconWidth, 20.0f), &brush);
+
+	graphics.SetSmoothingMode(SmoothingModeHighQuality);
+
+	if (hotkeyWidth > 110)
+		graphics.DrawRectangle(&rectanglePen, ((width - hotkeyWidth) / 2) - 16, 64 + 16, hotkeyWidth + 32, 94);
+	else
+		graphics.DrawRectangle(&rectanglePen, ((width - 110) / 2), 64 + 16, 110, 94);
+
+	graphics.DrawString(GetHotkeyText(HOTKEY_QuickClip).c_str(), GetHotkeyText(HOTKEY_QuickClip).length(), &hugeFont, PointF((width / 2.0f), 64.0f + 32.0f), &centered, &brush);
+
+	graphics.DrawString(tutorialDesc[0].c_str(), tutorialDesc[0].length(), &mediumFont, PointF((width / 2.0f), height - 68.0f), &centered, &hotkeyBrush);
+	graphics.DrawString(tutorialDesc[1].c_str(), tutorialDesc[1].length(), &mediumFont, PointF((width / 2.0f), height - 23.0f), &centered, &brush);
+	
+	return tmp;
+}
+
 bool IndicatorManager::LoadImages( void )
 {
 	for ( int i = 0; i < INDICATE_NONE; i++ )
@@ -474,6 +573,10 @@ bool IndicatorManager::LoadImages( void )
 		case INDICATE_SCREENSHOT_SAVED:
 			*m_images[i].Lock() = CreatePopupImage(&screenshotSavedCaption, &screenshotSavedDescription, IDB_SCREENSHOT_ICON);
 			break;
+		case INDICATE_TUTORIAL: {
+			*m_images[i].Lock() = CreateTutorialPopup();
+			break;
+		}
 		default:
 			*m_images[i].Lock() = LoadBitmapFromResource(MAKEINTRESOURCE(s_image_res[i]));
 			if (!m_images[i].Lock())
@@ -496,6 +599,8 @@ void IndicatorManager::UpdateImages(void)
 	//*m_images[INDICATE_ENABLED].Lock() = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
 	*m_images[INDICATE_ENABLED].Lock() = CreateWelcomeImage();
 	image_updated[INDICATE_ENABLED] = true;
+	*m_images[INDICATE_TUTORIAL].Lock() = CreateTutorialPopup();
+	image_updated[INDICATE_TUTORIAL] = true;
 
 	updateTextures = true;
 

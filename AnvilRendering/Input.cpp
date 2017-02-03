@@ -3,6 +3,7 @@
 #include "AnvilRendering.h"
 
 #include "TaksiInput/HotKeys.h"
+#include "GAPI_render/NewIndicator.h"
 
 #include "../Crucible/IPC.hpp"
 
@@ -298,28 +299,30 @@ static void ProcessHotKeys()
 		switch (event.key)
 		{
 		case HOTKEY_Overlay:
-			if (event.event == HKEVENT_PRESS)
+			if (event.event == HKEVENT_PRESS && !TutorialLockStatus())
 				ToggleOverlay(OVERLAY_HIGHLIGHTER);
 			break;
 		case HOTKEY_QuickClip:
 			if (event.event == HKEVENT_PRESS) {
+				ForgeEvent::HideTutorial();
 				ForgeEvent::SaveQuickClip();
+				SetTutorialLock(false);
 			}
 			break;
 		case HOTKEY_Bookmark:
-			if (event.event == HKEVENT_PRESS)
+			if (event.event == HKEVENT_PRESS && !TutorialLockStatus())
 				ForgeEvent::CreateBookmark();
 			break;
 		case HOTKEY_Screenshot:
-			if (event.event == HKEVENT_PRESS)
+			if (event.event == HKEVENT_PRESS && !TutorialLockStatus())
 				ForgeEvent::SaveScreenshot();
 			break;
 		case HOTKEY_Stream:
-			if (event.event == HKEVENT_PRESS)
+			if (event.event == HKEVENT_PRESS && !TutorialLockStatus())
 				ToggleOverlay(OVERLAY_STREAMING);
 			break;
 		case HOTKEY_StartStopStream:
-			if (event.event == HKEVENT_PRESS)
+			if (event.event == HKEVENT_PRESS && !TutorialLockStatus())
 				ForgeEvent::StartStopStream();
 			break;
 		}

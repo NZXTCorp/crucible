@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include "AnvilRendering.h"
 #include "GAPI_render/IRefPtr.h"
+#include "GAPI_render/NewIndicator.h"
 #include "HotKeys.h"
 #include <commctrl.h>	// HOTKEYF_ALT
 
@@ -405,12 +406,12 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt, WORD key)
 	switch(eHotKey)
 	{
 	case HOTKEY_Overlay:
-		if (activated)
+		if (activated && !TutorialLockStatus())
 			ToggleOverlay(OVERLAY_HIGHLIGHTER);
 		return true;
 
 	case HOTKEY_Stream:
-		if (activated)
+		if (activated && !TutorialLockStatus())
 			ToggleOverlay(OVERLAY_STREAMING);
 		return true;
 
