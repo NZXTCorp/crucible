@@ -114,6 +114,11 @@ namespace ForgeEvent
 		return SendEvent(EventCreate("save_screenshot"));
 	}
 
+	bool SaveQuickClip()
+	{
+		return SendEvent(EventCreate("save_quick_clip"));
+	}
+
 	bool StartStopStream()
 	{
 		return SendEvent(EventCreate("start_stop_stream_hotkey"));
@@ -257,6 +262,7 @@ static void HandleUpdateSettings(Object &obj)
 		UpdateHotkey(HOTKEY_StartStopStream, "start_stop_stream_key");
 		UpdateHotkey(HOTKEY_PTT, "ptt_key");
 		UpdateHotkey(HOTKEY_Screenshot, "screenshot_key");
+		UpdateHotkey(HOTKEY_QuickClip, "quick_clip_key");
 
 		indicatorManager.UpdateImages();
 

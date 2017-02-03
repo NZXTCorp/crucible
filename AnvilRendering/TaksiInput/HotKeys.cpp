@@ -417,6 +417,7 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt, WORD key)
 	case HOTKEY_Screenshot:
 	case HOTKEY_Bookmark:
 	case HOTKEY_StartStopStream:
+	case HOTKEY_QuickClip:
 		// schedule to be in the PresentFrameBegin() call.
 		if (activated)
 			ScheduleHotKey(eHotKey);

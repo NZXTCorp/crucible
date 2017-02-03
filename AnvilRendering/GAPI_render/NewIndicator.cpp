@@ -150,6 +150,7 @@ wstring hotkeyHelpText_Basic[HOTKEY_QTY] = {
 	L"Open the streaming overlay",
 	L"Start or stop streaming",
 	L"Mute/unmute microphone",
+	L"Save a quick clip",
 };
 
 wstring hotkeyHelpText[HOTKEY_QTY] = {
@@ -159,11 +160,13 @@ wstring hotkeyHelpText[HOTKEY_QTY] = {
 	L"Stream overlay",
 	L"Start/stop stream",
 	L"Mute/unmute microphone",
+	L"Quick Clip",
 };
 
 int hotkeyIconOrder[HOTKEY_QTY] = {
 	HOTKEY_Bookmark,
 	HOTKEY_Overlay,
+	HOTKEY_QuickClip,
 	HOTKEY_Screenshot,
 	HOTKEY_PTT,
 	HOTKEY_Stream,
@@ -334,7 +337,7 @@ static unique_ptr<Bitmap> CreateWelcomeImage()
 	int width = 0, height = 64, hotkeyTextPos = 64 + 12;
 	int iconWidth = 48, iconHeight = 48, numHotkeys = 0, itemsRendered = 0;
 
-	unique_ptr<Bitmap> colorBar, forgeIcon, bookmarkIcon, micIcon, replayIcon, screenshotIcon, noIcon;
+	unique_ptr<Bitmap> colorBar, forgeIcon, bookmarkIcon, micIcon, replayIcon, screenshotIcon, quickClipIcon, noIcon;
 
 	RectF bound;
 
@@ -346,6 +349,7 @@ static unique_ptr<Bitmap> CreateWelcomeImage()
 	micIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_MIC_SHORTCUT_ICON));
 	replayIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_REPLAY_ICON));
 	screenshotIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_SCREENSHOT_ICON));
+	quickClipIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_QUICK_CLIP_ICON));
 	noIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_NO_ICON));
 
 	measureTemp.MeasureString(capturingCaption.c_str(), capturingCaption.length(), &largeFont, PointF(0.0f, 0.0f), &bound);
@@ -405,6 +409,9 @@ static unique_ptr<Bitmap> CreateWelcomeImage()
 				break;
 			case HOTKEY_PTT:
 				graphics.DrawImage(micIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
+				break;
+			case HOTKEY_QuickClip:
+				graphics.DrawImage(quickClipIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
 				break;
 			default:
 				graphics.DrawImage(noIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);

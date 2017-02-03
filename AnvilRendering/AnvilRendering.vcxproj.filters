@@ -220,6 +220,9 @@
     <Image Include="GAPI_render\res\empty_icon.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="GAPI_render\res\quick_clip_icon.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="GAPI_render\Anvil.rc">

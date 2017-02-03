@@ -301,6 +301,11 @@ static void ProcessHotKeys()
 			if (event.event == HKEVENT_PRESS)
 				ToggleOverlay(OVERLAY_HIGHLIGHTER);
 			break;
+		case HOTKEY_QuickClip:
+			if (event.event == HKEVENT_PRESS) {
+				ForgeEvent::SaveQuickClip();
+			}
+			break;
 		case HOTKEY_Bookmark:
 			if (event.event == HKEVENT_PRESS)
 				ForgeEvent::CreateBookmark();
