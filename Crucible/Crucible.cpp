@@ -3705,12 +3705,10 @@ static void ShowScreenshotUploading(CrucibleContext &cc, OBSData &data)
 
 static void ShowFirstTimeTutorial(CrucibleContext &cc, OBSData &data)
 {
-	AnvilCommands::ShowFirstTimeTutorial();
-}
-
-static void HideFirstTimeTutorial(CrucibleContext &cc, OBSData &data)
-{
-	AnvilCommands::HideFirstTimeTutorial();
+	if (obs_data_get_bool(data, "show"))
+		AnvilCommands::ShowFirstTimeTutorial();
+	else
+		AnvilCommands::HideFirstTimeTutorial();
 }
 
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
@@ -3752,7 +3750,6 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "update_disallowed_hardware_encoders", HandleUpdateDisallowedHardwareEncoders },
 		{ "screenshot_uploading", ShowScreenshotUploading },
 		{ "show_first_time_tutorial", ShowFirstTimeTutorial },
-		{ "hide_first_time_tutorial", HideFirstTimeTutorial },
 		{ "screenshot_saved", ShowScreenshotSaved },
 	};
 	if (!data)
