@@ -332,7 +332,7 @@ static unique_ptr<Bitmap> CreateWelcomeImage()
 	Graphics measureTemp(tempHDC);
 
 	int width = 0, height = 64, hotkeyTextPos = 64 + 12;
-	int iconWidth = 48, iconHeight = 48, numHotkeys = 0;
+	int iconWidth = 48, iconHeight = 48, numHotkeys = 0, itemsRendered = 0;
 
 	unique_ptr<Bitmap> colorBar, forgeIcon, bookmarkIcon, micIcon, replayIcon, screenshotIcon, noIcon;
 
@@ -386,34 +386,35 @@ static unique_ptr<Bitmap> CreateWelcomeImage()
 		wstring hotkeyText = L"Press ";
 
 		if (indicatorHotkey_Keycode[hotkeyIconOrder[i]] != 0) {
+			itemsRendered++;
 			cycleBG = !cycleBG;
 			if (!cycleBG) {
 				graphics.SetSmoothingMode(SmoothingModeNone);
-				graphics.FillRectangle(&brightBG, 0, (i + 1) * 64, width, 64);
+				graphics.FillRectangle(&brightBG, 0, (itemsRendered) * 64, width, 64);
 			}
 
 			switch (hotkeyIconOrder[i]) {
 			case HOTKEY_Bookmark:
-				graphics.DrawImage(bookmarkIcon.get(), 16, 8 + (i + 1) * 64, iconWidth, iconHeight);
+				graphics.DrawImage(bookmarkIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
 				break;
 			case HOTKEY_Overlay:
-				graphics.DrawImage(replayIcon.get(), 16, 8 + (i + 1) * 64, iconWidth, iconHeight);
+				graphics.DrawImage(replayIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
 				break;
 			case HOTKEY_Screenshot:
-				graphics.DrawImage(screenshotIcon.get(), 16, 8 + (i + 1) * 64, iconWidth, iconHeight);
+				graphics.DrawImage(screenshotIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
 				break;
 			case HOTKEY_PTT:
-				graphics.DrawImage(micIcon.get(), 16, 8 + (i + 1) * 64, iconWidth, iconHeight);
+				graphics.DrawImage(micIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
 				break;
 			default:
-				graphics.DrawImage(noIcon.get(), 16, 8 + (i + 1) * 64, iconWidth, iconHeight);
+				graphics.DrawImage(noIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
 				break;
 			}
 
 			graphics.SetSmoothingMode(SmoothingModeHighQuality);
-			graphics.DrawString(hotkeyHelpText[hotkeyIconOrder[i]].c_str(), hotkeyHelpText[hotkeyIconOrder[i]].length(), &mediumFont, PointF(32.0f + iconWidth, 12.0f + (i + 1) * 64.0f), &brush);
+			graphics.DrawString(hotkeyHelpText[hotkeyIconOrder[i]].c_str(), hotkeyHelpText[hotkeyIconOrder[i]].length(), &mediumFont, PointF(32.0f + iconWidth, 12.0f + (itemsRendered) * 64.0f), &brush);
 			hotkeyText += GetHotkeyText(hotkeyIconOrder[i]);
-			graphics.DrawString(hotkeyText.c_str(), hotkeyText.length(), &mediumFont, PointF(32.0f + iconWidth, 32.0f + (i + 1) * 64.0f), &hotkeyBrush);
+			graphics.DrawString(hotkeyText.c_str(), hotkeyText.length(), &mediumFont, PointF(32.0f + iconWidth, 32.0f + (itemsRendered) * 64.0f), &hotkeyBrush);
 		}
 	}
 
