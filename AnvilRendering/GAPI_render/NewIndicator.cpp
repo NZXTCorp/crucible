@@ -150,7 +150,7 @@ wstring hotkeyHelpText_Basic[HOTKEY_QTY] = {
 	L"Open the streaming overlay",
 	L"Start or stop streaming",
 	L"Mute/unmute microphone",
-	L"Save a quick clip",
+	L"Save an instant clip",
 };
 
 wstring hotkeyHelpText[HOTKEY_QTY] = {
@@ -160,7 +160,7 @@ wstring hotkeyHelpText[HOTKEY_QTY] = {
 	L"Stream overlay",
 	L"Start/stop stream",
 	L"Mute/unmute microphone",
-	L"Quick Clip",
+	L"Instant Clip",
 };
 
 int hotkeyIconOrder[HOTKEY_QTY] = {
@@ -338,6 +338,8 @@ wstring MakeHotkeyDescription(bool excludeHotkeyCaption = false) {
 	return hotKeyDescription;
 }
 
+#define SKIP_INDICATOR_ITEM itemsRendered--; cycleBG = !cycleBG; skip_item = true;
+
 static unique_ptr<Bitmap> CreateWelcomeImage()
 {
 	Font largeFont(fontFace.c_str(), sizeLarge, FontStyleBold);
@@ -386,6 +388,7 @@ static unique_ptr<Bitmap> CreateWelcomeImage()
 	SolidBrush brush(textColor);
 	SolidBrush hotkeyBrush(textColorHotkey);
 	SolidBrush brightBG(popupBGColorBright);
+	SolidBrush transparentBrush(Color(0, 0, 0, 0));
 
 	graphics.SetTextRenderingHint(TextRenderingHintAntiAlias);
 	graphics.SetCompositingMode(CompositingModeSourceOver);
@@ -400,6 +403,7 @@ static unique_ptr<Bitmap> CreateWelcomeImage()
 
 	for (int i = 0; i < HOTKEY_QTY; i++) {
 		wstring hotkeyText = L"Press ";
+		bool skip_item = false;
 
 		if (indicatorHotkey_Keycode[hotkeyIconOrder[i]] != 0) {
 			itemsRendered++;
@@ -414,36 +418,45 @@ static unique_ptr<Bitmap> CreateWelcomeImage()
 				graphics.DrawImage(bookmarkIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
 				break;
 			case HOTKEY_Overlay:
-				graphics.DrawImage(replayIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
+				SKIP_INDICATOR_ITEM
+				//graphics.DrawImage(replayIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
 				break;
 			case HOTKEY_Screenshot:
-				graphics.DrawImage(screenshotIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
+				SKIP_INDICATOR_ITEM
+				//graphics.DrawImage(screenshotIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
 				break;
 			case HOTKEY_PTT:
-				graphics.DrawImage(micIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
+				SKIP_INDICATOR_ITEM
+				//graphics.DrawImage(micIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
 				break;
 			case HOTKEY_QuickClip:
 				graphics.DrawImage(quickClipIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
 				break;
 			default:
-				graphics.DrawImage(noIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
+				SKIP_INDICATOR_ITEM
+				//graphics.DrawImage(noIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
 				break;
 			}
 
-			graphics.SetSmoothingMode(SmoothingModeHighQuality);
-			graphics.DrawString(hotkeyHelpText[hotkeyIconOrder[i]].c_str(), hotkeyHelpText[hotkeyIconOrder[i]].length(), &mediumFont, PointF(32.0f + iconWidth, 12.0f + (itemsRendered) * 64.0f), &brush);
-			hotkeyText += GetHotkeyText(hotkeyIconOrder[i]);
-			graphics.DrawString(hotkeyText.c_str(), hotkeyText.length(), &mediumFont, PointF(32.0f + iconWidth, 32.0f + (itemsRendered) * 64.0f), &hotkeyBrush);
+			if (!skip_item) {
+				graphics.SetSmoothingMode(SmoothingModeHighQuality);
+				graphics.DrawString(hotkeyHelpText[hotkeyIconOrder[i]].c_str(), hotkeyHelpText[hotkeyIconOrder[i]].length(), &mediumFont, PointF(32.0f + iconWidth, 12.0f + (itemsRendered) * 64.0f), &brush);
+				hotkeyText += GetHotkeyText(hotkeyIconOrder[i]);
+				graphics.DrawString(hotkeyText.c_str(), hotkeyText.length(), &mediumFont, PointF(32.0f + iconWidth, 32.0f + (itemsRendered) * 64.0f), &hotkeyBrush);
+			}
 		}
 	}
+
+	graphics.SetCompositingMode(CompositingModeSourceCopy);
+	graphics.FillRectangle(&transparentBrush, 0, (itemsRendered + 1) * 64, width, height - ((numHotkeys - itemsRendered - 1) * 64));
 
 	return tmp;
 }
 
 wstring tutorialCaption = L"Welcome to Forge!";
 wstring tutorialDesc[2] = {
-	L"Uploads your latest 15 seconds of gampeplay as a clip to Forge\nand copies the URL to your clipboard for easy sharing.",
-	L"Press the hotkey to upload your first clip and dismiss this message!",
+	L"Instantly upload the last 15 seconds.",
+	L"Press the hotkey to upload a clip and dismiss this message!",
 };
 
 static unique_ptr<Bitmap> CreateTutorialPopup()
@@ -451,6 +464,7 @@ static unique_ptr<Bitmap> CreateTutorialPopup()
 	Font hugeFont(fontFace.c_str(), 42, FontStyleBold);
 	Font largeFont(fontFace.c_str(), sizeLarge, FontStyleBold);
 	Font mediumFont(fontFace.c_str(), 10);
+	Font mediumFont2(fontFace.c_str(), 12, FontStyleBold);
 
 	HDC tempHDC = CreateCompatibleDC(NULL);
 	Graphics measureTemp(tempHDC);
@@ -481,7 +495,7 @@ static unique_ptr<Bitmap> CreateTutorialPopup()
 	hotkeyHeight = (int)bound.Height;
 	if (bound.Width > width) width = (int)bound.Width;
 
-	width = width + 64 + iconWidth;
+	width = width + 32;
 
 	measureTemp.ReleaseHDC(tempHDC);
 
@@ -521,7 +535,7 @@ static unique_ptr<Bitmap> CreateTutorialPopup()
 
 	graphics.DrawString(GetHotkeyText(HOTKEY_QuickClip).c_str(), GetHotkeyText(HOTKEY_QuickClip).length(), &hugeFont, PointF((width / 2.0f), 64.0f + 32.0f), &centered, &brush);
 
-	graphics.DrawString(tutorialDesc[0].c_str(), tutorialDesc[0].length(), &mediumFont, PointF((width / 2.0f), height - 68.0f), &centered, &hotkeyBrush);
+	graphics.DrawString(tutorialDesc[0].c_str(), tutorialDesc[0].length(), &mediumFont2, PointF((width / 2.0f), height - 60.0f), &centered, &hotkeyBrush);
 	graphics.DrawString(tutorialDesc[1].c_str(), tutorialDesc[1].length(), &mediumFont, PointF((width / 2.0f), height - 23.0f), &centered, &brush);
 	
 	return tmp;
