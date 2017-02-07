@@ -670,6 +670,8 @@ namespace AnvilCommands {
 	atomic<bool> streaming = false;
 	atomic<bool> screenshotting = false;
 	atomic<bool> showingtutorial = false;
+	
+	atomic<int8_t> show_delayed_welcome = -1;
 
 	const uint64_t enabled_timeout_seconds = 10;
 	atomic<uint64_t> enabled_timeout = 0;
@@ -823,7 +825,7 @@ namespace AnvilCommands {
 				indicator = mic_muted ? (using_ptt ? "stream_mic_idle" : "stream_mic_muted") : "stream_mic_active";
 		}
 
-		if (enabled_timeout >= os_gettime_ns())
+		if (enabled_timeout >= os_gettime_ns() && show_delayed_welcome == -1)
 			indicator = "enabled";
 
 		if (clipping)
@@ -838,8 +840,17 @@ namespace AnvilCommands {
 		if (cache_limit_timeout >= os_gettime_ns())
 			indicator = "cache_limit";
 
-		if (clip_finished_timeout >= os_gettime_ns())
+		if (clip_finished_timeout >= os_gettime_ns()) {
+			if (show_delayed_welcome == 0)
+				show_delayed_welcome = 1;
 			indicator = "clip_processed";
+		}
+		else if (clip_finished_timeout < os_gettime_ns() && show_delayed_welcome == 1) {
+			show_delayed_welcome = -1;
+
+			indicator = "enabled";
+			CreateIndicatorUpdater(enabled_timeout_seconds, enabled_timeout);
+		}
 
 		if (screenshot_timeout >= os_gettime_ns())
 			indicator = "screenshot";
@@ -923,6 +934,7 @@ namespace AnvilCommands {
 	void HideFirstTimeTutorial()
 	{
 		showingtutorial = false;
+		show_delayed_welcome = 0;
 
 		SendIndicator();
 	}
