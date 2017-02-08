@@ -832,9 +832,6 @@ namespace AnvilCommands {
 		if (screenshotting)
 			indicator = "screenshot_processing";
 
-		if (bookmark_timeout >= os_gettime_ns())
-			indicator = "bookmark";
-
 		if (cache_limit_timeout >= os_gettime_ns())
 			indicator = "cache_limit";
 
@@ -843,6 +840,9 @@ namespace AnvilCommands {
 
 		if (screenshot_timeout >= os_gettime_ns())
 			indicator = "screenshot";
+
+		if (bookmark_timeout >= os_gettime_ns())
+			indicator = "bookmark";
 
 		if (stream_timeout >= os_gettime_ns())
 			indicator = streaming ? "stream_started" : "stream_stopped";
