@@ -123,9 +123,11 @@ static unique_ptr<Bitmap> CreateMicIndicator(int indicatorID, int w, int h, bool
 	return tmp;
 }
 
+#define GDI_SIZE(a) a * 1.32F
+
 // It doesn't actually matter if the user has deleted Arial, GDI+ will pick the default Windows font if that's the case.
 wstring fontFace = L"Arial";
-REAL sizeSmall = 10, sizeMedium = 14, sizeLarge = 18, sizeMediumWelcome = 13;
+REAL sizeSmall = GDI_SIZE(10.0F), sizeMedium = GDI_SIZE(14.0F), sizeLarge = GDI_SIZE(18.0F), sizeMediumWelcome = GDI_SIZE(13.0F);
 
 wstring capturingCaption = L"Forge is now enabled!";
 wstring cacheLimitCaption = L"Forge stopped recording";
@@ -205,8 +207,8 @@ wstring GetKeyName(unsigned int virtualKey)
 
 static unique_ptr<Bitmap> CreatePopupImage(wstring *caption, wstring *desc, unsigned int iconID = 0, unsigned int colorbarID = IDB_COLOR_BAR)
 {
-	Font largeFont(fontFace.c_str(), sizeLarge, FontStyleBold);
-	Font mediumFont(fontFace.c_str(), sizeMedium);
+	Font largeFont(fontFace.c_str(), sizeLarge, FontStyleBold, Gdiplus::UnitPixel);
+	Font mediumFont(fontFace.c_str(), sizeMedium, FontStyleRegular, Gdiplus::UnitPixel);
 
 	HDC tempHDC = CreateCompatibleDC(NULL);
 	Graphics measureTemp(tempHDC);
@@ -342,8 +344,8 @@ wstring MakeHotkeyDescription(bool excludeHotkeyCaption = false) {
 
 static unique_ptr<Bitmap> CreateWelcomeImage()
 {
-	Font largeFont(fontFace.c_str(), sizeLarge, FontStyleBold);
-	Font mediumFont(fontFace.c_str(), sizeMediumWelcome, FontStyleBold);
+	Font largeFont(fontFace.c_str(), sizeLarge, FontStyleBold, Gdiplus::UnitPixel);
+	Font mediumFont(fontFace.c_str(), sizeMediumWelcome, FontStyleBold, Gdiplus::UnitPixel);
 
 	HDC tempHDC = CreateCompatibleDC(NULL);
 	Graphics measureTemp(tempHDC);
@@ -461,10 +463,10 @@ wstring tutorialDesc[2] = {
 
 static unique_ptr<Bitmap> CreateTutorialPopup()
 {
-	Font hugeFont(fontFace.c_str(), 42, FontStyleBold);
-	Font largeFont(fontFace.c_str(), sizeLarge, FontStyleBold);
-	Font mediumFont(fontFace.c_str(), 10);
-	Font mediumFont2(fontFace.c_str(), 12, FontStyleBold);
+	Font hugeFont(fontFace.c_str(), GDI_SIZE(42), FontStyleBold, Gdiplus::UnitPixel);
+	Font largeFont(fontFace.c_str(), sizeLarge, FontStyleBold, Gdiplus::UnitPixel);
+	Font mediumFont(fontFace.c_str(), GDI_SIZE(10), FontStyleRegular, Gdiplus::UnitPixel);
+	Font mediumFont2(fontFace.c_str(), GDI_SIZE(12), FontStyleBold, Gdiplus::UnitPixel);
 
 	HDC tempHDC = CreateCompatibleDC(NULL);
 	Graphics measureTemp(tempHDC);
@@ -533,7 +535,7 @@ static unique_ptr<Bitmap> CreateTutorialPopup()
 	else
 		graphics.DrawRectangle(&rectanglePen, ((width - 110) / 2), 64 + 16, 110, 94);
 
-	graphics.DrawString(GetHotkeyText(HOTKEY_QuickClip).c_str(), GetHotkeyText(HOTKEY_QuickClip).length(), &hugeFont, PointF((width / 2.0f), 64.0f + 32.0f), &centered, &brush);
+	graphics.DrawString(GetHotkeyText(HOTKEY_QuickClip).c_str(), GetHotkeyText(HOTKEY_QuickClip).length(), &hugeFont, PointF((width / 2.0f), 64.0f + 33.0f), &centered, &brush);
 
 	graphics.DrawString(tutorialDesc[0].c_str(), tutorialDesc[0].length(), &mediumFont2, PointF((width / 2.0f), height - 60.0f), &centered, &hotkeyBrush);
 	graphics.DrawString(tutorialDesc[1].c_str(), tutorialDesc[1].length(), &mediumFont, PointF((width / 2.0f), height - 23.0f), &centered, &brush);
