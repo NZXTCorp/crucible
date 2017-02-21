@@ -125,6 +125,11 @@ namespace ForgeEvent
 			.Set("tutorial_active", tutorial_active));
 	}
 
+	bool SaveQuickForwardClip()
+	{
+		return SendEvent(EventCreate("save_quick_forward_clip"));
+	}
+
 	bool StartStopStream()
 	{
 		return SendEvent(EventCreate("start_stop_stream_hotkey"));
@@ -273,6 +278,7 @@ static void HandleUpdateSettings(Object &obj)
 		UpdateHotkey(HOTKEY_PTT, "ptt_key");
 		UpdateHotkey(HOTKEY_Screenshot, "screenshot_key");
 		UpdateHotkey(HOTKEY_QuickClip, "quick_clip_key");
+		UpdateHotkey(HOTKEY_QuickForwardClip, "quick_clip_forward_key");
 
 		indicatorManager.UpdateImages();
 

@@ -309,6 +309,10 @@ static void ProcessHotKeys()
 				SetTutorialLock(false);
 			}
 			break;
+		case HOTKEY_QuickForwardClip:
+			if (event.event == HKEVENT_PRESS && !TutorialLockStatus())
+				ForgeEvent::SaveQuickForwardClip();
+			break;
 		case HOTKEY_Bookmark:
 			if (event.event == HKEVENT_PRESS && !TutorialLockStatus())
 				ForgeEvent::CreateBookmark();

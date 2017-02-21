@@ -51,6 +51,7 @@ enum HOTKEY_TYPE
 	HOTKEY_StartStopStream,
 	HOTKEY_PTT,
 	HOTKEY_QuickClip,
+	HOTKEY_QuickForwardClip,
 	HOTKEY_QTY,
 };
 
@@ -65,6 +66,7 @@ static inline const char *HotKeyTypeName(HOTKEY_TYPE hotkey)
 		HK(HOTKEY_Stream);
 		HK(HOTKEY_StartStopStream);
 		HK(HOTKEY_QuickClip);
+		HK(HOTKEY_QuickForwardClip);
 	default:
 		break;
 	}
@@ -117,6 +119,7 @@ namespace ForgeEvent
 	bool StartStream();
 	bool StopStream();
 	bool SaveQuickClip(bool tutorial_active=false);
+	bool SaveQuickForwardClip();
 }
 
 std::vector<uint8_t> *ReadNewFramebuffer(ActiveOverlay ov);
