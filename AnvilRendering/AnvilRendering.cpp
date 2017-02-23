@@ -328,7 +328,7 @@ static void HandleCommands(uint8_t *data, size_t size)
 		{ "update_settings", HandleUpdateSettings },
 		{ "set_cursor", HandleSetCursor },
 		{ "dismiss_overlay", HandleDismissOverlay },
-		{ "stream_status", HandleStreamStatus }
+		{ "stream_status", HandleStreamStatus },
 	};
 
 	if (!data) {
