@@ -152,7 +152,7 @@ wstring hotkeyHelpText_Basic[HOTKEY_QTY] = {
 	L"Open the streaming overlay",
 	L"Start or stop streaming",
 	L"Mute/unmute microphone",
-	L"Save an replay clip",
+	L"Save a replay clip",
 	L"Save an instant clip",
 };
 
