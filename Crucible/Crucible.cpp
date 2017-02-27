@@ -670,6 +670,8 @@ namespace AnvilCommands {
 	atomic<bool> streaming = false;
 	atomic<bool> screenshotting = false;
 	atomic<bool> showingtutorial = false;
+	atomic<bool> forward_buffer_in_progress = false;
+
 	atomic<bool> disable_native_indicators = false;
 
 	const uint64_t enabled_timeout_seconds = 10;
@@ -689,6 +691,8 @@ namespace AnvilCommands {
 
 	const uint64_t stream_timeout_seconds = 3;
 	atomic<uint64_t> stream_timeout = 0;
+
+	atomic<uint64_t> forward_buffer_timeout = 0;
 
 	vector<JoiningThread> indicator_updaters;
 
@@ -835,6 +839,9 @@ namespace AnvilCommands {
 		if (screenshotting)
 			indicator = "screenshot_processing";
 
+		if (forward_buffer_in_progress)
+			indicator = "forward_buffer_in_progress";
+
 		if (cache_limit_timeout >= os_gettime_ns())
 			indicator = "cache_limit";
 
@@ -971,6 +978,66 @@ namespace AnvilCommands {
 			return;
 
 		SendIndicator();
+	}
+
+	ProtectedObject<string> last_message;
+	void UpdateForwardBufferIndicator(string message)
+	{
+		auto lm = last_message.Lock();
+		if (*lm == message)
+			return;
+
+		*lm = message;
+		auto cmd = CommandCreate("update_forward_buffer_indicator");
+
+		if (!message.empty())
+			obs_data_set_string(cmd, "text", message.c_str());
+
+		LOCK(commandMutex);
+
+		SendCommand(cmd);
+	}
+
+	void ForwardBufferInProgress(bool in_progress, double timeout_ = 0.);
+	shared_ptr<void> forward_buffer_update_timer;
+	void AddForwardBufferTimer()
+	{
+		AddWaitHandleCallback(forward_buffer_update_timer.get(), []
+		{
+			auto time = os_gettime_ns();
+			if (forward_buffer_timeout < time) {
+				ShowClipping();
+				ForwardBufferInProgress(false);
+				return;
+			}
+
+			auto remaining = forward_buffer_timeout - time;
+			UpdateForwardBufferIndicator(to_string(static_cast<int>(ceil(remaining / 1000000000.))));
+			AddForwardBufferTimer();
+		});
+	}
+
+	void ForwardBufferInProgress(bool in_progress, double timeout_)
+	{
+		if (forward_buffer_update_timer) {
+			RemoveWaitHandle(forward_buffer_update_timer.get());
+			CancelWaitableTimer(forward_buffer_update_timer.get());
+		}
+
+		if (forward_buffer_in_progress.exchange(in_progress) != in_progress)
+			SendIndicator();
+
+		if (!in_progress)
+			return;
+
+		forward_buffer_timeout = os_gettime_ns() + timeout_ * 1000000000ULL;
+
+		forward_buffer_update_timer = shared_ptr<void>(CreateWaitableTimer(nullptr, false, nullptr), HandleDeleter{});
+		LARGE_INTEGER timeout = { 0 };
+		timeout.QuadPart = -1000000LL; // 100 ms
+		SetWaitableTimer(forward_buffer_update_timer.get(), &timeout, 100, nullptr, nullptr, false);
+
+		AddForwardBufferTimer();
 	}
 
 	void SendForgeInfo(const char *info)
@@ -1948,8 +2015,16 @@ struct CrucibleContext {
 			auto frames = static_cast<uint32_t>(calldata_int(data, "frames"));
 			auto duration = calldata_float(data, "duration");
 			auto start_pts = calldata_int(data, "start_pts");
+			
+			boost::optional<uint32_t> buffer_id;
+			if (auto ptr = static_cast<uint32_t*>(calldata_ptr(data, "buffer_id")))
+				buffer_id = *ptr;
+
 			QueueOperation([=]
 			{
+				if (buffer_id && forward_buffer_id && *buffer_id == *forward_buffer_id)
+					forward_buffer_id = boost::none;
+
 				ForgeEvents::SendBufferReady(filename.c_str(), frames,
 					duration, BookmarkTimes(bufferBookmarks, start_pts),
 					ovi.base_width, ovi.base_height, FindBookmark(bookmarks, tracked_id));
@@ -2473,6 +2548,55 @@ struct CrucibleContext {
 			AnvilCommands::ShowBookmark();
 
 		return bookmark.id;
+	}
+
+	boost::optional<uint32_t> forward_buffer_id;
+	bool StartForwardBuffer(obs_data_t *settings)
+	{
+		if (forward_buffer_id) {
+			blog(LOG_INFO, "Tried to save forward buffer while forward buffer is already in progress");
+			return false;
+		}
+
+		calldata_t calldata;
+		calldata_init(&calldata);
+		DEFER{ calldata_free(&calldata); };
+
+		auto proc = obs_output_get_proc_handler(buffer);
+		auto duration = obs_data_get_double(settings, "max_duration");
+
+		calldata_set_string(&calldata, "filename", obs_data_get_string(settings, "filename"));
+		calldata_set_float(&calldata, "maximum_recording_duration", duration);
+
+		proc_handler_call(proc, "output_interruptible_future_buffer", &calldata);
+
+		forward_buffer_id = static_cast<uint32_t>(calldata_int(&calldata, "buffer_id"));
+		blog(LOG_INFO, "started forward buffer id %d", *forward_buffer_id);
+
+		AnvilCommands::ForwardBufferInProgress(true, duration);
+
+		return true;
+	}
+
+	void StopForwardBuffer()
+	{
+		if (!forward_buffer_id) {
+			blog(LOG_WARNING, "Tried to stop forward buffer without an active forward buffer");
+			return;
+		}
+
+		calldata_t calldata;
+		calldata_init(&calldata);
+		DEFER{ calldata_free(&calldata); };
+
+		auto proc = obs_output_get_proc_handler(buffer);
+
+		blog(LOG_INFO, "Stopping buffer id %d early", *forward_buffer_id);
+		calldata_set_int(&calldata, "buffer_id", *forward_buffer_id);
+		proc_handler_call(proc, "interrupt_buffer", &calldata);
+
+		AnvilCommands::ShowClipping();
+		AnvilCommands::ForwardBufferInProgress(false);
 	}
 
 	recursive_mutex updateMutex;
@@ -3302,6 +3426,8 @@ struct CrucibleContext {
 		output = nullptr;
 		buffer = nullptr;
 
+		forward_buffer_id = boost::none;
+
 		if (restart) {
 			game_res.width = 0;
 			game_res.height = 0;
@@ -3731,6 +3857,16 @@ static void ShowFirstTimeTutorial(CrucibleContext &cc, OBSData &data)
 		AnvilCommands::HideFirstTimeTutorial();
 }
 
+static void StartForwardBuffer(CrucibleContext &cc, OBSData &data)
+{
+	cc.StartForwardBuffer(data);
+}
+
+static void StopForwardBuffer(CrucibleContext &cc, OBSData&)
+{
+	cc.StopForwardBuffer();
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -3771,6 +3907,8 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "screenshot_uploading", ShowScreenshotUploading },
 		{ "show_first_time_tutorial", ShowFirstTimeTutorial },
 		{ "screenshot_saved", ShowScreenshotSaved },
+		{ "start_forward_buffer", StartForwardBuffer },
+		{ "stop_forward_buffer", StopForwardBuffer },
 	};
 	if (!data)
 		return;
