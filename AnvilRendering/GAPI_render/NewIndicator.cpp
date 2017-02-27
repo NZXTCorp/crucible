@@ -167,7 +167,7 @@ wstring hotkeyHelpText[HOTKEY_QTY] = {
 	L"Instant Clip",
 };
 
-int hotkeyIconOrder[HOTKEY_QTY] = {
+HOTKEY_TYPE hotkeyIconOrder[HOTKEY_QTY] = {
 	HOTKEY_Bookmark,
 	HOTKEY_Overlay,
 	HOTKEY_QuickClip,
