@@ -343,8 +343,6 @@ wstring MakeHotkeyDescription(bool excludeHotkeyCaption = false) {
 	return hotKeyDescription;
 }
 
-#define SKIP_INDICATOR_ITEM itemsRendered--; cycleBG = !cycleBG; skip_item = true;
-
 static unique_ptr<Bitmap> CreateWelcomeImage()
 {
 	Font largeFont(fontFace.c_str(), sizeLarge, FontStyleBold, Gdiplus::UnitPixel);
@@ -371,13 +369,38 @@ static unique_ptr<Bitmap> CreateWelcomeImage()
 	quickClipIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_QUICK_CLIP_ICON));
 	noIcon = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_NO_ICON));
 
+	auto hotkey_icon = [&](HOTKEY_TYPE type) -> Gdiplus::Bitmap*
+	{
+		switch (type) {
+		case HOTKEY_Bookmark:
+			return bookmarkIcon.get();
+		case HOTKEY_Overlay:
+			//return replayIcon.get();
+			break;
+		case HOTKEY_Screenshot:
+			//return screenshotIcon.get();
+			break;
+		case HOTKEY_PTT:
+			//return micIcon.get();
+			break;
+		case HOTKEY_QuickClip:
+			return quickClipIcon.get();
+			break;
+		default:
+			//return noIcon.get();
+			break;
+		}
+
+		return nullptr;
+	};
+
 	measureTemp.MeasureString(capturingCaption.c_str(), capturingCaption.length(), &largeFont, PointF(0.0f, 0.0f), &bound);
 	width = (int)bound.Width;
 	measureTemp.MeasureString(MakeHotkeyDescription(true).c_str(), MakeHotkeyDescription(true).length(), &mediumFont, PointF(0.0f, 0.0f), &bound);
 	if (bound.Width > width) width = (int)bound.Width;
 
 	for (int i = 0; i < HOTKEY_QTY; i++) {
-		if (indicatorHotkey_Keycode[i] != 0) {
+		if (indicatorHotkey_Keycode[i] != 0 && hotkey_icon(static_cast<HOTKEY_TYPE>(i))) {
 			numHotkeys++;
 		}
 	}
@@ -408,9 +431,12 @@ static unique_ptr<Bitmap> CreateWelcomeImage()
 
 	for (int i = 0; i < HOTKEY_QTY; i++) {
 		wstring hotkeyText = L"Press ";
-		bool skip_item = false;
 
 		if (indicatorHotkey_Keycode[hotkeyIconOrder[i]] != 0) {
+			auto icon = hotkey_icon(hotkeyIconOrder[i]);
+			if (!icon)
+				continue;
+
 			itemsRendered++;
 			cycleBG = !cycleBG;
 			if (!cycleBG) {
@@ -418,42 +444,14 @@ static unique_ptr<Bitmap> CreateWelcomeImage()
 				graphics.FillRectangle(&brightBG, 0, (itemsRendered) * 64, width, 64);
 			}
 
-			switch (hotkeyIconOrder[i]) {
-			case HOTKEY_Bookmark:
-				graphics.DrawImage(bookmarkIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
-				break;
-			case HOTKEY_Overlay:
-				SKIP_INDICATOR_ITEM
-				//graphics.DrawImage(replayIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
-				break;
-			case HOTKEY_Screenshot:
-				SKIP_INDICATOR_ITEM
-				//graphics.DrawImage(screenshotIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
-				break;
-			case HOTKEY_PTT:
-				SKIP_INDICATOR_ITEM
-				//graphics.DrawImage(micIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
-				break;
-			case HOTKEY_QuickClip:
-				graphics.DrawImage(quickClipIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
-				break;
-			default:
-				SKIP_INDICATOR_ITEM
-				//graphics.DrawImage(noIcon.get(), 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
-				break;
-			}
+			graphics.DrawImage(icon, 16, 8 + (itemsRendered) * 64, iconWidth, iconHeight);
 
-			if (!skip_item) {
-				graphics.SetSmoothingMode(SmoothingModeHighQuality);
-				graphics.DrawString(hotkeyHelpText[hotkeyIconOrder[i]].c_str(), hotkeyHelpText[hotkeyIconOrder[i]].length(), &mediumFont, PointF(32.0f + iconWidth, 12.0f + (itemsRendered) * 64.0f), &brush);
-				hotkeyText += GetHotkeyText(hotkeyIconOrder[i]);
-				graphics.DrawString(hotkeyText.c_str(), hotkeyText.length(), &mediumFont, PointF(32.0f + iconWidth, 32.0f + (itemsRendered) * 64.0f), &hotkeyBrush);
-			}
+			graphics.SetSmoothingMode(SmoothingModeHighQuality);
+			graphics.DrawString(hotkeyHelpText[hotkeyIconOrder[i]].c_str(), hotkeyHelpText[hotkeyIconOrder[i]].length(), &mediumFont, PointF(32.0f + iconWidth, 12.0f + (itemsRendered) * 64.0f), &brush);
+			hotkeyText += GetHotkeyText(hotkeyIconOrder[i]);
+			graphics.DrawString(hotkeyText.c_str(), hotkeyText.length(), &mediumFont, PointF(32.0f + iconWidth, 32.0f + (itemsRendered) * 64.0f), &hotkeyBrush);
 		}
 	}
-
-	graphics.SetCompositingMode(CompositingModeSourceCopy);
-	graphics.FillRectangle(&transparentBrush, 0, (itemsRendered + 1) * 64, width, height - ((numHotkeys - itemsRendered - 1) * 64));
 
 	return tmp;
 }
