@@ -215,6 +215,7 @@ static void HandleIndicatorCommand(Object &obj)
 		{"screenshot_processing", INDICATE_SCREENSHOT_PROCESSING},
 		{"screenshot", INDICATE_SCREENSHOT_SAVED},
 		{"first_time_tutorial", INDICATE_TUTORIAL},
+		{"forward_buffer_in_progress", INDICATE_FORWARD_BUFFER},
 	};
 
 	auto indicator = static_cast<String>(obj["indicator"]).Value();
@@ -333,6 +334,12 @@ static void HandleDismissOverlay(Object &obj)
 	DismissNamedOverlay(String(obj["name"]));
 }
 
+static void HandleForwardBufferIndicatorUpdate(Object &obj)
+{
+	auto msg = obj.Maybe()["text"].As<String>();
+	indicatorManager.UpdateForwardBufferText(msg ? msg->ValueW() : wstring());
+}
+
 static void HandleCommands(uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(Object&)> handlers = {
@@ -343,6 +350,7 @@ static void HandleCommands(uint8_t *data, size_t size)
 		{ "set_cursor", HandleSetCursor },
 		{ "dismiss_overlay", HandleDismissOverlay },
 		{ "stream_status", HandleStreamStatus },
+		{ "update_forward_buffer_indicator", HandleForwardBufferIndicatorUpdate },
 	};
 
 	if (!data) {

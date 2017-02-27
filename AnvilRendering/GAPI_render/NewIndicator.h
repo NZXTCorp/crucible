@@ -29,6 +29,7 @@ enum IndicatorEvent
 	INDICATE_SCREENSHOT_SAVED,
 	INDICATE_SCREENSHOT_PROCESSING,
 	INDICATE_TUTORIAL,
+	INDICATE_FORWARD_BUFFER,
 	INDICATE_NONE            // no image for this one, just a placeholder for loops and to tell graphics code we're not drawing anything
 };
 
@@ -68,6 +69,7 @@ private:
 	ProtectedObject<std::shared_ptr<Gdiplus::Bitmap>> m_images[INDICATE_NONE];
 	bool image_updated[INDICATE_NONE] = { false };
 	bool indicators_disabled = false;
+	std::wstring forward_buffer_text;
 public:
 	IndicatorManager( void );
 	~IndicatorManager( void );
@@ -75,6 +77,9 @@ public:
 	bool updateTextures = false;
 
 	void DisableIndicators( bool disable );
+
+	void UpdateForwardBufferText(std::wstring text);
+
 	bool LoadImages( void );
 	void FreeImages( void );
 	void UpdateImages( void );

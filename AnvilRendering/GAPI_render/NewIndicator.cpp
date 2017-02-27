@@ -557,6 +557,17 @@ void IndicatorManager::DisableIndicators(bool disable)
 	}
 }
 
+void IndicatorManager::UpdateForwardBufferText(wstring text)
+{
+	if (text == forward_buffer_text || indicators_disabled)
+		return;
+
+	forward_buffer_text = text;
+	*m_images[INDICATE_FORWARD_BUFFER].Lock() = CreatePopupImage(forward_buffer_text.empty() ? &L"..."s : &forward_buffer_text, nullptr, 0);
+	image_updated[INDICATE_FORWARD_BUFFER] = true;
+	updateTextures = true;
+}
+
 bool IndicatorManager::LoadImages( void )
 {
 	if (indicators_disabled) {
@@ -623,6 +634,10 @@ bool IndicatorManager::LoadImages( void )
 			break;
 		case INDICATE_TUTORIAL: {
 			*m_images[i].Lock() = CreateTutorialPopup();
+			break;
+		}
+		case INDICATE_FORWARD_BUFFER: {
+			*m_images[i].Lock() = CreatePopupImage(forward_buffer_text.empty() ? &L"..."s : &forward_buffer_text, nullptr, 0);
 			break;
 		}
 		default:
