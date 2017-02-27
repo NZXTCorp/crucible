@@ -131,9 +131,9 @@ namespace ForgeEvent
 			.Set("tutorial_active", tutorial_active));
 	}
 
-	bool SaveQuickForwardClip()
+	bool ToggleQuickForwardClip()
 	{
-		return SendEvent(EventCreate("save_quick_forward_clip"));
+		return SendEvent(EventCreate("toggle_quick_forward_clip"));
 	}
 
 	bool StartStopStream()

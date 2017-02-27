@@ -120,7 +120,7 @@ namespace ForgeEvent
 	bool StartStream();
 	bool StopStream();
 	bool SaveQuickClip(bool tutorial_active=false);
-	bool SaveQuickForwardClip();
+	bool ToggleQuickForwardClip();
 }
 
 std::vector<uint8_t> *ReadNewFramebuffer(ActiveOverlay ov);
