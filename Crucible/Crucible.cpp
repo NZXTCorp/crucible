@@ -2531,7 +2531,10 @@ struct CrucibleContext {
 		bookmark.extra_data = bufferBookmark.extra_data = OBSDataGetObj(obj, "extra_data");
 
 		video_tracked_frame_id tracked_id = 0;
-		if (!SaveRecordingBuffer(obj, &tracked_id))
+
+		bool interruptible = obs_data_get_bool(obj, "interruptible");
+		if ((interruptible && !StartForwardBuffer(obj, &tracked_id)) ||
+			(!interruptible && !SaveRecordingBuffer(obj, &tracked_id)))
 			tracked_id = obs_track_next_frame();
 
 		bookmark.tracked_id = bufferBookmark.tracked_id = tracked_id;
@@ -2551,7 +2554,7 @@ struct CrucibleContext {
 	}
 
 	boost::optional<uint32_t> forward_buffer_id;
-	bool StartForwardBuffer(obs_data_t *settings)
+	bool StartForwardBuffer(obs_data_t *settings, video_tracked_frame_id *tracked_id=nullptr)
 	{
 		if (forward_buffer_id) {
 			blog(LOG_INFO, "Tried to save forward buffer while forward buffer is already in progress");
@@ -2572,6 +2575,9 @@ struct CrucibleContext {
 
 		forward_buffer_id = static_cast<uint32_t>(calldata_int(&calldata, "buffer_id"));
 		blog(LOG_INFO, "started forward buffer id %d", *forward_buffer_id);
+
+		if (tracked_id)
+			*tracked_id = calldata_int(&calldata, "tracked_frame_id");
 
 		AnvilCommands::ForwardBufferInProgress(true, duration);
 
