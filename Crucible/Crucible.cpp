@@ -3850,12 +3850,17 @@ static void StartWatchdog()
 				SetEvent(message_handled_event.get());
 			});
 
+			const auto video_thread_timeout = static_cast<uint64_t>(chrono::duration_cast<chrono::nanoseconds>(20s).count());
+
 			auto res = WaitForObjects({ ev.get(), message_handled_event.get() }, 10 * 1000);
 			switch (res) {
 			case WAIT_OBJECT_0:
 				return;
 
 			case WAIT_OBJECT_0 + 1:
+				uint64_t video_thread_time;
+				if (obs_get_video_thread_time(&video_thread_time) && (os_gettime_ns() - video_thread_time) > video_thread_timeout)
+					break;
 				wait_time = max(chrono::duration_cast<clock::duration>(5s), next_queue_at - clock::now());
 				continue;
 			}
