@@ -3844,13 +3844,13 @@ static void StartWatchdog()
 		unique_ptr<void, HandleDeleter> message_handled_event{ CreateEvent(nullptr, false, false, nullptr) };
 		clock::duration wait_time = 5s;
 		while (WaitForObjects({ ev.get() }, chrono::duration_cast<chrono::milliseconds>(wait_time).count()) != WAIT_OBJECT_0) {
-			auto next_queue_at = clock::now() + 60s;
+			auto next_queue_at = clock::now() + 15s;
 			QueueOperation([&]
 			{
 				SetEvent(message_handled_event.get());
 			});
 
-			auto res = WaitForObjects({ ev.get(), message_handled_event.get() }, 40 * 1000);
+			auto res = WaitForObjects({ ev.get(), message_handled_event.get() }, 10 * 1000);
 			switch (res) {
 			case WAIT_OBJECT_0:
 				return;
