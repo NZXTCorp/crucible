@@ -99,6 +99,12 @@ namespace ForgeEvent
 			.Set("name", String(server.name)));
 	}
 
+	bool SetGameHWND(HWND hwnd)
+	{
+		return SendEvent(EventCreate("set_game_hwnd")
+			.Set("hwnd", (intptr_t)hwnd));
+	}
+
 	bool HideBrowser()
 	{
 		return SendEvent(EventCreate("hide_browser"));

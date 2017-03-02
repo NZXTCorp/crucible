@@ -347,6 +347,10 @@ void HandleInputHook(HWND window)
 		g_Proc.m_Stats.m_hWndCap = window;
 		win = window;
 		HookWndProc();
+
+		if (g_Proc.m_Stats.m_hWndCap) {
+			ForgeEvent::SetGameHWND((GetWindow(g_Proc.m_Stats.m_hWndCap, GW_OWNER) == NULL) ? g_Proc.m_Stats.m_hWndCap : GetWindow(g_Proc.m_Stats.m_hWndCap, GW_OWNER));
+		}
 	}
 
 	if (!g_HotKeys.HotkeysAttached())

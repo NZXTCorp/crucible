@@ -112,6 +112,7 @@ namespace ForgeEvent
 	bool InitBrowser(const std::array<BrowserConnectionDescription, OVERLAY_COUNT> &browsers, LONG width, LONG height);
 	bool ShowBrowser(const BrowserConnectionDescription &server, LONG width, LONG height);
 	bool HideBrowser();
+	bool SetGameHWND(HWND hwnd);
 	bool HideTutorial();
 	bool CreateBookmark();
 	bool SaveScreenshot();
