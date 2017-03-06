@@ -544,8 +544,39 @@ static unique_ptr<Bitmap> CreateTutorialPopup()
 	return tmp;
 }
 
+void IndicatorManager::DisableIndicators(bool disable)
+{
+	if (disable != indicators_disabled) {
+		indicators_disabled = disable;
+		LoadImages();
+
+		for (int i = 0; i < INDICATE_NONE; i++)
+			image_updated[i] = true;
+
+		updateTextures = true;
+	}
+}
+
 bool IndicatorManager::LoadImages( void )
 {
+	if (indicators_disabled) {
+		for (int i = 0; i < INDICATE_NONE; i++)
+		{
+			switch (i) {
+			case INDICATE_STREAM_MIC_ACTIVE:
+			case INDICATE_STREAM_MIC_IDLE:
+			case INDICATE_STREAM_MIC_MUTED:
+				*m_images[i].Lock() = CreateMicIndicator(i, micIndicatorW, micIndicatorH, true);
+				break;
+			default:
+				*m_images[i].Lock() = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_COLOR_BAR));
+				break;
+			}
+		}
+
+		return true;
+	}
+
 	for ( int i = 0; i < INDICATE_NONE; i++ )
 	{
 		switch (i) {
@@ -613,13 +644,14 @@ void IndicatorManager::UpdateImages(void)
 	if (!hotkeysChanged) return;
 	hotkeysChanged = false;
 
-	//*m_images[INDICATE_ENABLED].Lock() = CreatePopupImage(&capturingCaption, &MakeHotkeyDescription());
-	*m_images[INDICATE_ENABLED].Lock() = CreateWelcomeImage();
-	image_updated[INDICATE_ENABLED] = true;
-	*m_images[INDICATE_TUTORIAL].Lock() = CreateTutorialPopup();
-	image_updated[INDICATE_TUTORIAL] = true;
+	if (!indicators_disabled) {
+		*m_images[INDICATE_ENABLED].Lock() = CreateWelcomeImage();
+		image_updated[INDICATE_ENABLED] = true;
+		*m_images[INDICATE_TUTORIAL].Lock() = CreateTutorialPopup();
+		image_updated[INDICATE_TUTORIAL] = true;
 
-	updateTextures = true;
+		updateTextures = true;
+	}
 
 	return;
 }

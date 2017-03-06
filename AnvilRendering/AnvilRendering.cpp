@@ -229,6 +229,13 @@ static void HandleIndicatorCommand(Object &obj)
 	currentIndicator = elem->second;
 }
 
+static void DisableIndicators(Object &obj)
+{
+	bool disable = Boolean(obj["disable_indicators"]);
+
+	indicatorManager.DisableIndicators(disable);
+}
+
 static void HandleForgeInfo(Object &obj)
 {
 	String event = obj["anvil_event"];
@@ -330,6 +337,7 @@ static void HandleCommands(uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(Object&)> handlers = {
 		{ "indicator", HandleIndicatorCommand },
+		{ "disable_native_indicators", DisableIndicators },
 		{ "forge_info", HandleForgeInfo },
 		{ "update_settings", HandleUpdateSettings },
 		{ "set_cursor", HandleSetCursor },

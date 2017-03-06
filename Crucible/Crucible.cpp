@@ -670,6 +670,7 @@ namespace AnvilCommands {
 	atomic<bool> streaming = false;
 	atomic<bool> screenshotting = false;
 	atomic<bool> showingtutorial = false;
+	atomic<bool> disable_native_indicators = false;
 
 	const uint64_t enabled_timeout_seconds = 10;
 	atomic<uint64_t> enabled_timeout = 0;
@@ -857,6 +858,14 @@ namespace AnvilCommands {
 		SendCommand(cmd);
 	}
 
+	void DisableNativeIndicators(bool disable)
+	{
+		auto cmd = CommandCreate("disable_native_indicators");
+		obs_data_set_bool(cmd, "disable_indicators", disable);
+
+		SendCommand(cmd);
+	}
+
 	void ResetShowWelcome(bool show=true)
 	{
 		show_welcome = show;
@@ -1021,6 +1030,8 @@ namespace AnvilCommands {
 			obs_data_set_obj(cmd, "quick_clip_forward_key", quick_clip_forward_key);
 
 		SendCommand(cmd);
+
+		AnvilCommands::DisableNativeIndicators(disable_native_indicators);
 	}
 
 	void SendCursor(obs_data_t *cmd)
@@ -2887,6 +2898,8 @@ struct CrucibleContext {
 			return;
 
 		DStr str;
+
+		AnvilCommands::disable_native_indicators = obs_data_get_bool(settings, "disable_native_indicators");
 
 		auto bookmark_key = OBSDataGetObj(settings, "bookmark_key");
 		obs_key_combination bookmark_combo = {

@@ -67,12 +67,14 @@ class IndicatorManager
 private:
 	ProtectedObject<std::shared_ptr<Gdiplus::Bitmap>> m_images[INDICATE_NONE];
 	bool image_updated[INDICATE_NONE] = { false };
+	bool indicators_disabled = false;
 public:
 	IndicatorManager( void );
 	~IndicatorManager( void );
 
 	bool updateTextures = false;
 
+	void DisableIndicators( bool disable );
 	bool LoadImages( void );
 	void FreeImages( void );
 	void UpdateImages( void );
