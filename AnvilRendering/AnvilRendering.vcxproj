@@ -243,6 +243,7 @@
     <Image Include="GAPI_render\res\live_icon.png" />
     <Image Include="GAPI_render\res\mic_active_w_indicator.png" />
     <Image Include="GAPI_render\res\mic_icon.png" />
+    <Image Include="GAPI_render\res\mic_icon_disconnected.png" />
     <Image Include="GAPI_render\res\mic_icon_idle.png" />
     <Image Include="GAPI_render\res\mic_icon_muted.png" />
     <Image Include="GAPI_render\res\mic_idle_w_indicator.png" />

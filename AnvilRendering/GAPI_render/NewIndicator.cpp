@@ -35,6 +35,7 @@ static int s_image_res[INDICATE_NONE] =
 	IDB_MIC_ICON_IDLE,
 	IDB_MIC_ICON,
 	IDB_MIC_ICON_MUTED,
+	IDB_MIC_ICON_DISCONNECTED,
 	IDB_CACHE_LIMIT,
 	IDB_HIGHLIGHT_UPLOADING,
 	IDB_HIGHLIGHT_UPLOADED,
@@ -44,6 +45,7 @@ static int s_image_res[INDICATE_NONE] =
 	IDB_MIC_ICON_IDLE,
 	IDB_MIC_ICON,
 	IDB_MIC_ICON_MUTED,
+	IDB_MIC_ICON_DISCONNECTED,
 };
 
 int micIndicatorW = 48, micIndicatorH = 48;
@@ -597,11 +599,13 @@ bool IndicatorManager::LoadImages( void )
 		case INDICATE_STREAM_MIC_ACTIVE:
 		case INDICATE_STREAM_MIC_IDLE:
 		case INDICATE_STREAM_MIC_MUTED:
+		case INDICATE_STREAM_MIC_DISCONNECTED:
 			*m_images[i].Lock() = CreateMicIndicator(i, micIndicatorW, micIndicatorH, true);
 			break;
 		case INDICATE_MIC_ACTIVE:
 		case INDICATE_MIC_IDLE:
 		case INDICATE_MIC_MUTED:
+		case INDICATE_MIC_DISCONNECTED:
 			*m_images[i].Lock() = CreateMicIndicator(i, micIndicatorW, micIndicatorH);
 			break;
 		case INDICATE_BOOKMARK:

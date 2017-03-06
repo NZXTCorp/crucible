@@ -666,6 +666,7 @@ namespace AnvilCommands {
 	atomic<bool> using_mic = false;
 	atomic<bool> using_ptt = false;
 	atomic<bool> mic_muted = false;
+	atomic<bool> mic_acquired = false;
 	atomic<bool> display_enabled_hotkey = false;
 	atomic<bool> streaming = false;
 	atomic<bool> screenshotting = false;
@@ -820,14 +821,21 @@ namespace AnvilCommands {
 		auto cmd = CommandCreate("indicator");
 
 		const char *indicator = recording ? "capturing" : "idle";
-		if (recording && using_mic)
-			indicator = mic_muted ? (using_ptt ? "mic_idle" : "mic_muted") : "mic_active";
+		if (recording && using_mic) {
+			if (!mic_acquired)
+				indicator = "mic_disconnected";
+			else
+				indicator = mic_muted ? (using_ptt ? "mic_idle" : "mic_muted") : "mic_active";
+		}
 
 		if (streaming) {
 			indicator = "streaming";
 
 			if (using_mic)
-				indicator = mic_muted ? (using_ptt ? "stream_mic_idle" : "stream_mic_muted") : "stream_mic_active";
+				if (!mic_acquired)
+					indicator = "stream_mic_disconnected";
+				else
+					indicator = mic_muted ? (using_ptt ? "stream_mic_idle" : "stream_mic_muted") : "stream_mic_active";
 		}
 
 		if (enabled_timeout >= os_gettime_ns())
@@ -964,7 +972,7 @@ namespace AnvilCommands {
 			SendIndicator();
 	}
 
-	void MicUpdated(boost::tribool muted, boost::tribool active=boost::indeterminate, boost::tribool ptt=boost::indeterminate)
+	void MicUpdated(boost::tribool muted, boost::tribool active=boost::indeterminate, boost::tribool ptt=boost::indeterminate, boost::tribool acquired=boost::indeterminate)
 	{
 		bool changed = false;
 		if (!boost::indeterminate(active))
@@ -973,6 +981,8 @@ namespace AnvilCommands {
 			changed = (muted != mic_muted.exchange(muted)) || changed;
 		if (!boost::indeterminate(ptt))
 			changed = (ptt != using_ptt.exchange(ptt)) || changed;
+		if (!boost::indeterminate(acquired))
+			changed = (acquired != mic_acquired.exchange(acquired)) || changed;
 
 		if (!changed)
 			return;
@@ -1468,7 +1478,7 @@ struct CrucibleContext {
 	uint32_t fps_den;
 	std::string webcam_device;
 	OBSSource tunes, mic, gameCapture, webcam, theme, window, wallpaper;
-	OBSSourceSignal micMuted, pttActive;
+	OBSSourceSignal micMuted, pttActive, micAcquired;
 	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess, screenshotSaved;
 	OBSEncoder h264, aac, stream_h264;
 	string filename = "";
@@ -1577,8 +1587,11 @@ struct CrucibleContext {
 
 	void InitSources()
 	{
+		auto settings = OBSDataCreate();
+		obs_data_set_string(settings, "device_id", "<disabled>");
+
 		InitRef(mic, "Couldn't create audio input device source", obs_source_release,
-			obs_source_create(OBS_SOURCE_TYPE_INPUT, "wasapi_input_capture", "wasapi mic", nullptr, nullptr));
+			obs_source_create(OBS_SOURCE_TYPE_INPUT, "wasapi_input_capture", "wasapi mic", settings, nullptr));
 
 		auto weak_mic = OBSGetWeakRef(mic);
 		OBSEnumHotkeys([&](obs_hotkey_id id, obs_hotkey_t *key)
@@ -1872,6 +1885,16 @@ struct CrucibleContext {
 			.SetFunc([=](calldata_t *data)
 		{
 			AnvilCommands::MicUpdated(!calldata_bool(data, "active"));
+		})
+			.Connect();
+
+		micAcquired
+			.SetOwner(mic)
+			.SetSignal("acquired")
+			.SetFunc([=](calldata_t *data)
+		{
+			bool active = calldata_bool(data, "active");
+			AnvilCommands::MicUpdated(boost::indeterminate, boost::indeterminate, boost::indeterminate, active);
 		})
 			.Connect();
 
