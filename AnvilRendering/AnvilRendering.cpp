@@ -359,6 +359,11 @@ static void HandleForwardBufferIndicatorUpdate(Object &obj)
 	indicatorManager.UpdateForwardBufferText(msg ? msg->ValueW() : wstring());
 }
 
+static void HandleDismissQuickSelect(Object&)
+{
+	StopQuickSelect(true);
+}
+
 static void HandleCommands(uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(Object&)> handlers = {
@@ -370,6 +375,7 @@ static void HandleCommands(uint8_t *data, size_t size)
 		{ "dismiss_overlay", HandleDismissOverlay },
 		{ "stream_status", HandleStreamStatus },
 		{ "update_forward_buffer_indicator", HandleForwardBufferIndicatorUpdate },
+		{ "dismiss_quick_select", HandleDismissQuickSelect },
 	};
 
 	if (!data) {

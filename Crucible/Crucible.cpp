@@ -1149,6 +1149,15 @@ namespace AnvilCommands {
 		SendCommand(cmd);
 	}
 
+	void DismissQuickSelect()
+	{
+		auto cmd = CommandCreate("dismiss_quick_select");
+
+		LOCK(commandMutex);
+
+		SendCommand(cmd);
+	}
+
 	void StreamStatus(bool streaming_)
 	{
 		auto cmd = CommandCreate("stream_status");
@@ -3913,6 +3922,11 @@ static void StopForwardBuffer(CrucibleContext &cc, OBSData&)
 	cc.StopForwardBuffer();
 }
 
+static void HandleDismissQuickSelect(CrucibleContext &cc, OBSData&)
+{
+	AnvilCommands::DismissQuickSelect();
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -3955,6 +3969,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "screenshot_saved", ShowScreenshotSaved },
 		{ "start_forward_buffer", StartForwardBuffer },
 		{ "stop_forward_buffer", StopForwardBuffer },
+		{ "dismiss_quick_select", HandleDismissQuickSelect },
 	};
 	if (!data)
 		return;
