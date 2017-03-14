@@ -10,6 +10,7 @@
 
 #include "InputHooks.h" // input hooking
 #include "KeyboardInput.h" // input capture
+#include "MouseInput.h"
 
 CTaksiHotKeys g_HotKeys;		// what does the user want to do?
 CTaksiKeyboard g_UserKeyboard;		// keyboard hook handle. if i cant hook DI. Just for this process.
@@ -393,6 +394,9 @@ LRESULT CALLBACK CTaksiKeyboard::KeyboardProc(int code, WPARAM wParam, LPARAM lP
 
 //********************************************************
 
+void StartQuickSelectTimeout();
+extern bool quick_selecting;
+
 static bool hotkeys_pressed[HOTKEY_QTY] = { false };
 
 bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt, WORD key)
@@ -402,6 +406,8 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt, WORD key)
 
 	bool activated = !hotkeys_pressed[eHotKey] && evt == HKEVENT_PRESS;
 	hotkeys_pressed[eHotKey] = evt == HKEVENT_PRESS;
+
+	bool instant_clip = false;
 
 	switch(eHotKey)
 	{
@@ -415,14 +421,31 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt, WORD key)
 			ToggleOverlay(OVERLAY_STREAMING);
 		return true;
 
+	case HOTKEY_Cancel:
+		if (activated && quick_selecting) {
+			ForgeEvent::DismissQuickSelect();
+			StopQuickSelect();
+			return true;
+		}
+		break;
+
+	case HOTKEY_Select:
+		if (activated && quick_selecting)
+			return true;
+		break;
+
+	case HOTKEY_QuickClip:
+	case HOTKEY_QuickForwardClip:
+		instant_clip = true;
 	case HOTKEY_Screenshot:
 	case HOTKEY_Bookmark:
 	case HOTKEY_StartStopStream:
-	case HOTKEY_QuickClip:
-	case HOTKEY_QuickForwardClip:
 		// schedule to be in the PresentFrameBegin() call.
-		if (activated)
+		if (activated) {
 			ScheduleHotKey(eHotKey);
+			if (instant_clip && GetHotKey(HOTKEY_Cancel))
+				StartQuickSelectTimeout();
+		}
 		return false;
 	}
 	// shouldnt get here!

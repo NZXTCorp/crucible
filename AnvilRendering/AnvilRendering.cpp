@@ -22,6 +22,8 @@
 #include <commctrl.h>	// HOTKEYF_ALT
 #include <d3dcompiler.h>
 
+#include "TaksiInput/MouseInput.h"
+
 using namespace std;
 
 #define CONCAT2(x, y) x ## y
@@ -134,6 +136,16 @@ namespace ForgeEvent
 	bool ToggleQuickForwardClip()
 	{
 		return SendEvent(EventCreate("toggle_quick_forward_clip"));
+	}
+
+	bool DismissQuickSelect()
+	{
+		return SendEvent(EventCreate("dismiss_quick_select"));
+	}
+
+	bool StartQuickSelect()
+	{
+		return SendEvent(EventCreate("start_quick_select"));
 	}
 
 	bool StartStopStream()
@@ -298,6 +310,8 @@ static void HandleUpdateSettings(Object &obj)
 		UpdateHotkey(HOTKEY_Screenshot, "screenshot_key");
 		UpdateHotkey(HOTKEY_QuickClip, "quick_clip_key");
 		UpdateHotkey(HOTKEY_QuickForwardClip, "quick_clip_forward_key");
+		UpdateHotkey(HOTKEY_Cancel, "cancel_key");
+		UpdateHotkey(HOTKEY_Select, "select_key");
 
 		indicatorManager.UpdateImages();
 
@@ -443,6 +457,7 @@ static void RestartCrucibleServer()
 			hotkeys[t] = { 0 };
 	}
 	DismissOverlay(true);
+	StopQuickSelect(true);
 	*overlay_cursor.Lock() = LoadCursorW(nullptr, IDC_ARROW);
 
 	if (!crucibleConnectionRestartEvent)

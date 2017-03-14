@@ -52,6 +52,8 @@ enum HOTKEY_TYPE
 	HOTKEY_PTT,
 	HOTKEY_QuickClip,
 	HOTKEY_QuickForwardClip,
+	HOTKEY_Cancel,
+	HOTKEY_Select,
 	HOTKEY_QTY,
 };
 
@@ -121,6 +123,8 @@ namespace ForgeEvent
 	bool StopStream();
 	bool SaveQuickClip(bool tutorial_active=false);
 	bool ToggleQuickForwardClip();
+	bool DismissQuickSelect();
+	bool StartQuickSelect();
 }
 
 std::vector<uint8_t> *ReadNewFramebuffer(ActiveOverlay ov);

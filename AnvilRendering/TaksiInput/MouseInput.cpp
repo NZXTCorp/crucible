@@ -5,16 +5,55 @@
 #include <Windows.h>
 
 #include "AnvilRendering.h"
+#include <chrono>
 
 extern bool g_bBrowserShowing;
 
+using clock_ = std::chrono::steady_clock;
+static clock_::time_point select_timeout;
+bool quick_selecting = false;
+
+void StartQuickSelectTimeout()
+{
+	using namespace std;
+	select_timeout = clock_::now() + 3s;
+}
+
+bool SendStopQuickSelect();
+void StopQuickSelect(bool from_remote)
+{
+	if (from_remote) {
+		SendStopQuickSelect();
+		return;
+	}
+
+	select_timeout = {};
+	quick_selecting = false;
+}
+
 bool UpdateMouseState(UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	if (!g_bBrowserShowing)
+	if (!quick_selecting && select_timeout >= clock_::now() && msg == WM_MBUTTONDOWN) {
+		quick_selecting = true;
+		ForgeEvent::StartQuickSelect();
+		return true;
+	}
+
+	if (!g_bBrowserShowing && !quick_selecting)
 		return false;
 
 	switch (msg)
 	{
+	case WM_MBUTTONDOWN:
+	case WM_MBUTTONUP:
+	case WM_MBUTTONDBLCLK:
+	case WM_MOUSEWHEEL:
+		if (g_bBrowserShowing || quick_selecting) {
+			ForgeEvent::MouseEvent(msg, wParam, lParam);
+			return true;
+		}
+		break;
+
 	case WM_MOUSEMOVE:
 	case WM_LBUTTONDOWN:
 	case WM_LBUTTONUP:
@@ -22,15 +61,13 @@ bool UpdateMouseState(UINT msg, WPARAM wParam, LPARAM lParam)
 	case WM_RBUTTONDOWN:
 	case WM_RBUTTONUP:
 	case WM_RBUTTONDBLCLK:
-	case WM_MBUTTONDOWN:
-	case WM_MBUTTONUP:
-	case WM_MBUTTONDBLCLK:
-	case WM_MOUSEWHEEL:
 	case WM_XBUTTONDOWN:
 	case WM_XBUTTONUP:
 	case WM_XBUTTONDBLCLK:
-		ForgeEvent::MouseEvent(msg, wParam, lParam);
-		return true;
+		if (g_bBrowserShowing) {
+			ForgeEvent::MouseEvent(msg, wParam, lParam);
+			return true;
+		}
 	}
 
 	return false;

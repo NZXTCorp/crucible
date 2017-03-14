@@ -156,6 +156,8 @@ wstring hotkeyHelpText_Basic[HOTKEY_QTY] = {
 	L"Mute/unmute microphone",
 	L"Save a replay clip",
 	L"Save an instant clip",
+	L"Cancel quick share",
+	L"Send quick share",
 };
 
 wstring hotkeyHelpText[HOTKEY_QTY] = {
@@ -167,6 +169,8 @@ wstring hotkeyHelpText[HOTKEY_QTY] = {
 	L"Mute/unmute microphone",
 	L"Replay Clip",
 	L"Instant Clip",
+	L"Cancel",
+	L"Select",
 };
 
 HOTKEY_TYPE hotkeyIconOrder[HOTKEY_QTY] = {
@@ -178,6 +182,8 @@ HOTKEY_TYPE hotkeyIconOrder[HOTKEY_QTY] = {
 	HOTKEY_PTT,
 	HOTKEY_Stream,
 	HOTKEY_StartStopStream,
+	HOTKEY_Cancel,
+	HOTKEY_Select,
 };
 
 unsigned int indicatorHotkey_Keycode[HOTKEY_QTY];

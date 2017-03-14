@@ -721,6 +721,7 @@ void UnhookInput( void )
 }
 
 #define DISMISS_OVERLAY WM_USER + 2016
+#define STOP_QUICK_SELECT WM_USER + 2017
 
 bool SendDismissOverlay()
 {
@@ -732,6 +733,17 @@ bool SendDismissOverlay()
 }
 void DismissOverlay(bool from_remote);
 
+bool SendStopQuickSelect()
+{
+	if (!g_Proc.m_Stats.m_hWndCap)
+		return false;
+
+	SendMessage(g_Proc.m_Stats.m_hWndCap, STOP_QUICK_SELECT, 0, 0);
+	return true;
+}
+
+extern bool quick_selecting;
+
 // handle any input events sent to game's window. return true if we're eating them (ie: showing overlay)
 // we should try to keep this code simple and pass messages off to appropriate handler functions.
 bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LPMSG lpMsg=nullptr)
@@ -739,9 +751,9 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LPMSG lpM
 	auto handleKey = [&](KeyEventType type)
 	{
 		auto res = UpdateWMKeyState(wParam, type);
-		if (g_bBrowserShowing)
+		if (g_bBrowserShowing || res)
 			ForgeEvent::KeyEvent(uMsg, wParam, lParam);
-		if (g_bBrowserShowing && uMsg != WM_CHAR && lpMsg)
+		if ((g_bBrowserShowing || res) && uMsg != WM_CHAR && lpMsg)
 			TranslateMessage(lpMsg);
 
 		return res;
@@ -781,6 +793,14 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LPMSG lpM
 			if (g_bBrowserShowing)
 			{
 				DismissOverlay(false);
+				return true;
+			}
+			return false;
+
+		case STOP_QUICK_SELECT:
+			if (quick_selecting)
+			{
+				StopQuickSelect();
 				return true;
 			}
 			return false;

@@ -167,10 +167,19 @@ static void HandleHotkeys(T s_keys, U keys)
 	}
 }
 
+extern bool quick_selecting;
+
 // compare keyboard provided state to last known state. 
 void UpdateKeyboardState( PBYTE keys )
 {
 	HandleHotkeys(s_keys, keys);
+
+	BYTE cancel;
+	BYTE select;
+	if (quick_selecting) {
+		cancel = GetHotKey(HOTKEY_Cancel);
+		select = GetHotKey(HOTKEY_Select);
+	}
 
 	for ( int i = 0; i < 256; i++ )
 	{
@@ -193,11 +202,20 @@ void UpdateKeyboardState( PBYTE keys )
 		s_keys[i] = key;
 
 		// overlay showing, zero out the 'key down' bit so game sees key never pressed
-		if ( g_bBrowserShowing )
+		if ( g_bBrowserShowing ||
+			(quick_selecting && i && (cancel == i || select == i)))
 		{
 			keys[i] = 0;
 		}
 	}
+}
+
+static bool filter_quick_select(int key)
+{
+	if (!quick_selecting || !key)
+		return false;
+
+	return GetHotKey(HOTKEY_Cancel) == key || GetHotKey(HOTKEY_Select) == key;
 }
 
 // update the state of a single key from a GetAsyncKeyState call
@@ -218,7 +236,7 @@ SHORT UpdateSingleKeyState( int key, SHORT state )
 		s_keys[key] = false;
 	}
 
-	if (!g_bBrowserShowing)
+	if (!g_bBrowserShowing && !filter_quick_select(key))
 		s_pre_overlay_keys[key] = s_keys[key];
 	else
 		return s_pre_overlay_keys[key] ? 0x8000 : 0;
@@ -245,7 +263,7 @@ void UpdateRawKeyState( PRAWKEYBOARD event )
 	}
 
 	UpdateWMKeyState(event->VKey, type);
-	if (!g_bBrowserShowing)
+	if (!g_bBrowserShowing && !filter_quick_select(event->VKey))
 		return;
 
 	ZeroMemory(event, sizeof(*event));
@@ -279,5 +297,5 @@ bool UpdateWMKeyState( int key, KeyEventType type )
 		break;
 	}		
 	
-	return g_bBrowserShowing;
+	return g_bBrowserShowing || filter_quick_select(key);
 }
