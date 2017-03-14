@@ -706,6 +706,8 @@ namespace AnvilCommands {
 	OBSData start_stop_stream_key;
 	OBSData ptt_key;
 	OBSData screenshot_key;
+	OBSData cancel_key;
+	OBSData select_key;
 	OBSData cursor;
 
 	void SendForgeInfo(const char *info=nullptr);
@@ -716,7 +718,9 @@ namespace AnvilCommands {
 		obs_data_t *ptt_key_ = nullptr,
 		obs_data_t *screenshot_key_ = nullptr,
 		obs_data_t *quick_clip_key_ = nullptr,
-		obs_data_t *quick_clip_foward_key_ = nullptr);
+		obs_data_t *quick_clip_foward_key_ = nullptr,
+		obs_data_t *cancel_key_ = nullptr,
+		obs_data_t *select_key_ = nullptr);
 	void SendIndicator();
 	void SendCursor(obs_data_t *cmd=nullptr);
 
@@ -1064,7 +1068,9 @@ namespace AnvilCommands {
 		SendCommand(cmd);
 	}
 
-	void SendSettings(obs_data_t *bookmark_key_, obs_data_t *highlight_key_, obs_data_t *stream_key_, obs_data_t *start_stop_stream_key_, obs_data_t *ptt_key_, obs_data_t *screenshot_key_, obs_data_t *quick_clip_key_, obs_data_t *quick_clip_forward_key_)
+	void SendSettings(obs_data_t *bookmark_key_, obs_data_t *highlight_key_, obs_data_t *stream_key_, obs_data_t *start_stop_stream_key_, obs_data_t *ptt_key_,
+		obs_data_t *screenshot_key_, obs_data_t *quick_clip_key_, obs_data_t *quick_clip_forward_key_,
+		obs_data_t *cancel_key_, obs_data_t *select_key_)
 	{
 		auto cmd = CommandCreate("update_settings");
 
@@ -1089,6 +1095,11 @@ namespace AnvilCommands {
 		if (screenshot_key_)
 			screenshot_key = screenshot_key_;
 
+		if (cancel_key_)
+			cancel_key = cancel_key_;
+		if (select_key_)
+			select_key = select_key_;
+
 		if (bookmark_key)
 			obs_data_set_obj(cmd, "bookmark_key", bookmark_key);
 		if (highlight_key)
@@ -1105,6 +1116,10 @@ namespace AnvilCommands {
 			obs_data_set_obj(cmd, "quick_clip_key", quick_clip_key);
 		if (quick_clip_forward_key)
 			obs_data_set_obj(cmd, "quick_clip_forward_key", quick_clip_forward_key);
+		if (cancel_key)
+			obs_data_set_obj(cmd, "cancel_key", cancel_key);
+		if (select_key)
+			obs_data_set_obj(cmd, "select_key", select_key);
 
 		SendCommand(cmd);
 
@@ -3073,7 +3088,9 @@ struct CrucibleContext {
 			OBSDataGetObj(settings, "ptt_key"),
 			OBSDataGetObj(settings, "screenshot_key"),
 			OBSDataGetObj(settings, "quick_clip_key"),
-			OBSDataGetObj(settings, "quick_clip_forward_key"));
+			OBSDataGetObj(settings, "quick_clip_forward_key"),
+			OBSDataGetObj(settings, "cancel_key"),
+			OBSDataGetObj(settings, "select_key"));
 #else
 		obs_key_combination_to_str(bookmark_combo, str);
 		blog(LOG_INFO, "bookmark hotkey uses '%s'", str->array);
