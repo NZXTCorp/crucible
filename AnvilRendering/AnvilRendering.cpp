@@ -246,6 +246,9 @@ static void HandleForgeInfo(Object &obj)
 	if (event.Value() != ForgeEvent::current_connection)
 		ForgeEvent::forge_client.Open(event.Value());
 
+	// (Re-)send Game HWND, just in case
+	ForgeEvent::SetGameHWND((GetWindow(g_Proc.m_Stats.m_hWndCap, GW_OWNER) == NULL) ? g_Proc.m_Stats.m_hWndCap : GetWindow(g_Proc.m_Stats.m_hWndCap, GW_OWNER));
+
 	StartFramebufferServer();
 }
 
