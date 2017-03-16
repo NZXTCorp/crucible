@@ -51,6 +51,12 @@ bool UpdateMouseState(UINT msg, WPARAM wParam, LPARAM lParam)
 	if (!g_bBrowserShowing && !quick_selecting)
 		return false;
 
+	if (quick_selecting && !g_bBrowserShowing) {
+		POINT pt = { 0, 0 };
+		ClientToScreen(g_Proc.m_Stats.m_hWndCap, &pt);
+		lParam = POINTTOPOINTS(pt);
+	}
+
 	switch (msg)
 	{
 	case WM_MBUTTONDOWN:
