@@ -407,8 +407,6 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt, WORD key)
 	bool activated = !hotkeys_pressed[eHotKey] && evt == HKEVENT_PRESS;
 	hotkeys_pressed[eHotKey] = evt == HKEVENT_PRESS;
 
-	bool instant_clip = false;
-
 	switch(eHotKey)
 	{
 	case HOTKEY_Overlay:
@@ -438,16 +436,12 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt, WORD key)
 
 	case HOTKEY_QuickClip:
 	case HOTKEY_QuickForwardClip:
-		instant_clip = true;
 	case HOTKEY_Screenshot:
 	case HOTKEY_Bookmark:
 	case HOTKEY_StartStopStream:
 		// schedule to be in the PresentFrameBegin() call.
-		if (activated) {
+		if (activated)
 			ScheduleHotKey(eHotKey);
-			if (instant_clip && GetHotKey(HOTKEY_Cancel))
-				StartQuickSelectTimeout();
-		}
 		return false;
 	}
 	// shouldnt get here!
