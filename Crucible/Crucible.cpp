@@ -1158,6 +1158,17 @@ namespace AnvilCommands {
 		SendCommand(cmd);
 	}
 
+	void BeginQuickSelectTimeout(uint32_t timeout_ms)
+	{
+		auto cmd = CommandCreate("begin_quick_select_timeout");
+
+		obs_data_set_int(cmd, "timeout_ms", timeout_ms);
+
+		LOCK(commandMutex);
+
+		SendCommand(cmd);
+	}
+
 	void StreamStatus(bool streaming_)
 	{
 		auto cmd = CommandCreate("stream_status");
@@ -3927,6 +3938,11 @@ static void HandleDismissQuickSelect(CrucibleContext &cc, OBSData&)
 	AnvilCommands::DismissQuickSelect();
 }
 
+static void HandleBeginQuickSelectTimeout(CrucibleContext &cc, OBSData &data)
+{
+	AnvilCommands::BeginQuickSelectTimeout(obs_data_get_int(data, "timeout_ms"));
+}
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
@@ -3970,6 +3986,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "start_forward_buffer", StartForwardBuffer },
 		{ "stop_forward_buffer", StopForwardBuffer },
 		{ "dismiss_quick_select", HandleDismissQuickSelect },
+		{ "begin_quick_select_timeout", HandleBeginQuickSelectTimeout },
 	};
 	if (!data)
 		return;

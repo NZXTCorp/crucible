@@ -13,10 +13,19 @@ using clock_ = std::chrono::steady_clock;
 static clock_::time_point select_timeout;
 bool quick_selecting = false;
 
-void StartQuickSelectTimeout()
+bool SendBeginQuickSelectTimeout(uint32_t timeout_ms);
+void StartQuickSelectTimeout(uint32_t timeout_ms, bool from_remote)
 {
+	if (from_remote) {
+		SendBeginQuickSelectTimeout(timeout_ms);
+		return;
+	}
+
+	if (!GetHotKey(HOTKEY_Cancel))
+		return;
+
 	using namespace std;
-	select_timeout = clock_::now() + 3s;
+	select_timeout = clock_::now() + chrono::milliseconds{ timeout_ms };
 }
 
 bool SendStopQuickSelect();

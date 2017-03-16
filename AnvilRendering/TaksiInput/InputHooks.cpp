@@ -722,6 +722,7 @@ void UnhookInput( void )
 
 #define DISMISS_OVERLAY WM_USER + 2016
 #define STOP_QUICK_SELECT WM_USER + 2017
+#define BEGIN_QUICK_SELECT_TIMEOUT WM_USER + 2018
 
 bool SendDismissOverlay()
 {
@@ -739,6 +740,15 @@ bool SendStopQuickSelect()
 		return false;
 
 	SendMessage(g_Proc.m_Stats.m_hWndCap, STOP_QUICK_SELECT, 0, 0);
+	return true;
+}
+
+bool SendBeginQuickSelectTimeout(uint32_t timeout_ms)
+{
+	if (!g_Proc.m_Stats.m_hWndCap)
+		return false;
+
+	SendMessage(g_Proc.m_Stats.m_hWndCap, BEGIN_QUICK_SELECT_TIMEOUT, timeout_ms, 0);
 	return true;
 }
 
@@ -801,6 +811,14 @@ bool InputWndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LPMSG lpM
 			if (quick_selecting)
 			{
 				StopQuickSelect();
+				return true;
+			}
+			return false;
+
+		case BEGIN_QUICK_SELECT_TIMEOUT:
+			if (!quick_selecting)
+			{
+				StartQuickSelectTimeout(static_cast<uint32_t>(wParam));
 				return true;
 			}
 			return false;

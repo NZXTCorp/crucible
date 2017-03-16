@@ -364,6 +364,13 @@ static void HandleDismissQuickSelect(Object&)
 	StopQuickSelect(true);
 }
 
+static void HandleBeginQuickSelectTimeout(Object &obj)
+{
+	auto timeout = obj.Maybe()["timeout_ms"].As<Number>();
+	if (timeout)
+		StartQuickSelectTimeout(static_cast<uint32_t>(timeout->Value()), true);
+}
+
 static void HandleCommands(uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(Object&)> handlers = {
@@ -376,6 +383,7 @@ static void HandleCommands(uint8_t *data, size_t size)
 		{ "stream_status", HandleStreamStatus },
 		{ "update_forward_buffer_indicator", HandleForwardBufferIndicatorUpdate },
 		{ "dismiss_quick_select", HandleDismissQuickSelect },
+		{ "begin_quick_select_timeout", HandleBeginQuickSelectTimeout },
 	};
 
 	if (!data) {
