@@ -842,35 +842,37 @@ namespace AnvilCommands {
 					indicator = mic_muted ? (using_ptt ? "stream_mic_idle" : "stream_mic_muted") : "stream_mic_active";
 		}
 
-		if (enabled_timeout >= os_gettime_ns())
-			indicator = "enabled";
+		if (!disable_native_indicators) {
+			if (enabled_timeout >= os_gettime_ns())
+				indicator = "enabled";
 
-		if (clipping)
-			indicator = "clip_processing";
+			if (clipping)
+				indicator = "clip_processing";
 
-		if (screenshotting)
-			indicator = "screenshot_processing";
+			if (screenshotting)
+				indicator = "screenshot_processing";
 
-		if (forward_buffer_in_progress)
-			indicator = "forward_buffer_in_progress";
+			if (forward_buffer_in_progress)
+				indicator = "forward_buffer_in_progress";
 
-		if (cache_limit_timeout >= os_gettime_ns())
-			indicator = "cache_limit";
+			if (cache_limit_timeout >= os_gettime_ns())
+				indicator = "cache_limit";
 
-		if (clip_finished_timeout >= os_gettime_ns())
-			indicator = "clip_processed";
+			if (clip_finished_timeout >= os_gettime_ns())
+				indicator = "clip_processed";
 
-		if (screenshot_timeout >= os_gettime_ns())
-			indicator = "screenshot";
+			if (screenshot_timeout >= os_gettime_ns())
+				indicator = "screenshot";
 
-		if (bookmark_timeout >= os_gettime_ns())
-			indicator = "bookmark";
+			if (bookmark_timeout >= os_gettime_ns())
+				indicator = "bookmark";
 
-		if (stream_timeout >= os_gettime_ns())
-			indicator = streaming ? "stream_started" : "stream_stopped";
+			if (stream_timeout >= os_gettime_ns())
+				indicator = streaming ? "stream_started" : "stream_stopped";
 
-		if (showingtutorial)
-			indicator = "first_time_tutorial";
+			if (showingtutorial)
+				indicator = "first_time_tutorial";
+		}
 
 		obs_data_set_string(cmd, "indicator", indicator);
 
