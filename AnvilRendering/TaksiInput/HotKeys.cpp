@@ -421,7 +421,7 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt, WORD key)
 
 	case HOTKEY_Cancel:
 		if (quick_selecting) {
-			if (activated) {
+			if (!activated) {
 				ForgeEvent::DismissQuickSelect();
 				StopQuickSelect();
 			}
