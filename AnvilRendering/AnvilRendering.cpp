@@ -148,6 +148,11 @@ namespace ForgeEvent
 		return SendEvent(EventCreate("start_quick_select"));
 	}
 
+	bool QuickSelectTimeoutExpired()
+	{
+		return SendEvent(EventCreate("quick_select_timeout_expired"));
+	}
+
 	bool StartStopStream()
 	{
 		return SendEvent(EventCreate("start_stop_stream_hotkey"));

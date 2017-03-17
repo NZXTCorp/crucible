@@ -3,6 +3,7 @@
 #include "AnvilRendering.h"
 
 #include "TaksiInput/HotKeys.h"
+#include "TaksiInput/MouseInput.h"
 #include "GAPI_render/NewIndicator.h"
 
 #include "../Crucible/IPC.hpp"
@@ -365,6 +366,9 @@ void HandleInputHook(HWND window)
 	ProcessHotKeys();
 
 	ResetOverlayCursor();
+	
+	if (QuickSelectTimeoutExpired())
+		ForgeEvent::QuickSelectTimeoutExpired();
 }
 
 void StopInputHook()

@@ -40,10 +40,20 @@ void StopQuickSelect(bool from_remote)
 	quick_selecting = false;
 }
 
+bool QuickSelectTimeoutExpired()
+{
+	if (select_timeout >= clock_::now() || select_timeout == decltype(select_timeout){})
+		return false;
+
+	select_timeout = {};
+	return true;
+}
+
 bool UpdateMouseState(UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	if (!quick_selecting && select_timeout >= clock_::now() && msg == WM_MBUTTONDOWN) {
 		quick_selecting = true;
+		select_timeout = {};
 		ForgeEvent::StartQuickSelect();
 		return true;
 	}

@@ -125,6 +125,7 @@ namespace ForgeEvent
 	bool ToggleQuickForwardClip();
 	bool DismissQuickSelect();
 	bool StartQuickSelect();
+	bool QuickSelectTimeoutExpired();
 }
 
 std::vector<uint8_t> *ReadNewFramebuffer(ActiveOverlay ov);
