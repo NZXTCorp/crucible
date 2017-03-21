@@ -66,16 +66,16 @@ namespace ForgeEvent
 	{
 		return SendEvent(EventCreate("key_event")
 			.Set("msg", msg)
-			.Set("wParam", wParam)
-			.Set("lParam", lParam));
+			.Set("wParam", static_cast<uint32_t>(wParam))
+			.Set("lParam", static_cast<int32_t>(lParam)));
 	}
 
 	bool MouseEvent(UINT msg, WPARAM wParam, LPARAM lParam)
 	{
 		return SendEvent(EventCreate("mouse_event")
 			.Set("msg", msg)
-			.Set("wParam", Number(wParam))
-			.Set("lParam", lParam));
+			.Set("wParam", static_cast<uint32_t>(wParam))
+			.Set("lParam", static_cast<int32_t>(lParam)));
 	}
 
 	bool InitBrowser(const std::array<BrowserConnectionDescription, OVERLAY_COUNT> &browsers, LONG width, LONG height)
