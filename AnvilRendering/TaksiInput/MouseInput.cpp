@@ -107,8 +107,24 @@ bool UpdateMouseState(UINT msg, WPARAM wParam, LPARAM lParam)
 
 void UpdateRawMouse(RAWMOUSE &event)
 {
-	if (!g_bBrowserShowing)
+	auto middle_mouse_pressed = !!(event.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN);
+	auto middle_mouse_released = !!(event.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_UP);
+
+	if (!g_bBrowserShowing && !quick_selecting) {
+		if (!(middle_mouse_pressed && StartQuickSelect()))
+			return;
+	}
+
+	if (!g_bBrowserShowing && quick_selecting) {
+		if (middle_mouse_pressed || middle_mouse_released)
+			UpdateMouseState(middle_mouse_pressed ? WM_MBUTTONDOWN : WM_MBUTTONUP, 0, 0);
+		if (event.usButtonFlags & RI_MOUSE_WHEEL)
+			UpdateMouseState(WM_MOUSEWHEEL, event.usButtonData << 16, 0);
+
+		event.usButtonFlags &= ~(RI_MOUSE_MIDDLE_BUTTON_DOWN | RI_MOUSE_WHEEL);
+		event.usButtonData = 0;
 		return;
+	}
 
 	ZeroMemory(&event, sizeof(event));
 }
