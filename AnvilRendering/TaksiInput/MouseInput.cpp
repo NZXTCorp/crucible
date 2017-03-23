@@ -97,3 +97,37 @@ bool UpdateMouseState(UINT msg, WPARAM wParam, LPARAM lParam)
 
 	return false;
 }
+
+void UpdateRawMouse(RAWMOUSE &event)
+{
+	if (!g_bBrowserShowing)
+		return;
+
+#if 0
+	if (event.usFlags & MOUSE_MOVE_ABSOLUTE)
+	{
+		mouse_position.x = event.lLastX;
+		mouse_position.y = event.lLastY;
+	}
+	else
+	{
+		UpdateBounded(mouse_position.x, event.lLastX, 0, g_Proc.m_Stats.m_SizeWnd.cx);
+		UpdateBounded(mouse_position.y, event.lLastY, 0, g_Proc.m_Stats.m_SizeWnd.cy);
+	}
+
+	auto SendMouse = [&](USHORT flag, WPARAM wParam)
+	{
+		if (event.usButtonFlags & flag)
+			ForgeEvent::MouseEvent(mouse_position.x, mouse_position.y, wParam);
+	};
+
+	SendMouse(RI_MOUSE_LEFT_BUTTON_DOWN, WM_LBUTTONDOWN);
+	SendMouse(RI_MOUSE_LEFT_BUTTON_UP, WM_LBUTTONUP);
+	SendMouse(RI_MOUSE_RIGHT_BUTTON_DOWN, WM_RBUTTONDOWN);
+	SendMouse(RI_MOUSE_RIGHT_BUTTON_UP, WM_RBUTTONUP);
+	SendMouse(RI_MOUSE_MIDDLE_BUTTON_DOWN, WM_MBUTTONDOWN);
+	SendMouse(RI_MOUSE_MIDDLE_BUTTON_UP, WM_MBUTTONUP);
+#endif
+
+	ZeroMemory(&event, sizeof(event));
+}
