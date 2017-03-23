@@ -872,16 +872,20 @@ void HookWndProc()
 		LOG_MSG("HookWndProc: SetWindowLongPtr failed, wndproc hook disabled"LOG_CR);
 }
 
-void DisableRawInput()
+void QueryRawInputDevices(std::vector<RAWINPUTDEVICE> &devices)
 {
-#ifdef HOOK_REGISTER_RAW_DEVICES
 	UINT num = 0;
 	if (s_HookGetRegisteredRawInputDevices.Call(nullptr, &num, sizeof(RAWINPUTDEVICE)) != (UINT)-1 && num)
 	{
-		prev_devices.resize(num);
-		s_HookGetRegisteredRawInputDevices.Call(prev_devices.data(), &num, sizeof(RAWINPUTDEVICE));
+		devices.resize(num);
+		s_HookGetRegisteredRawInputDevices.Call(devices.data(), &num, sizeof(RAWINPUTDEVICE));
 	}
+}
 
+void DisableRawInput()
+{
+#ifdef HOOK_REGISTER_RAW_DEVICES
+	QueryRawInputDevices(prev_devices);
 	if (!prev_devices.size())
 		return;
 
