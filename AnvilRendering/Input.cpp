@@ -336,6 +336,8 @@ static void ProcessHotKeys()
 	g_HotKeys.m_events.clear();
 }
 
+static bool hwnd_sent = false;
+
 void HookWndProc();
 void HandleInputHook(HWND window)
 {
@@ -348,10 +350,11 @@ void HandleInputHook(HWND window)
 		g_Proc.m_Stats.m_hWndCap = window;
 		win = window;
 		HookWndProc();
+		hwnd_sent = false;
+	}
 
-		if (g_Proc.m_Stats.m_hWndCap) {
-			ForgeEvent::SetGameHWND((GetWindow(g_Proc.m_Stats.m_hWndCap, GW_OWNER) == NULL) ? g_Proc.m_Stats.m_hWndCap : GetWindow(g_Proc.m_Stats.m_hWndCap, GW_OWNER));
-		}
+	if (g_Proc.m_Stats.m_hWndCap && !hwnd_sent) {
+		hwnd_sent = ForgeEvent::SetGameHWND((GetWindow(g_Proc.m_Stats.m_hWndCap, GW_OWNER) == NULL) ? g_Proc.m_Stats.m_hWndCap : GetWindow(g_Proc.m_Stats.m_hWndCap, GW_OWNER));
 	}
 
 	if (!g_HotKeys.HotkeysAttached())
