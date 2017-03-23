@@ -49,14 +49,21 @@ bool QuickSelectTimeoutExpired()
 	return true;
 }
 
+static bool StartQuickSelect()
+{
+	if (select_timeout < clock_::now())
+		return false;
+
+	quick_selecting = true;
+	select_timeout = {};
+	ForgeEvent::StartQuickSelect();
+	return true;
+}
+
 bool UpdateMouseState(UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	if (!quick_selecting && select_timeout >= clock_::now() && msg == WM_MBUTTONDOWN) {
-		quick_selecting = true;
-		select_timeout = {};
-		ForgeEvent::StartQuickSelect();
+	if (!quick_selecting && msg == WM_MBUTTONDOWN && StartQuickSelect())
 		return true;
-	}
 
 	if (!g_bBrowserShowing && !quick_selecting)
 		return false;
