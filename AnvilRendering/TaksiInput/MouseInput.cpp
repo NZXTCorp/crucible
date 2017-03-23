@@ -105,6 +105,8 @@ bool UpdateMouseState(UINT msg, WPARAM wParam, LPARAM lParam)
 	return false;
 }
 
+void QueryRawInputDevices(std::vector<RAWINPUTDEVICE> &devices);
+static std::vector<RAWINPUTDEVICE> devices;
 void UpdateRawMouse(RAWMOUSE &event)
 {
 	auto middle_mouse_pressed = !!(event.usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN);
@@ -116,10 +118,21 @@ void UpdateRawMouse(RAWMOUSE &event)
 	}
 
 	if (!g_bBrowserShowing && quick_selecting) {
-		if (middle_mouse_pressed || middle_mouse_released)
-			UpdateMouseState(middle_mouse_pressed ? WM_MBUTTONDOWN : WM_MBUTTONUP, 0, 0);
-		if (event.usButtonFlags & RI_MOUSE_WHEEL)
-			UpdateMouseState(WM_MOUSEWHEEL, event.usButtonData << 16, 0);
+		QueryRawInputDevices(devices);
+		auto send_message = false;
+		for (auto &dev : devices) {
+			if (dev.usUsagePage == 1 && dev.usUsage == 2 && dev.dwFlags & RIDEV_NOLEGACY) {
+				send_message = true;
+				break;
+			}
+		}
+
+		if (send_message) {
+			if (middle_mouse_pressed || middle_mouse_released)
+				UpdateMouseState(middle_mouse_pressed ? WM_MBUTTONDOWN : WM_MBUTTONUP, 0, 0);
+			if (event.usButtonFlags & RI_MOUSE_WHEEL)
+				UpdateMouseState(WM_MOUSEWHEEL, event.usButtonData << 16, 0);
+		}
 
 		event.usButtonFlags &= ~(RI_MOUSE_MIDDLE_BUTTON_DOWN | RI_MOUSE_WHEEL);
 		event.usButtonData = 0;
