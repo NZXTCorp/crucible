@@ -582,10 +582,11 @@ bool IndicatorManager::LoadImages( void )
 		for (int i = 0; i < INDICATE_NONE; i++)
 		{
 			switch (i) {
-			case INDICATE_STREAM_MIC_ACTIVE:
-			case INDICATE_STREAM_MIC_IDLE:
-			case INDICATE_STREAM_MIC_MUTED:
-				*m_images[i].Lock() = CreateMicIndicator(i, micIndicatorW, micIndicatorH, true);
+			case INDICATE_MIC_ACTIVE:
+			case INDICATE_MIC_IDLE:
+			case INDICATE_MIC_MUTED:
+			case INDICATE_MIC_DISCONNECTED:
+				*m_images[i].Lock() = CreateMicIndicator(i, micIndicatorW, micIndicatorH);
 				break;
 			default:
 				*m_images[i].Lock() = LoadBitmapFromResource(MAKEINTRESOURCE(IDB_COLOR_BAR));
