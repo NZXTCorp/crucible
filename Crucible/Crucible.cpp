@@ -1521,10 +1521,11 @@ struct CrucibleContext {
 	string filename = "";
 	string profiler_filename = "";
 	string muxerSettings = "";
-	OBSOutput output, buffer, stream;
+	OBSOutput output, buffer, stream, recordingStream;
 	OBSOutputSignal startRecording, stopRecording;
 	OBSOutputSignal sentTrackedFrame, bufferSentTrackedFrame;
 	OBSOutputSignal bufferSaved, bufferSaveFailed;
+	OBSOutputSignal recordingStreamStart, recordingStreamStop;
 
 	unique_ptr<obs_volmeter_t> tunesMeter;
 	OBSSignal tunesLevelsUpdated;
@@ -2170,6 +2171,30 @@ struct CrucibleContext {
 			});
 		});
 
+		recordingStreamStart
+			.SetSignal("start")
+			.SetFunc([=](calldata*)
+		{
+			QueueOperation([=]
+			{
+				AnvilCommands::StreamStatus(true);
+				ForgeEvents::SendStreamingStart();
+			});
+		});
+
+		recordingStreamStop
+			.SetSignal("stop")
+			.SetFunc([=](calldata *data)
+		{
+			auto weakStream = OBSGetWeakRef(reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output")));
+			auto code = calldata_int(data, "code");
+			QueueOperation([=]
+			{
+				AnvilCommands::StreamStatus(false);
+				ForgeEvents::SendStreamingStop(code);
+			});
+		});
+
 		startStreaming
 			.SetSignal("start")
 			.SetFunc([=](calldata*)
@@ -2218,6 +2243,8 @@ struct CrucibleContext {
 		
 		InitRef(stream_service, "Couldn't create streaming service", obs_service_release,
 			obs_service_create("forge_rtmp", "forge streaming", nullptr, nullptr));
+
+		obs_output_set_reconnect_settings(recordingStream, 5, 1);
 	}
 
 	void UpdateStreamSettings()
@@ -2271,6 +2298,7 @@ struct CrucibleContext {
 		auto weakGameCapture = OBSGetWeakRef(gameCapture);
 		auto weakOutput = OBSGetWeakRef(output);
 		auto weakBuffer = OBSGetWeakRef(buffer);
+		auto weakRecordingStream = OBSGetWeakRef(recordingStream);
 
 		blog(LOG_INFO, "ResetCaptureSignals: weakGameCapture = %p", static_cast<obs_weak_source_t*>(weakGameCapture));
 
@@ -2344,6 +2372,7 @@ struct CrucibleContext {
 
 			stop_(weakOutput, output);
 			stop_(weakBuffer, buffer);
+			stop_(weakRecordingStream, recordingStream);
 
 			shared_ptr<void> force_stop_timer{ CreateWaitableTimer(nullptr, true, nullptr), HandleDeleter{} };
 			LARGE_INTEGER timeout = { 0 };
@@ -2448,6 +2477,14 @@ struct CrucibleContext {
 
 		obs_output_set_video_encoder(buffer, streaming ? stream_h264 : h264);
 		obs_output_set_audio_encoder(buffer, aac, 0);
+
+
+		InitRef(recordingStream, "Couldn't create recording stream", obs_output_release,
+			obs_output_create("rtmp_output", "recording stream", nullptr, nullptr));
+
+		obs_output_set_video_encoder(recordingStream, h264);
+		obs_output_set_audio_encoder(recordingStream, aac, 0);
+		obs_output_set_service(recordingStream, stream_service);
 		
 		
 		stopRecording
@@ -2478,6 +2515,16 @@ struct CrucibleContext {
 		bufferSentTrackedFrame
 			.Disconnect()
 			.SetOwner(buffer)
+			.Connect();
+
+		recordingStreamStart
+			.Disconnect()
+			.SetOwner(recordingStream)
+			.Connect();
+
+		recordingStreamStop
+			.Disconnect()
+			.SetOwner(recordingStream)
 			.Connect();
 
 		ResetCaptureSignals();
@@ -3039,6 +3086,34 @@ struct CrucibleContext {
 		}
 	}
 
+	void StartRecordingStream(const char *server, const char *key, const char *version)
+	{
+		auto settings = OBSDataCreate();
+		obs_data_set_string(settings, "server", server);
+		obs_data_set_string(settings, "key", key);
+		obs_service_update(stream_service, settings);
+
+		DStr encoder_name;
+		dstr_printf(encoder_name, "Crucible (%s)", version);
+
+		auto ssettings = OBSDataCreate();
+		obs_data_set_string(ssettings, "encoder_name", encoder_name->array);
+		obs_data_set_bool(ssettings, "new_socket_loop_enabled", true);
+		obs_data_set_bool(ssettings, "low_latency_mode_enabled", true);
+		obs_output_update(recordingStream, ssettings);
+
+		obs_output_start(recordingStream);
+
+		ForgeEvents::SendStreamingStartExecuted(!obs_output_active(recordingStream));
+	}
+
+	void StopRecordingStream()
+	{
+		ForgeEvents::SendStreamingStopExecuted(obs_output_active(recordingStream));
+
+		obs_output_stop(recordingStream);
+	}
+
 	void StartStreaming(const char *server, const char *key, const char *version)
 	{
 		auto settings = OBSDataCreate();
@@ -3490,9 +3565,11 @@ struct CrucibleContext {
 
 		stop_(output);
 		stop_(buffer);
+		stop_(recordingStream);
 
 		output = nullptr;
 		buffer = nullptr;
+		recordingStream = nullptr;
 
 		forward_buffer_id = boost::none;
 
@@ -3685,6 +3762,16 @@ static void HandleForgeWillClose(CrucibleContext &cc, OBSData&)
 {
 	cc.StopVideo(true);
 	SetEvent(exit_event);
+}
+
+static void HandleStartRecordingStream(CrucibleContext &cc, OBSData &obj)
+{
+	cc.StartRecordingStream(obs_data_get_string(obj, "server"), obs_data_get_string(obj, "key"), obs_data_get_string(obj, "version"));
+}
+
+static void HandleStopRecordingStream(CrucibleContext &cc, OBSData&)
+{
+	cc.StopRecordingStream();
 }
 
 static void HandleStartStreaming(CrucibleContext &cc, OBSData& obj)
@@ -3963,6 +4050,8 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "clip_accepted", [](CrucibleContext&, OBSData&) { AnvilCommands::ShowClipping(); } },
 		{ "clip_finished", HandleClipFinished },
 		{ "forge_will_close", HandleForgeWillClose },
+		{ "start_recording_stream", HandleStartRecordingStream },
+		{ "stop_recording_stream", HandleStopRecordingStream },
 		{ "start_streaming", HandleStartStreaming },
 		{ "stop_streaming", HandleStopStreaming },
 		{ "save_game_screenshot", HandleGameScreenshot },
