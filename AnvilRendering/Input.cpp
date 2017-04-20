@@ -141,7 +141,7 @@ struct ForgeFramebufferServer {
 	}
 };
 
-static std::array<ForgeFramebufferServer, OVERLAY_COUNT> forgeFramebufferServer;
+static std::array<ProtectedObject<ForgeFramebufferServer>, OVERLAY_COUNT> forgeFramebufferServer;
 
 static const char *name_for_overlay[OVERLAY_COUNT] = {
 	"highlighter",
@@ -153,12 +153,16 @@ void StartFramebufferServer()
 {
 	array<ForgeEvent::BrowserConnectionDescription, OVERLAY_COUNT> browsers;
 	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++) {
-		auto &fbs = forgeFramebufferServer[i];
-		if (fbs.died)
-			fbs.Start();
-
-		browsers[i].server = fbs.name;
 		browsers[i].name = name_for_overlay[i];
+
+		auto fbs = forgeFramebufferServer[i].Lock();
+		if (!fbs)
+			continue;
+
+		if (fbs->died)
+			fbs->Start();
+
+		browsers[i].server = fbs->name;
 	}
 
 	ForgeEvent::InitBrowser(browsers, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
@@ -166,17 +170,17 @@ void StartFramebufferServer()
 
 vector<uint8_t> *ReadNewFramebuffer(ActiveOverlay ov)
 {
-	auto &fbs = forgeFramebufferServer[ov];
-	if (!fbs.new_data)
+	auto fbs = forgeFramebufferServer[ov].Lock();
+	if (!fbs || !fbs->new_data)
 		return nullptr;
 
 	{
-		LOCK(fbs.share_mutex);
-		swap(fbs.shared_data, fbs.read_data);
-		fbs.new_data = false;
+		LOCK(fbs->share_mutex);
+		swap(fbs->shared_data, fbs->read_data);
+		fbs->new_data = false;
 	}
 
-	return &fbs.read_data;
+	return &fbs->read_data;
 }
 
 extern void ResetOverlayCursor();
@@ -228,19 +232,24 @@ void ShowOverlayCursor();
 
 void ToggleOverlay(ActiveOverlay overlay)
 {
-	auto &fbs = forgeFramebufferServer[overlay];
-	if (g_bBrowserShowing && fbs.died)
-		fbs.Start();
+	auto fbs = forgeFramebufferServer[overlay].Lock();
+	if (g_bBrowserShowing && fbs && fbs->died)
+		fbs->Start();
 
 	if (!g_bBrowserShowing || active_overlay != overlay) {
-		if (fbs.died)
-			fbs.Start();
+		if (!fbs) {
+			hlog("Requested browser for overlay %d ignored because browser could not be locked", overlay);
+			return;
+		}
+
+		if (fbs->died)
+			fbs->Start();
 
 		if (overlay != active_overlay)
 			ForgeEvent::HideBrowser();
 
 		active_overlay = overlay;
-		ForgeEvent::ShowBrowser({ fbs.name, name_for_overlay[overlay] }, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
+		ForgeEvent::ShowBrowser({ fbs->name, name_for_overlay[overlay] }, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
 		hlog("Requesting browser");
 
 		bool browser_was_active = g_bBrowserShowing;
