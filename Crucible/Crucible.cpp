@@ -1784,6 +1784,7 @@ struct CrucibleContext {
 				obs_data_set_int(vsettings, "keyint_sec", 1);
 
 				auto props = obs_get_encoder_properties(id.c_str());
+				DEFER{ obs_properties_destroy(props); };
 
 				{
 					auto best = "VBR"s;
@@ -1826,6 +1827,7 @@ struct CrucibleContext {
 
 				if (max_encoder_resolution) {
 					auto props = obs_get_encoder_properties(id.c_str());
+					DEFER{ obs_properties_destroy(props); };
 
 					auto width = obs_properties_get(props, "max_width");
 					if (width)
