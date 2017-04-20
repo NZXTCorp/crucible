@@ -1815,8 +1815,13 @@ struct CrucibleContext {
 		return vsettings;
 	}
 
-	void CreateRecordingEncoder(const char *last_encoder_id = nullptr)
+	void CreateH264Encoder(OBSEncoder *enc = nullptr, uint32_t *bitrate = nullptr, const char *last_encoder_id = nullptr)
 	{
+		if (!enc)
+			enc = &h264;
+		if (!bitrate)
+			bitrate = &target_bitrate;
+
 		auto vsettings = OBSDataCreate();
 
 		auto encoder_available = [&](const decltype(allowed_hardware_encoder_names[0]) &ahe)
@@ -1833,7 +1838,7 @@ struct CrucibleContext {
 		auto create_encoder = [&](const decltype(allowed_hardware_encoder_names[0]) &info)
 		{
 			try {
-				InitRef(h264, ("Couldn't create " + info.second + " video encoder").c_str(), obs_encoder_release,
+				InitRef(*enc, ("Couldn't create " + info.second + " video encoder").c_str(), obs_encoder_release,
 					obs_video_encoder_create(info.first.c_str(), (info.first + " video").c_str(), vsettings, nullptr));
 				return true;
 			} catch (const char*) {
@@ -1845,7 +1850,7 @@ struct CrucibleContext {
 
 		DEFER
 		{
-			obs_encoder_set_video(h264, obs_get_video());
+			obs_encoder_set_video(*enc, obs_get_video());
 		};
 
 		bool last_encoder_found = false;
@@ -1861,14 +1866,14 @@ struct CrucibleContext {
 			if (!encoder_available(ahe))
 				continue;
 			
-			vsettings = CreateRecordingEncoderSettings(ahe.first, target_bitrate, &recording_resolution_limit);
+			vsettings = CreateRecordingEncoderSettings(ahe.first, *bitrate, &recording_resolution_limit);
 
 			if (create_encoder(ahe))
 				return;
 		}
 
-		InitRef(h264, "Couldn't create video encoder", obs_encoder_release,
-			obs_video_encoder_create("obs_x264", "x264 video", CreateRecordingEncoderSettings("obs_x264", target_bitrate, &recording_resolution_limit), nullptr));
+		InitRef(*enc, "Couldn't create video encoder", obs_encoder_release,
+			obs_video_encoder_create("obs_x264", "x264 video", CreateRecordingEncoderSettings("obs_x264", *bitrate, &recording_resolution_limit), nullptr));
 	}
 
 	bool StartRecordingOutputs(obs_output_t *output, obs_output_t *buffer)
@@ -1882,7 +1887,7 @@ struct CrucibleContext {
 			if (!id)
 				id = "obs_x264"; // force software encoding
 
-			CreateRecordingEncoder(id);
+			CreateH264Encoder(nullptr, nullptr, id);
 			obs_output_set_video_encoder(output, h264);
 		}
 
@@ -1896,7 +1901,7 @@ struct CrucibleContext {
 
 	void InitEncoders()
 	{
-		CreateRecordingEncoder();
+		CreateH264Encoder();
 
 		auto ssettings = OBSDataCreate();
 		obs_data_set_int(ssettings, "bitrate", target_stream_bitrate);
@@ -2839,7 +2844,7 @@ struct CrucibleContext {
 		InitRef(gameCapture, "Couldn't create game capture source", obs_source_release,
 			obs_source_create(OBS_SOURCE_TYPE_INPUT, "game_capture", "game capture", settings, nullptr));
 
-		CreateRecordingEncoder();
+		CreateH264Encoder();
 
 		recording_game = true;
 
@@ -3459,7 +3464,7 @@ struct CrucibleContext {
 			target_bitrate = max_rate;
 
 			if (h264) {
-				auto vsettings = CreateRecordingEncoderSettings(obs_encoder_get_id(h264), max_rate);
+				auto vsettings = CreateH264EncoderSettings(obs_encoder_get_id(h264), max_rate);
 
 				obs_encoder_update(h264, vsettings);
 			}
@@ -3564,7 +3569,7 @@ struct CrucibleContext {
 		if (obs_encoder_active(h264))
 			return;
 
-		CreateRecordingEncoder();
+		CreateH264Encoder();
 	}
 	
 	bool stopping = false;
