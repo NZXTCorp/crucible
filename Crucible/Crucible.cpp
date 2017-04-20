@@ -1529,7 +1529,7 @@ struct CrucibleContext {
 	OBSSource tunes, mic, gameCapture, webcam, theme, window, wallpaper;
 	OBSSourceSignal micMuted, pttActive, micAcquired;
 	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess, screenshotSaved, processInaccessible;
-	OBSEncoder h264, aac, stream_h264;
+	OBSEncoder h264, aac, stream_h264, recordingStream_h264;
 	string filename = "";
 	string profiler_filename = "";
 	string muxerSettings = "";
@@ -1958,6 +1958,8 @@ struct CrucibleContext {
 	void InitEncoders()
 	{
 		CreateH264Encoder();
+
+		CreateH264Encoder(&recordingStream_h264, nullptr, true);
 
 		auto ssettings = OBSDataCreate();
 		obs_data_set_int(ssettings, "bitrate", target_stream_bitrate);
@@ -2559,7 +2561,7 @@ struct CrucibleContext {
 		InitRef(recordingStream, "Couldn't create recording stream", obs_output_release,
 			obs_output_create("rtmp_output", "recording stream", nullptr, nullptr));
 
-		obs_output_set_video_encoder(recordingStream, h264);
+		obs_output_set_video_encoder(recordingStream, recordingStream_h264);
 		obs_output_set_audio_encoder(recordingStream, aac, 0);
 		obs_output_set_service(recordingStream, stream_service);
 		
@@ -2901,6 +2903,8 @@ struct CrucibleContext {
 			obs_source_create(OBS_SOURCE_TYPE_INPUT, "game_capture", "game capture", settings, nullptr));
 
 		CreateH264Encoder();
+		
+		CreateH264Encoder(&recordingStream_h264, nullptr, true);
 
 		recording_game = true;
 
@@ -3187,7 +3191,20 @@ struct CrucibleContext {
 		obs_data_set_bool(ssettings, "low_latency_mode_enabled", true);
 		obs_output_update(recordingStream, ssettings);
 
-		obs_output_start(recordingStream);
+		if (recordingStream) {
+			while (!obs_output_active(recordingStream) && !obs_output_start(recordingStream)) {
+				auto encoder = obs_output_get_video_encoder(recordingStream);
+				auto id = obs_encoder_get_id(encoder);
+				if (id && id == "obs_x264"s)
+					break;
+
+				if (!id)
+					id = "obs_x264"; // force software encoding
+
+				CreateH264Encoder(&recordingStream_h264, nullptr, true, id);
+				obs_output_set_video_encoder(recordingStream, h264);
+			}
+		}
 
 		ForgeEvents::SendStreamingStartExecuted(!obs_output_active(recordingStream));
 	}
@@ -3688,6 +3705,7 @@ struct CrucibleContext {
 
 		obs_encoder_set_video(h264, obs_get_video());
 		obs_encoder_set_video(stream_h264, obs_get_video());
+		obs_encoder_set_video(recordingStream_h264, obs_get_video());
 
 		obs_encoder_set_audio(aac, obs_get_audio());
 		
