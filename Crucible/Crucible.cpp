@@ -651,6 +651,15 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendProcessInaccessible(DWORD pid)
+	{
+		auto event = EventCreate("process_inaccessible");
+
+		obs_data_set_int(event, "process_id", pid);
+
+		SendEvent(event);
+	}
 }
 
 namespace AnvilCommands {
@@ -1516,7 +1525,7 @@ struct CrucibleContext {
 	std::string webcam_device;
 	OBSSource tunes, mic, gameCapture, webcam, theme, window, wallpaper;
 	OBSSourceSignal micMuted, pttActive, micAcquired;
-	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess, screenshotSaved;
+	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess, screenshotSaved, processInaccessible;
 	OBSEncoder h264, aac, stream_h264;
 	string filename = "";
 	string profiler_filename = "";
@@ -2170,6 +2179,10 @@ struct CrucibleContext {
 				requested_screenshots.erase(rs);
 			});
 		});
+
+		processInaccessible
+			.SetOwner(gameCapture)
+			.SetSignal("process_inaccessible");
 
 		recordingStreamStart
 			.SetSignal("start")
@@ -2849,6 +2862,14 @@ struct CrucibleContext {
 			.Disconnect()
 			.SetOwner(gameCapture)
 			.Connect();
+
+		processInaccessible
+			.Disconnect()
+			.SetOwner(gameCapture)
+			.SetFunc([=](calldata_t *data)
+		{
+			ForgeEvents::SendProcessInaccessible(static_cast<DWORD>(calldata_int(data, "process_id")));
+		}).Connect();
 
 		ResetCaptureSignals();
 
