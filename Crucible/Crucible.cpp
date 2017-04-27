@@ -3188,18 +3188,11 @@ struct CrucibleContext {
 		DStr encoder_name;
 		dstr_printf(encoder_name, "Crucible (%s)", version);
 
-		auto get_encoder_bitrate = [&]
-		{
-			auto encoder_settings = OBSTransferOwned(obs_encoder_get_settings(recordingStream_h264));
-			return obs_data_get_int(encoder_settings, "bitrate");
-		};
-
 		auto ssettings = OBSDataCreate();
 		obs_data_set_string(ssettings, "encoder_name", encoder_name->array);
 		obs_data_set_bool(ssettings, "new_socket_loop_enabled", true);
 		obs_data_set_bool(ssettings, "low_latency_mode_enabled", true);
 		obs_data_set_bool(ssettings, "autotune_enabled", true);
-		obs_data_set_int(ssettings, "target_bitrate", get_encoder_bitrate());
 		obs_output_update(recordingStream, ssettings);
 
 		if (recordingStream) {
@@ -3214,9 +3207,6 @@ struct CrucibleContext {
 
 				CreateH264Encoder(&recordingStream_h264, nullptr, true, id);
 				obs_output_set_video_encoder(recordingStream, h264);
-
-				obs_data_set_int(ssettings, "target_bitrate", get_encoder_bitrate());
-				obs_output_update(recordingStream, ssettings);
 			}
 		}
 
