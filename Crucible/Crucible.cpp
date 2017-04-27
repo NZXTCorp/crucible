@@ -3180,6 +3180,20 @@ struct CrucibleContext {
 
 	void StartRecordingStream(const char *server, const char *key, const char *version)
 	{
+		bool started = false;
+
+		DEFER{ ForgeEvents::SendStreamingStartExecuted(started); };
+
+		if (!recordingStream) {
+			blog(LOG_WARNING, "Tried to start recording stream while recording stream wasn't initialized");
+			return;
+		}
+
+		if (obs_output_active(recordingStream)) {
+			blog(LOG_WARNING, "Tried to start recording stream while it's already active");
+			return;
+		}
+
 		auto settings = OBSDataCreate();
 		obs_data_set_string(settings, "server", server);
 		obs_data_set_string(settings, "key", key);
@@ -3196,7 +3210,7 @@ struct CrucibleContext {
 		obs_output_update(recordingStream, ssettings);
 
 		if (recordingStream) {
-			while (!obs_output_active(recordingStream) && !obs_output_start(recordingStream)) {
+			while (!obs_output_active(recordingStream) && !(started = obs_output_start(recordingStream))) {
 				auto encoder = obs_output_get_video_encoder(recordingStream);
 				auto id = obs_encoder_get_id(encoder);
 				if (id && id == "obs_x264"s)
@@ -3209,8 +3223,6 @@ struct CrucibleContext {
 				obs_output_set_video_encoder(recordingStream, h264);
 			}
 		}
-
-		ForgeEvents::SendStreamingStartExecuted(!obs_output_active(recordingStream));
 	}
 
 	void StopRecordingStream()
