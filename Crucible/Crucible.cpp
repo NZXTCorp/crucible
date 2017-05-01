@@ -2904,6 +2904,9 @@ struct CrucibleContext {
 	{
 		InitRef(audioBuffer, "Couldn't create audio buffer source", obs_source_release,
 			obs_source_create(OBS_SOURCE_TYPE_INPUT, "AudioBufferSource", "audio buffer", settings, nullptr));
+
+		obs_source_set_volume(audioBuffer, obs_source_get_volume(tunes));
+		obs_source_set_muted(audioBuffer, obs_source_muted(tunes));
 	}
 
 	void CreateGameCapture(obs_data_t *settings)
@@ -3168,6 +3171,10 @@ struct CrucibleContext {
 
 		obs_source_set_volume(elem->second, volume);
 		obs_source_set_muted(elem->second, mute);
+		if (source_name == "desktop" && audioBuffer) {
+			obs_source_set_volume(audioBuffer, volume);
+			obs_source_set_muted(audioBuffer, mute);
+		}
 	}
 
 	void EnableSourceLevelMeters(bool enabled)
