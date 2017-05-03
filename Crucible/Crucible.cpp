@@ -57,7 +57,7 @@ extern "C" {
 	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 
-extern OBSEncoder CreateAudioEncoder(const char *name);
+extern OBSEncoder CreateAudioEncoder(const char *name, uint32_t mixer_idx = 0);
 extern void RegisterAudioBufferSource();
 extern void RegisterFramebufferSource();
 

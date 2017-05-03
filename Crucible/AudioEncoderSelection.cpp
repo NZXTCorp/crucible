@@ -47,7 +47,7 @@ static AudioEncoderSettings *FindBestSettings()
 	return best;
 }
 
-OBSEncoder CreateAudioEncoder(const char *name)
+OBSEncoder CreateAudioEncoder(const char *name, uint32_t mixer_idx)
 {
 	static AudioEncoderSettings *settings = nullptr;
 	if (!settings)
@@ -56,5 +56,5 @@ OBSEncoder CreateAudioEncoder(const char *name)
 	auto data = OBSDataCreate();
 	obs_data_set_int(data, "bitrate", settings->bitrate);
 
-	return OBSTransferOwned(obs_audio_encoder_create(settings->id.c_str(), name, data, 0, nullptr));
+	return OBSTransferOwned(obs_audio_encoder_create(settings->id.c_str(), name, data, mixer_idx, nullptr));
 }
