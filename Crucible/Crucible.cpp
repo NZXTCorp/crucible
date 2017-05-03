@@ -1542,7 +1542,7 @@ struct CrucibleContext {
 	OBSSource tunes, mic, gameCapture, webcam, theme, window, wallpaper, audioBuffer;
 	OBSSourceSignal micMuted, pttActive, micAcquired;
 	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess, screenshotSaved, processInaccessible;
-	OBSEncoder h264, aac, stream_h264, recordingStream_h264;
+	OBSEncoder h264, aac, stream_h264, recordingStream_h264, recordingStream_aac;
 	string filename = "";
 	string profiler_filename = "";
 	string muxerSettings = "";
@@ -1992,10 +1992,15 @@ struct CrucibleContext {
 		if (!aac)
 			throw "Couldn't create audio encoder";
 
+		recordingStream_aac = CreateAudioEncoder("recordingStream_aac", 1);
+		if (!recordingStream_aac)
+			throw "Coudln't create recording stream audio encoder";
+
 
 		obs_encoder_set_video(stream_h264, obs_get_video());
 
 		obs_encoder_set_audio(aac, obs_get_audio());
+		obs_encoder_set_audio(recordingStream_aac, obs_get_audio());
 	}
 
 	void InitSignals()
@@ -2580,7 +2585,7 @@ struct CrucibleContext {
 			obs_output_create("rtmp_output", "recording stream", nullptr, nullptr));
 
 		obs_output_set_video_encoder(recordingStream, recordingStream_h264);
-		obs_output_set_audio_encoder(recordingStream, aac, 0);
+		obs_output_set_audio_encoder(recordingStream, recordingStream_aac, 0);
 		obs_output_set_service(recordingStream, stream_service);
 		
 		
