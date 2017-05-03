@@ -1657,6 +1657,8 @@ struct CrucibleContext {
 		InitRef(mic, "Couldn't create audio input device source", obs_source_release,
 			obs_source_create(OBS_SOURCE_TYPE_INPUT, "wasapi_input_capture", "wasapi mic", settings, nullptr));
 
+		obs_source_set_audio_mixers(mic, (1 << 0));
+
 		auto weak_mic = OBSGetWeakRef(mic);
 		OBSEnumHotkeys([&](obs_hotkey_id id, obs_hotkey_t *key)
 		{
@@ -1680,6 +1682,7 @@ struct CrucibleContext {
 				obs_source_create(OBS_SOURCE_TYPE_INPUT, "wasapi_output_capture", "wasapi loopback", nullptr, nullptr));
 
 		obs_set_output_source(1, tunes);
+		obs_source_set_audio_mixers(tunes, (1 << 0));
 		
 		tunesMeter = OBSVolMeterCreate(OBS_FADER_LOG);
 		obs_volmeter_set_update_interval(tunesMeter.get(), 100);
@@ -2279,6 +2282,7 @@ struct CrucibleContext {
 		{
 			QueueOperation([=]
 			{
+				obs_source_set_muted(gameCapture, obs_source_muted(tunes));
 				AnvilCommands::StreamStatus(true);
 				ForgeEvents::SendStreamingStart();
 			});
@@ -2292,6 +2296,7 @@ struct CrucibleContext {
 			auto code = calldata_int(data, "code");
 			QueueOperation([=]
 			{
+				obs_source_set_muted(gameCapture, true);
 				AnvilCommands::StreamStatus(false);
 				ForgeEvents::SendStreamingStop(code);
 			});
@@ -2912,6 +2917,7 @@ struct CrucibleContext {
 
 		obs_source_set_volume(audioBuffer, obs_source_get_volume(tunes));
 		obs_source_set_muted(audioBuffer, obs_source_muted(tunes));
+		obs_source_set_audio_mixers(audioBuffer, (1 << 1));
 	}
 
 	void CreateGameCapture(obs_data_t *settings)
@@ -3178,7 +3184,7 @@ struct CrucibleContext {
 		obs_source_set_muted(elem->second, mute);
 		if (source_name == "desktop" && audioBuffer) {
 			obs_source_set_volume(audioBuffer, volume);
-			obs_source_set_muted(audioBuffer, mute);
+			obs_source_set_muted(audioBuffer, mute && obs_output_active(recordingStream));
 		}
 	}
 
