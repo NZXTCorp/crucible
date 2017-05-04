@@ -1359,9 +1359,9 @@ static OutputResolution ScaleResolution(const OutputResolution &target, const Ou
 
 	auto pixel_ratio_sqrt = sqrt(min(target.pixels() / static_cast<double>(source.pixels()), 1.0));
 	if (pixel_ratio_sqrt * source.width > max_dimensions.width)
-		pixel_ratio_sqrt = max_dimensions.width / source.width;
+		pixel_ratio_sqrt = max_dimensions.width / static_cast<double>(source.width);
 	if (pixel_ratio_sqrt * source.height > max_dimensions.height)
-		pixel_ratio_sqrt = max_dimensions.height / source.height;
+		pixel_ratio_sqrt = max_dimensions.height / static_cast<double>(source.height);
 	OutputResolution res{
 		static_cast<uint32_t>(source.width * pixel_ratio_sqrt),
 		static_cast<uint32_t>(source.height * pixel_ratio_sqrt)
