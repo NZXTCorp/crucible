@@ -617,14 +617,17 @@ namespace ForgeEvents {
 		SendEvent(EventCreate("game_session_started"));
 	}
 
-	void SendScreenshotSaved(bool success, uint32_t cx, uint32_t cy, const std::string filename)
+	void SendScreenshotSaved(boost::optional<std::string> error, uint32_t cx, uint32_t cy, const std::string filename)
 	{
 		auto event = EventCreate("screenshot_saved");
 
-		obs_data_set_bool(event, "success", success);
+		obs_data_set_bool(event, "success", !error);
 		obs_data_set_int(event, "width", cx);
 		obs_data_set_int(event, "height", cy);
 		obs_data_set_string(event, "filename", filename.c_str());
+
+		if (error)
+			obs_data_set_string(event, "error", error->c_str());
 
 		SendEvent(event);
 	}
@@ -3524,6 +3527,11 @@ struct CrucibleContext {
 			source = OBSGetOutputSource(0);
 		} else /*if (source_name == "stream_scene")*/ {
 			source = streaming_source;
+		}
+
+		if (!source) {
+			ForgeEvents::SendScreenshotSaved("source '"s + source_name + "' isn't active"s, width, height, filename);
+			return;
 		}
 
 		Screenshot::Request(source, width, height, filename, ForgeEvents::SendScreenshotSaved);

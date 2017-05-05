@@ -45,10 +45,10 @@ struct ScreenshotProvider
 			cy = cy_;
 		}
 
-		void Complete(bool success)
+		void Complete(boost::optional<std::string> error)
 		{
 			if (callback)
-				callback(success, cx, cy, filename);
+				callback(error, cx, cy, filename);
 		}
 	};
 
@@ -62,7 +62,7 @@ struct ScreenshotProvider
 	bool staged = false;
 	bool saving = false;
 	bool saved = false;
-	bool success = false;
+	boost::optional<std::string> error;
 	mutex save_mutex;
 
 	gs_texrender_t *tr = nullptr;
@@ -127,7 +127,7 @@ struct ScreenshotProvider
 	{
 		if (saved) {
 			auto request = pending_request.front();
-			request.Complete(success);
+			request.Complete(error);
 			
 			pending_request.pop_front();
 
@@ -138,7 +138,7 @@ struct ScreenshotProvider
 			staged = false;
 			saving = false;
 			saved = false;
-			success = false;
+			error.reset();
 
 			Enable(requested);
 		}
@@ -150,8 +150,10 @@ struct ScreenshotProvider
 				auto request = self->pending_request.front();
 
 				obs_enter_graphics();
-				if (!(self->success = gs_stagesurface_save_to_file(self->stage, request.filename.c_str())))
+				if (!gs_stagesurface_save_to_file(self->stage, request.filename.c_str())) {
 					blog(LOG_WARNING, "screenshot: gs_stagesurface_save_to_file failed for \"%s\"", request.filename.c_str());
+					self->error = "failed to save screenshot to file";
+				}
 				obs_leave_graphics();
 				
 				self->saved = true;
