@@ -1551,6 +1551,9 @@ struct CrucibleContext {
 	OBSOutputSignal sentTrackedFrame, bufferSentTrackedFrame;
 	OBSOutputSignal bufferSaved, bufferSaveFailed;
 	OBSOutputSignal recordingStreamStart, recordingStreamStop;
+	bool record_audio_buffer_only = false;
+	bool check_audio_streams = false;
+	shared_ptr<void> check_audio_streams_timer;
 
 	unique_ptr<obs_volmeter_t> tunesMeter;
 	OBSSignal tunesLevelsUpdated;
@@ -1647,6 +1650,46 @@ struct CrucibleContext {
 		}
 
 		obs_load_all_modules();
+	}
+
+	void UpdateSourceAudioSettings()
+	{
+		if (record_audio_buffer_only && output && obs_output_active(output) && !check_audio_streams && !check_audio_streams_timer) {
+			check_audio_streams_timer.reset(CreateWaitableTimer(nullptr, true, nullptr), HandleDeleter{});
+			LARGE_INTEGER timeout = { 0 };
+			timeout.QuadPart = -50000000LL; // 5 seconds
+			SetWaitableTimer(check_audio_streams_timer.get(), &timeout, 0, nullptr, nullptr, false);
+
+			AddWaitHandleCallback(check_audio_streams_timer.get(), [=, timer = check_audio_streams_timer]
+			{
+				check_audio_streams = true;
+				UpdateSourceAudioSettings();
+			});
+		}
+
+		auto buffer_only = [&]
+		{
+			if (!record_audio_buffer_only)
+				return false;
+
+			if (!check_audio_streams || !audioBuffer)
+				return true;
+
+			auto proc = obs_source_get_proc_handler(audioBuffer);
+
+			uint8_t buf[100];
+			calldata_t data;
+			calldata_init_fixed(&data, buf, sizeof(buf));
+
+			proc_handler_call(proc, "num_audio_streams", &data);
+
+			return calldata_int(&data, "num") != 0;
+		}();
+
+		obs_source_set_audio_mixers(tunes, buffer_only ? 0 : (1 << 0));
+		obs_source_set_audio_mixers(audioBuffer, (1 << 1) | (buffer_only ? (1 << 0) : 0));
+
+		obs_source_set_muted(audioBuffer, obs_source_muted(tunes) || (!buffer_only && !obs_output_active(recordingStream)));
 	}
 
 	void InitSources()
@@ -2110,6 +2153,8 @@ struct CrucibleContext {
 			OBSOutput output = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
 			QueueOperation([=]
 			{
+				UpdateSourceAudioSettings();
+
 				auto settings = OBSTransferOwned(obs_output_get_settings(output));
 
 				auto status = GetOutputStatus(settings);
@@ -2282,7 +2327,7 @@ struct CrucibleContext {
 		{
 			QueueOperation([=]
 			{
-				obs_source_set_muted(gameCapture, obs_source_muted(tunes));
+				UpdateSourceAudioSettings();
 				AnvilCommands::StreamStatus(true);
 				ForgeEvents::SendStreamingStart();
 			});
@@ -2296,7 +2341,7 @@ struct CrucibleContext {
 			auto code = calldata_int(data, "code");
 			QueueOperation([=]
 			{
-				obs_source_set_muted(gameCapture, true);
+				UpdateSourceAudioSettings();
 				AnvilCommands::StreamStatus(false);
 				ForgeEvents::SendStreamingStop(code);
 			});
@@ -2906,6 +2951,8 @@ struct CrucibleContext {
 		gameCapture = nullptr;
 		audioBuffer = nullptr;
 
+		check_audio_streams_timer.reset();
+
 		obs_sceneitem_remove(game_and_webcam.game);
 		game_and_webcam.game = nullptr;
 	}
@@ -2916,8 +2963,10 @@ struct CrucibleContext {
 			obs_source_create(OBS_SOURCE_TYPE_INPUT, "AudioBufferSource", "audio buffer", settings, nullptr));
 
 		obs_source_set_volume(audioBuffer, obs_source_get_volume(tunes));
-		obs_source_set_muted(audioBuffer, obs_source_muted(tunes));
-		obs_source_set_audio_mixers(audioBuffer, (1 << 1));
+
+		check_audio_streams = false;
+		check_audio_streams_timer.reset();
+		UpdateSourceAudioSettings();
 	}
 
 	void CreateGameCapture(obs_data_t *settings)
@@ -3184,7 +3233,7 @@ struct CrucibleContext {
 		obs_source_set_muted(elem->second, mute);
 		if (source_name == "desktop" && audioBuffer) {
 			obs_source_set_volume(audioBuffer, volume);
-			obs_source_set_muted(audioBuffer, mute && obs_output_active(recordingStream));
+			UpdateSourceAudioSettings();
 		}
 	}
 
@@ -3380,6 +3429,8 @@ struct CrucibleContext {
 
 		auto desktop_audio_settings = OBSDataGetObj(settings, "desktop_audio");
 
+		record_audio_buffer_only = obs_data_get_bool(settings, "record_audio_buffer_only");
+
 		LOCK(updateMutex);
 		obs_source_update(tunes, desktop_audio_settings);
 		obs_source_update(mic, source_settings);
@@ -3389,6 +3440,8 @@ struct CrucibleContext {
 		obs_hotkey_load_bindings(mute_hotkey_id, &combo, continuous ? 1 : 0);
 		obs_hotkey_load_bindings(unmute_hotkey_id, &combo, continuous ? 1 : 0);
 		obs_set_output_source(2, enabled ? mic : nullptr);
+
+		UpdateSourceAudioSettings();
 
 		[&]
 		{
