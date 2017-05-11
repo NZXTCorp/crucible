@@ -125,7 +125,8 @@ struct ScreenshotProvider
 	std::recursive_mutex draw_mutex;
 	void Draw()
 	{
-		if (saved) {
+		auto finish_request = [&]
+		{
 			auto request = pending_request.front();
 			request.Complete(error);
 			
@@ -141,7 +142,17 @@ struct ScreenshotProvider
 			error.reset();
 
 			Enable(requested);
-		}
+		};
+
+		auto cancel_request = [&](boost::optional<std::string> err)
+		{
+			blog(LOG_WARNING, "screenshot: %s", err ? err->c_str() : "unknown error");
+			error = std::move(err);
+			finish_request();
+		};
+
+		if (saved)
+			finish_request();
 		
 		if (staged && !saving) {
 			auto work = CreateThreadpoolWork([](PTP_CALLBACK_INSTANCE instance, PVOID context, PTP_WORK work)
@@ -170,6 +181,10 @@ struct ScreenshotProvider
 			if (!stage) {
 				auto& request = pending_request.front();
 				stage = gs_stagesurface_create(request.cx, request.cy, GS_RGBA);
+				if (!stage) {
+					cancel_request("internal screenshot provider error: could not create stagesurface (cx=" + to_string(request.cx) + ", cy=" + to_string(request.cy) + ")");
+					return;
+				}
 			}
 
 			gs_stage_texture(stage, tex);
@@ -186,8 +201,10 @@ struct ScreenshotProvider
 			uint32_t cy = 0;
 			{
 				LOCK(draw_mutex);
-				if (!view) 
+				if (!view) {
+					cancel_request("internal screenshot provider error: missing view"s);
 					return;
+				}
 
 				cx = obs_source_get_width(request.source);
 				cy = obs_source_get_height(request.source);
@@ -206,14 +223,18 @@ struct ScreenshotProvider
 					obs_view_set_source(view, 0, nullptr);
 			};
 
-			if (!cx || !cy) 
+			if (!cx || !cy) {
+				cancel_request("invalid screenshot dimensions (cx=" + to_string(cx) + ", cy=" + to_string(cy) + ")");
 				return;
+			}
 
 			do {
 				if (!tr) {
 					tr = gs_texrender_create(GS_RGBA, GS_ZS_NONE);
-					if (!tr)
+					if (!tr) {
+						cancel_request("internal screenshot provider error: could not create texrender"s);
 						break;
+					}
 				}
 
 				auto display_aspect = draw_cx / static_cast<double>(draw_cy);
