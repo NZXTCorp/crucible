@@ -78,6 +78,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AudioBufferSource.cpp" />
     <ClCompile Include="AudioEncoderSelection.cpp" />
     <ClCompile Include="Crucible.cpp" />
     <ClCompile Include="RemoteDisplay.cpp" />
