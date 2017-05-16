@@ -59,5 +59,8 @@
     <ClInclude Include="ScreenshotProvider.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="WatchdogInfo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

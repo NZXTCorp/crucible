@@ -45,6 +45,8 @@ using namespace std;
 
 #include "ScreenshotProvider.h"
 
+#include "WatchdogInfo.h"
+
 // window class borrowed from forge, remove once we've got headless mode working
 #include "TestWindow.h"
 
@@ -660,6 +662,15 @@ namespace ForgeEvents {
 		auto event = EventCreate("process_inaccessible");
 
 		obs_data_set_int(event, "process_id", pid);
+
+		SendEvent(event);
+	}
+
+	void SendWatchdogInfoName(const string &name)
+	{
+		auto event = EventCreate("watchdog_info_name");
+
+		obs_data_set_string(event, "name", name.c_str());
 
 		SendEvent(event);
 	}
@@ -4276,8 +4287,23 @@ static auto WaitForObjects(const std::initializer_list<HANDLE> &handles, DWORD t
 }
 
 JoiningThread message_watchdog;
-static void StartWatchdog()
+static string StartWatchdog()
 {
+	WatchdogInfo *watchdog_info = nullptr;
+
+	auto filemap_name = "CrucibleWatchdog" + to_string(GetCurrentProcessId());
+	auto filemap = CreateFileMappingA(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(WatchdogInfo), filemap_name.c_str());
+	if (!filemap) {
+		blog(LOG_WARNING, "Failed to create filemap '%s': %#x", filemap_name.c_str(), GetLastError());
+		filemap_name.clear();
+	} else {
+		watchdog_info = reinterpret_cast<WatchdogInfo*>(MapViewOfFile(filemap, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(WatchdogInfo)));
+		if (!watchdog_info) {
+			blog(LOG_WARNING, "Failed to MapViewOfFile(%s): %#x", filemap_name.c_str(), GetLastError());
+			filemap_name.clear();
+		}
+	}
+
 	shared_ptr<void> ev{ CreateEvent(nullptr, true, false, nullptr), HandleDeleter{} };
 	message_watchdog.make_joinable = [ev] { SetEvent(ev.get()); };
 
@@ -4295,6 +4321,7 @@ static void StartWatchdog()
 			});
 
 			const auto video_thread_timeout = static_cast<uint64_t>(chrono::duration_cast<chrono::nanoseconds>(20s).count());
+			bool video_thread_caused_break = false;
 
 			auto res = WaitForObjects({ ev.get(), message_handled_event.get() }, 10 * 1000);
 			switch (res) {
@@ -4303,18 +4330,36 @@ static void StartWatchdog()
 
 			case WAIT_OBJECT_0 + 1:
 				uint64_t video_thread_time;
-				if (obs_get_video_thread_time(&video_thread_time) && (os_gettime_ns() - video_thread_time) > video_thread_timeout)
+				if (obs_get_video_thread_time(&video_thread_time) && (os_gettime_ns() - video_thread_time) > video_thread_timeout) {
+					video_thread_caused_break = true;
 					break;
+				}
 				wait_time = max(chrono::duration_cast<clock::duration>(5s), next_queue_at - clock::now());
 				continue;
 			}
 
-			if (IsDebuggerPresent())
+			if (watchdog_info) {
+				if (video_thread_caused_break)
+					watchdog_info->graphics_thread_stuck = true;
+				else
+					watchdog_info->message_thread_stuck = true;
+			}
+
+			if (IsDebuggerPresent()) {
 				__debugbreak();
-			else
+
+				if (watchdog_info) {
+					if (video_thread_caused_break)
+						watchdog_info->graphics_thread_stuck = false;
+					else
+						watchdog_info->message_thread_stuck = false;
+				}
+			} else
 				abort(); // Message wasn't handled
 		}
 	});
+
+	return filemap_name;
 }
 
 static vector<HANDLE> wait_handles;
@@ -4415,7 +4460,11 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 		if (start_event)
 			SetEvent(start_event);
 
-		StartWatchdog();
+		{
+			auto map_name = StartWatchdog();
+			if (!map_name.empty())
+				ForgeEvents::SendWatchdogInfoName(map_name);
+		}
 
 		wait_handles.emplace_back(exit_event);
 		if (forge)

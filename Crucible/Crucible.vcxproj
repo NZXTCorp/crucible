@@ -94,6 +94,7 @@
     <ClInclude Include="ScreenshotProvider.h" />
     <ClInclude Include="TestWindow.h" />
     <ClInclude Include="ThreadTools.hpp" />
+    <ClInclude Include="WatchdogInfo.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
