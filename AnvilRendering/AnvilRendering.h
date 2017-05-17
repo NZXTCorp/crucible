@@ -37,7 +37,16 @@ class IndicatorManager;
 extern IndicatorManager indicatorManager;
 
 enum IndicatorEvent;
-void ShowCurrentIndicator(const std::function<void(IndicatorEvent, BYTE /*alpha*/)> &func);
+extern IndicatorEvent currentIndicator;
+
+template <typename Fun>
+void ShowCurrentIndicator(Fun &&func)
+{
+	if (currentIndicator >= INDICATE_NONE)
+		return;
+
+	func(currentIndicator, 255);
+}
 
 void HandleInputHook(HWND window);
 
