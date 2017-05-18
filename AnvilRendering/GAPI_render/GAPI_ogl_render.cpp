@@ -12,10 +12,9 @@
 
 #include "../../Crucible/scopeguard.hpp"
 
-#define GLEW_STATIC
 #define GL_GLEXT_PROTOTYPES
-#include <GL/glew.h>
 #include <GL/gl.h>
+#include "glext.h"
 
 //#include "GAPI_ogl.h"
 #include "GAPI_ogl_render.h"
@@ -29,10 +28,33 @@
 #undef GAPIOGLFUNC
 
 PFNGLACTIVETEXTUREARBPROC s_glActiveTextureARB;
+PFNGLBINDBUFFERPROC s_glBindBuffer;
+PFNGLGENBUFFERSPROC s_glGenBuffers;
+PFNGLBUFFERDATAPROC s_glBufferData;
+PFNGLVERTEXATTRIBPOINTERPROC s_glVertexAttribPointer;
+PFNGLENABLEVERTEXATTRIBARRAYPROC s_glEnableVertexAttribArray;
+PFNGLBINDVERTEXARRAYPROC s_glBindVertexArray;
+PFNGLGENVERTEXARRAYSPROC s_glGenVertexArrays;
+
+PFNGLCREATESHADERPROC s_glCreateShader;
+PFNGLATTACHSHADERPROC s_glAttachShader;
+PFNGLBINDATTRIBLOCATIONPROC s_glBindAttribLocation;
+PFNGLCOMPILESHADERPROC s_glCompileShader;
+PFNGLGETSHADERIVPROC s_glGetShaderiv;
+PFNGLGETSHADERINFOLOGPROC s_glGetShaderInfoLog;
+PFNGLSHADERSOURCEPROC s_glShaderSource;
+
+PFNGLCREATEPROGRAMPROC s_glCreateProgram;
+PFNGLGETPROGRAMIVPROC s_glGetProgramiv;
+PFNGLGETPROGRAMINFOLOGPROC s_glGetProgramInfoLog;
+PFNGLLINKPROGRAMPROC s_glLinkProgram;
+PFNGLUSEPROGRAMPROC s_glUseProgram;
+
+
+
 HGLRC cur_context = nullptr;
 HDC app_HDC = nullptr;
 GLint s_iMaxTexUnits;
-static bool glew_initialized = false;
 
 bool LoadOpenGLFunctions()
 {
@@ -47,6 +69,30 @@ bool LoadOpenGLFunctions()
 #undef GAPIOGLFUNC
 
 	s_glActiveTextureARB = (PFNGLACTIVETEXTUREARBPROC)s_wglGetProcAddress("glActiveTextureARB");
+	
+	s_glBindBuffer = (PFNGLBINDBUFFERPROC)s_wglGetProcAddress("glBindBuffer");
+	s_glGenBuffers = (PFNGLGENBUFFERSPROC)s_wglGetProcAddress("glGenBuffers");
+	s_glBufferData = (PFNGLBUFFERDATAPROC)s_wglGetProcAddress("glBufferData");
+	s_glVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC)s_wglGetProcAddress("glVertexAttribPointer");
+	s_glEnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC)s_wglGetProcAddress("glEnableVertexAttribArray");
+	s_glBindVertexArray = (PFNGLBINDVERTEXARRAYPROC)s_wglGetProcAddress("glBindVertexArray");
+	s_glGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC)s_wglGetProcAddress("glGenVertexArrays");
+
+	s_glCreateShader = (PFNGLCREATESHADERPROC)s_wglGetProcAddress("glCreateShader");
+	s_glAttachShader = (PFNGLATTACHSHADERPROC)s_wglGetProcAddress("glAttachShader");
+	s_glBindAttribLocation = (PFNGLBINDATTRIBLOCATIONPROC)s_wglGetProcAddress("glBindAttribLocation");
+	s_glCompileShader = (PFNGLCOMPILESHADERPROC)s_wglGetProcAddress("glCompileShader");
+	s_glGetShaderiv = (PFNGLGETSHADERIVPROC)s_wglGetProcAddress("glGetShaderiv");
+	s_glGetShaderInfoLog = (PFNGLGETSHADERINFOLOGPROC)s_wglGetProcAddress("glGetShaderInfoLog");
+	s_glShaderSource = (PFNGLSHADERSOURCEPROC)s_wglGetProcAddress("glShaderSource");
+
+	s_glCreateProgram = (PFNGLCREATEPROGRAMPROC)s_wglGetProcAddress("glCreateProgram");
+	s_glGetProgramiv = (PFNGLGETPROGRAMIVPROC)s_wglGetProcAddress("glGetProgramiv");
+	s_glGetProgramInfoLog = (PFNGLGETPROGRAMINFOLOGPROC)s_wglGetProcAddress("glGetProgramInfoLog");
+	s_glLinkProgram = (PFNGLLINKPROGRAMPROC)s_wglGetProcAddress("glLinkProgram");
+	s_glUseProgram = (PFNGLUSEPROGRAMPROC)s_wglGetProcAddress("glUseProgram");
+
+
 	if (s_glActiveTextureARB)
 	{
 		s_glGetIntegerv(GL_MAX_TEXTURE_UNITS_ARB, &s_iMaxTexUnits);
@@ -90,11 +136,6 @@ bool OpenGLRenderer::InitRenderer( IndicatorManager &manager )
 	s_glDisable( GL_ALPHA_TEST );
 	s_glEnable( GL_BLEND );
 	s_glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-
-	if (!glew_initialized) {
-		glewInit();
-		glew_initialized = true;
-	}
 
 	return true;
 
@@ -292,28 +333,28 @@ void RenderOGLTexture(int w, int h, GLuint texture) {
 
 	if (vshader == 0) {
 		LOG_MSG("Compile vShader" LOG_CR);
-		vshader = glCreateShader(GL_VERTEX_SHADER);
-		glShaderSource(vshader, 1, &vertexShader, NULL);
-		glCompileShader(vshader);
-		glGetShaderiv(vshader, GL_COMPILE_STATUS, &Result);
-		glGetShaderiv(vshader, GL_INFO_LOG_LENGTH, &InfoLogLength);
+		vshader = s_glCreateShader(GL_VERTEX_SHADER);
+		s_glShaderSource(vshader, 1, &vertexShader, NULL);
+		s_glCompileShader(vshader);
+		s_glGetShaderiv(vshader, GL_COMPILE_STATUS, &Result);
+		s_glGetShaderiv(vshader, GL_INFO_LOG_LENGTH, &InfoLogLength);
 		if (InfoLogLength > 0) {
 			std::vector<char> ErrorMessage(InfoLogLength + 1);
-			glGetShaderInfoLog(vshader, InfoLogLength, NULL, &ErrorMessage[0]);
+			s_glGetShaderInfoLog(vshader, InfoLogLength, NULL, &ErrorMessage[0]);
 			LOG_MSG("Vertex shader compile error: %s", &ErrorMessage[0]);
 		}
 	}
 
 	if (fshader == 0) {
 		LOG_MSG("Compile fShader" LOG_CR);
-		fshader = glCreateShader(GL_FRAGMENT_SHADER);
-		glShaderSource(fshader, 1, &fragmentShader, NULL);
-		glCompileShader(fshader);
-		glGetShaderiv(fshader, GL_COMPILE_STATUS, &Result);
-		glGetShaderiv(fshader, GL_INFO_LOG_LENGTH, &InfoLogLength);
+		fshader = s_glCreateShader(GL_FRAGMENT_SHADER);
+		s_glShaderSource(fshader, 1, &fragmentShader, NULL);
+		s_glCompileShader(fshader);
+		s_glGetShaderiv(fshader, GL_COMPILE_STATUS, &Result);
+		s_glGetShaderiv(fshader, GL_INFO_LOG_LENGTH, &InfoLogLength);
 		if (InfoLogLength > 0) {
 			std::vector<char> ErrorMessage(InfoLogLength + 1);
-			glGetShaderInfoLog(fshader, InfoLogLength, NULL, &ErrorMessage[0]);
+			s_glGetShaderInfoLog(fshader, InfoLogLength, NULL, &ErrorMessage[0]);
 			LOG_MSG("Fragment shader compile error: %s", &ErrorMessage[0]);
 		}
 	}
@@ -325,50 +366,50 @@ void RenderOGLTexture(int w, int h, GLuint texture) {
 
 	if (glprogram == 0) {
 		LOG_MSG("Link GL Program" LOG_CR);
-		glprogram = glCreateProgram();
-		glAttachShader(glprogram, fshader);
-		glAttachShader(glprogram, vshader);
-		glBindAttribLocation(glprogram, 0, "vpos");
-		glBindAttribLocation(glprogram, 1, "vcolor");
-		glBindAttribLocation(glprogram, 2, "texc");
-		glLinkProgram(glprogram);
-		glGetProgramiv(glprogram, GL_LINK_STATUS, &Result);
-		glGetProgramiv(glprogram, GL_INFO_LOG_LENGTH, &InfoLogLength);
+		glprogram = s_glCreateProgram();
+		s_glAttachShader(glprogram, fshader);
+		s_glAttachShader(glprogram, vshader);
+		s_glBindAttribLocation(glprogram, 0, "vpos");
+		s_glBindAttribLocation(glprogram, 1, "vcolor");
+		s_glBindAttribLocation(glprogram, 2, "texc");
+		s_glLinkProgram(glprogram);
+		s_glGetProgramiv(glprogram, GL_LINK_STATUS, &Result);
+		s_glGetProgramiv(glprogram, GL_INFO_LOG_LENGTH, &InfoLogLength);
 		if (InfoLogLength > 0) {
 			std::vector<char> ErrorMessage(InfoLogLength + 1);
-			glGetProgramInfoLog(glprogram, InfoLogLength, NULL, &ErrorMessage[0]);
+			s_glGetProgramInfoLog(glprogram, InfoLogLength, NULL, &ErrorMessage[0]);
 			LOG_MSG("GL Program compile error: %s", &ErrorMessage[0]);
 		}
 	}
 
-	glGenBuffers(1, &points);
-	glBindBuffer(GL_ARRAY_BUFFER, points);
-	glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(float), indicatorPos, GL_STATIC_DRAW);
-	glGenBuffers(1, &color);
-	glBindBuffer(GL_ARRAY_BUFFER, color);
-	glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(float), indicatorColor, GL_STATIC_DRAW);
-	glGenBuffers(1, &texcoords);
-	glBindBuffer(GL_ARRAY_BUFFER, texcoords);
-	glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), texCoords, GL_STATIC_DRAW);
+	s_glGenBuffers(1, &points);
+	s_glBindBuffer(GL_ARRAY_BUFFER, points);
+	s_glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(float), indicatorPos, GL_STATIC_DRAW);
+	s_glGenBuffers(1, &color);
+	s_glBindBuffer(GL_ARRAY_BUFFER, color);
+	s_glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(float), indicatorColor, GL_STATIC_DRAW);
+	s_glGenBuffers(1, &texcoords);
+	s_glBindBuffer(GL_ARRAY_BUFFER, texcoords);
+	s_glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), texCoords, GL_STATIC_DRAW);
 
-	glGenVertexArrays(1, &varray);
-	glBindVertexArray(varray);
+	s_glGenVertexArrays(1, &varray);
+	s_glBindVertexArray(varray);
 
-	glBindBuffer(GL_ARRAY_BUFFER, points);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
-	glBindBuffer(GL_ARRAY_BUFFER, color);
-	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, NULL);
-	glBindBuffer(GL_ARRAY_BUFFER, texcoords);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+	s_glBindBuffer(GL_ARRAY_BUFFER, points);
+	s_glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+	s_glBindBuffer(GL_ARRAY_BUFFER, color);
+	s_glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, NULL);
+	s_glBindBuffer(GL_ARRAY_BUFFER, texcoords);
+	s_glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, NULL);
 
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glEnableVertexAttribArray(2);
+	s_glEnableVertexAttribArray(0);
+	s_glEnableVertexAttribArray(1);
+	s_glEnableVertexAttribArray(2);
 
-	glUseProgram(glprogram);
-	glBindVertexArray(varray);
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	s_glUseProgram(glprogram);
+	s_glBindVertexArray(varray);
+	s_glBindTexture(GL_TEXTURE_2D, texture);
+	s_glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
 void OpenGLRenderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, BYTE alpha )
@@ -572,7 +613,6 @@ void overlay_gl_free()
 
 	initialized = false;
 	in_free = false;
-	glew_initialized = false;
 
 	vshader = 0;
 	fshader = 0;
@@ -716,9 +756,6 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 
 	if (!initialized)
 		initialized = render.InitRenderer(indicatorManager);
-
-	if (!initialized || !glew_initialized)
-		return;
 
 	get_window_size(hdc, &g_Proc.m_Stats.m_SizeWnd.cx, &g_Proc.m_Stats.m_SizeWnd.cy);
 
