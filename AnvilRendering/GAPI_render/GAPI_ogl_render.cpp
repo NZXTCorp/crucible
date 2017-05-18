@@ -12,8 +12,10 @@
 
 #include "../../Crucible/scopeguard.hpp"
 
+#define GLEW_STATIC
+#define GL_GLEXT_PROTOTYPES
+#include <GL/glew.h>
 #include <GL/gl.h>
-#include "glext.h"
 
 //#include "GAPI_ogl.h"
 #include "GAPI_ogl_render.h"
@@ -30,6 +32,7 @@ PFNGLACTIVETEXTUREARBPROC s_glActiveTextureARB;
 HGLRC cur_context = nullptr;
 HDC app_HDC = nullptr;
 GLint s_iMaxTexUnits;
+static bool glew_initialized = false;
 
 bool LoadOpenGLFunctions()
 {
@@ -87,6 +90,11 @@ bool OpenGLRenderer::InitRenderer( IndicatorManager &manager )
 	s_glDisable( GL_ALPHA_TEST );
 	s_glEnable( GL_BLEND );
 	s_glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+	if (!glew_initialized) {
+		glewInit();
+		glew_initialized = true;
+	}
 
 	return true;
 
@@ -229,6 +237,140 @@ void OpenGLRenderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 	s_glPopAttrib( );
 }
 
+static GLuint vshader = 0, fshader = 0, glprogram = 0;
+const GLchar *vertexShader =	"#version 330\n\n" \
+								"layout(location = 0) in vec3 vpos;\n" \
+								"layout(location = 1) in vec4 vcolor;\n" \
+								"layout(location = 2) in vec2 texc;\n" \
+								"\n" \
+								"out vec2 texcoord;\n" \
+								"out vec4 color;\n\n" \
+								"void main() {\n" \
+									"color = vcolor;\n" \
+									"texcoord = texc;" \
+									"gl_Position = vec4(vpos, 1.0);\n" \
+								"}\n";
+
+const GLchar *fragmentShader =	"#version 330\n\n" \
+								"uniform sampler2D tex;\n" \
+								"in vec2 texcoord;\n" \
+								"in vec4 color;\n" \
+								"out vec4 col_out;\n\n" \
+								"void main() {\n" \
+									"col_out = texture(tex, texcoord);\n" \
+								"}\n";
+
+void RenderOGLTexture(int w, int h, GLuint texture) {
+	float x, y;
+
+	x = 1.0f - (((float)w / (float)g_Proc.m_Stats.m_SizeWnd.cx) * 2.0f);
+	y = 1.0f - (((float)h / (float)g_Proc.m_Stats.m_SizeWnd.cy) * 2.0f);
+
+	float indicatorPos[] = {
+		x,  y,  0.0f,
+		x,  1.0f,  0.0f,
+		1.0f,  y,  0.0f,
+		1.0f,  1.0f,  0.0f,
+	};
+
+	float indicatorColor[] = {
+		1.0f, 0.0f, 0.0f, 1.0f,
+		0.0f, 1.0f, 0.0f, 1.0f,
+		0.0f, 0.0f, 1.0f, 1.0f,
+		1.0f, 0.0f, 1.0f, 1.0f,
+	};
+
+	float texCoords[] = {
+		0.0f,  1.0f,
+		0.0f,  0.0f,
+		1.0f,  1.0f,
+		1.0f,  0.0f,
+	};
+
+	GLuint points = 0, color = 0, texcoords = 0, varray = 0;
+	GLint Result = 0, InfoLogLength = 0;
+
+	if (vshader == 0) {
+		LOG_MSG("Compile vShader" LOG_CR);
+		vshader = glCreateShader(GL_VERTEX_SHADER);
+		glShaderSource(vshader, 1, &vertexShader, NULL);
+		glCompileShader(vshader);
+		glGetShaderiv(vshader, GL_COMPILE_STATUS, &Result);
+		glGetShaderiv(vshader, GL_INFO_LOG_LENGTH, &InfoLogLength);
+		if (InfoLogLength > 0) {
+			std::vector<char> ErrorMessage(InfoLogLength + 1);
+			glGetShaderInfoLog(vshader, InfoLogLength, NULL, &ErrorMessage[0]);
+			LOG_MSG("Vertex shader compile error: %s", &ErrorMessage[0]);
+		}
+	}
+
+	if (fshader == 0) {
+		LOG_MSG("Compile fShader" LOG_CR);
+		fshader = glCreateShader(GL_FRAGMENT_SHADER);
+		glShaderSource(fshader, 1, &fragmentShader, NULL);
+		glCompileShader(fshader);
+		glGetShaderiv(fshader, GL_COMPILE_STATUS, &Result);
+		glGetShaderiv(fshader, GL_INFO_LOG_LENGTH, &InfoLogLength);
+		if (InfoLogLength > 0) {
+			std::vector<char> ErrorMessage(InfoLogLength + 1);
+			glGetShaderInfoLog(fshader, InfoLogLength, NULL, &ErrorMessage[0]);
+			LOG_MSG("Fragment shader compile error: %s", &ErrorMessage[0]);
+		}
+	}
+
+	if (vshader == 0 || fshader == 0) {
+		LOG_MSG("v: %d f: %d", vshader, fshader);
+		return;
+	}
+
+	if (glprogram == 0) {
+		LOG_MSG("Link GL Program" LOG_CR);
+		glprogram = glCreateProgram();
+		glAttachShader(glprogram, fshader);
+		glAttachShader(glprogram, vshader);
+		glBindAttribLocation(glprogram, 0, "vpos");
+		glBindAttribLocation(glprogram, 1, "vcolor");
+		glBindAttribLocation(glprogram, 2, "texc");
+		glLinkProgram(glprogram);
+		glGetProgramiv(glprogram, GL_LINK_STATUS, &Result);
+		glGetProgramiv(glprogram, GL_INFO_LOG_LENGTH, &InfoLogLength);
+		if (InfoLogLength > 0) {
+			std::vector<char> ErrorMessage(InfoLogLength + 1);
+			glGetProgramInfoLog(glprogram, InfoLogLength, NULL, &ErrorMessage[0]);
+			LOG_MSG("GL Program compile error: %s", &ErrorMessage[0]);
+		}
+	}
+
+	glGenBuffers(1, &points);
+	glBindBuffer(GL_ARRAY_BUFFER, points);
+	glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(float), indicatorPos, GL_STATIC_DRAW);
+	glGenBuffers(1, &color);
+	glBindBuffer(GL_ARRAY_BUFFER, color);
+	glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(float), indicatorColor, GL_STATIC_DRAW);
+	glGenBuffers(1, &texcoords);
+	glBindBuffer(GL_ARRAY_BUFFER, texcoords);
+	glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), texCoords, GL_STATIC_DRAW);
+
+	glGenVertexArrays(1, &varray);
+	glBindVertexArray(varray);
+
+	glBindBuffer(GL_ARRAY_BUFFER, points);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+	glBindBuffer(GL_ARRAY_BUFFER, color);
+	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, NULL);
+	glBindBuffer(GL_ARRAY_BUFFER, texcoords);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
+
+	glUseProgram(glprogram);
+	glBindVertexArray(varray);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
 void OpenGLRenderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, BYTE alpha )
 {
 	int err = 0;
@@ -236,7 +378,7 @@ void OpenGLRenderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, BYTE alph
 	// the y coordinate has to be upside down because opengl's origin point is the bottom-left corner of the screen
 	// so we start from bottom left and wind around clockwise (top left, top right, bottom right) to draw our textured quad
 	int w = m_sIndicatorSize[eIndicatorEvent].cx; 
-	int h = g_Proc.m_Stats.m_SizeWnd.cy; // taller images are meant to hang down from the top of the screen
+	int h = m_sIndicatorSize[eIndicatorEvent].cy;
 	int x = g_Proc.m_Stats.m_SizeWnd.cx - w;
 	int y = g_Proc.m_Stats.m_SizeWnd.cy - m_sIndicatorSize[eIndicatorEvent].cy;
 
@@ -274,30 +416,10 @@ void OpenGLRenderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, BYTE alph
 
 	s_glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 
-	s_glBindTexture( GL_TEXTURE_2D, m_uTexIDIndicators[eIndicatorEvent] );
-	err = s_glGetError( );
-	if ( err )
-		LOG_MSG( "DrawNewIndicator: glBindTexture returned error: %d" LOG_CR, err );
-
-	//s_glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-	//s_glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-
 	s_glColor4ub( 255, 255, 255, alpha );
 
-	// draw things. fuck opengl and it's bottom-left origin (so vertical shit is all flipped)
-	s_glBegin( GL_QUADS );
-		s_glTexCoord2f( 0.0, 0.0 );
-		s_glVertex2i( x, h );
-		
-		s_glTexCoord2f( 0.0, 1.0 );
-		s_glVertex2i( x, y );
-		
-		s_glTexCoord2f( 1.0, 1.0 );
-		s_glVertex2i( x+w, y );
-		
-		s_glTexCoord2f( 1.0, 0.0 );
-		s_glVertex2i( x+w, h );
-	s_glEnd( );
+	RenderOGLTexture(w, h, m_uTexIDIndicators[eIndicatorEvent]);
+
 	err = s_glGetError( );
 	if ( err )
 		LOG_MSG( "DrawNewIndicator: OpenGL draw returned error: %d" LOG_CR, err );
@@ -450,6 +572,11 @@ void overlay_gl_free()
 
 	initialized = false;
 	in_free = false;
+	glew_initialized = false;
+
+	vshader = 0;
+	fshader = 0;
+	glprogram = 0;
 
 	if (dc_valid && cur_context)
 		s_wglMakeCurrent(app_HDC, cur_context); // And then switch back the game's context.
@@ -539,48 +666,9 @@ static bool show_browser_tex_(const ActiveOverlay &active_overlay)
 
 		s_glDisable(GL_LIGHTING);
 		s_glDisable(GL_TEXTURE_1D);
-		if (s_glActiveTextureARB)
-		{
-			for (int i = 1; i < s_iMaxTexUnits; i++) // leave unit 0 alone but disable others
-			{
-				s_glActiveTextureARB(s_TextureUnitNums[i]);
-				s_glDisable(GL_TEXTURE_2D);
-			}
-			s_glActiveTextureARB(GL_TEXTURE0_ARB);
-		}
+		
+		RenderOGLTexture(w, h, tex);
 
-		s_glEnable(GL_TEXTURE_2D);
-
-		s_glDisable(GL_DEPTH_TEST);
-		s_glDisable(GL_CULL_FACE);
-		s_glShadeModel(GL_SMOOTH);
-
-		s_glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-
-		s_glBindTexture(GL_TEXTURE_2D, tex);
-		err = s_glGetError();
-		if (err)
-			LOG_MSG("show_browser_tex_: glBindTexture returned error: %d" LOG_CR, err);
-
-		//s_glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		//s_glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-
-		s_glColor4ub(255, 255, 255, 255);
-
-		// draw things. fuck opengl and it's bottom-left origin (so vertical shit is all flipped)
-		s_glBegin(GL_QUADS);
-		s_glTexCoord2f(0.0, 0.0);
-		s_glVertex2i(x, h);
-
-		s_glTexCoord2f(0.0, 1.0);
-		s_glVertex2i(x, y);
-
-		s_glTexCoord2f(1.0, 1.0);
-		s_glVertex2i(x + w, y);
-
-		s_glTexCoord2f(1.0, 0.0);
-		s_glVertex2i(x + w, h);
-		s_glEnd();
 		err = s_glGetError();
 		if (err)
 			LOG_MSG("show_browser_tex_: OpenGL draw returned error: %d" LOG_CR, err);
@@ -629,7 +717,7 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 	if (!initialized)
 		initialized = render.InitRenderer(indicatorManager);
 
-	if (!initialized)
+	if (!initialized || !glew_initialized)
 		return;
 
 	get_window_size(hdc, &g_Proc.m_Stats.m_SizeWnd.cx, &g_Proc.m_Stats.m_SizeWnd.cy);
