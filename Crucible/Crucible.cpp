@@ -424,13 +424,14 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
-	void SendInjectRequest(bool process_is_64bit, bool anti_cheat, DWORD process_thread_id)
+	void SendInjectRequest(bool process_is_64bit, bool anti_cheat, DWORD process_thread_id, const string &hook_dir)
 	{
 		auto event = EventCreate("inject_request");
 
 		obs_data_set_bool(event, "64bit", process_is_64bit);
 		obs_data_set_bool(event, "anti_cheat", anti_cheat);
 		obs_data_set_int(event, "id", process_thread_id);
+		obs_data_set_string(event, "hook_dir", hook_dir.c_str());
 
 		SendEvent(event);
 	}
@@ -2225,9 +2226,10 @@ struct CrucibleContext {
 			auto is_64bit = calldata_bool(data, "process_is_64bit");
 			auto anti_cheat = calldata_bool(data, "anti_cheat");
 			auto pid = static_cast<DWORD>(calldata_int(data, "process_thread_id"));
+			string hook_dir = calldata_string(data, "hook_dir");
 			QueueOperation([=]
 			{
-				ForgeEvents::SendInjectRequest(is_64bit, anti_cheat, pid);
+				ForgeEvents::SendInjectRequest(is_64bit, anti_cheat, pid, hook_dir);
 			});
 		});
 
