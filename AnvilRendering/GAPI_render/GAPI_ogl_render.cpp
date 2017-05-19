@@ -37,6 +37,7 @@ PFNGLBINDVERTEXARRAYPROC s_glBindVertexArray;
 PFNGLGENVERTEXARRAYSPROC s_glGenVertexArrays;
 
 PFNGLCREATESHADERPROC s_glCreateShader;
+PFNGLDELETESHADERPROC s_glDeleteShader;
 PFNGLATTACHSHADERPROC s_glAttachShader;
 PFNGLBINDATTRIBLOCATIONPROC s_glBindAttribLocation;
 PFNGLCOMPILESHADERPROC s_glCompileShader;
@@ -45,6 +46,7 @@ PFNGLGETSHADERINFOLOGPROC s_glGetShaderInfoLog;
 PFNGLSHADERSOURCEPROC s_glShaderSource;
 
 PFNGLCREATEPROGRAMPROC s_glCreateProgram;
+PFNGLDELETEPROGRAMPROC s_glDeleteProgram;
 PFNGLGETPROGRAMIVPROC s_glGetProgramiv;
 PFNGLGETPROGRAMINFOLOGPROC s_glGetProgramInfoLog;
 PFNGLLINKPROGRAMPROC s_glLinkProgram;
@@ -79,6 +81,7 @@ bool LoadOpenGLFunctions()
 	s_glGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC)s_wglGetProcAddress("glGenVertexArrays");
 
 	s_glCreateShader = (PFNGLCREATESHADERPROC)s_wglGetProcAddress("glCreateShader");
+	s_glDeleteShader = (PFNGLDELETESHADERPROC)s_wglGetProcAddress("glDeleteShader");
 	s_glAttachShader = (PFNGLATTACHSHADERPROC)s_wglGetProcAddress("glAttachShader");
 	s_glBindAttribLocation = (PFNGLBINDATTRIBLOCATIONPROC)s_wglGetProcAddress("glBindAttribLocation");
 	s_glCompileShader = (PFNGLCOMPILESHADERPROC)s_wglGetProcAddress("glCompileShader");
@@ -87,6 +90,7 @@ bool LoadOpenGLFunctions()
 	s_glShaderSource = (PFNGLSHADERSOURCEPROC)s_wglGetProcAddress("glShaderSource");
 
 	s_glCreateProgram = (PFNGLCREATEPROGRAMPROC)s_wglGetProcAddress("glCreateProgram");
+	s_glDeleteProgram = (PFNGLDELETEPROGRAMPROC)s_wglGetProcAddress("glDeleteProgram");
 	s_glGetProgramiv = (PFNGLGETPROGRAMIVPROC)s_wglGetProcAddress("glGetProgramiv");
 	s_glGetProgramInfoLog = (PFNGLGETPROGRAMINFOLOGPROC)s_wglGetProcAddress("glGetProgramInfoLog");
 	s_glLinkProgram = (PFNGLLINKPROGRAMPROC)s_wglGetProcAddress("glLinkProgram");
@@ -628,6 +632,13 @@ void overlay_gl_free()
 				tex = 0;
 			});
 		}
+
+		if (vshader && s_glDeleteShader)
+			s_glDeleteShader(vshader);
+		if (fshader && s_glDeleteShader)
+			s_glDeleteShader(fshader);
+		if (glprogram && s_glDeleteProgram)
+			s_glDeleteProgram(glprogram);
 
 		render.FreeRenderer();
 	}
