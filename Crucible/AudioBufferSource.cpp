@@ -42,8 +42,6 @@ struct CrucibleAudioBufferServer {
 		static atomic<int> restarts = 0;
 		died = false;
 
-		name = "CrucibleAudioBufferServer" + to_string(GetCurrentProcessId()) + "-" + to_string(restarts++);
-
 		server.Start(name, [&, fun](uint8_t *data, size_t size)
 		{
 			if (!data) {
@@ -100,20 +98,12 @@ struct AudioBufferSource {
 	CrucibleAudioBufferServer server;
 
 	AudioBufferSource() = default;
-	AudioBufferSource(obs_source_t *source)
+	AudioBufferSource(obs_data_t *settings, obs_source_t *source)
 		: source(source)
 	{
-		StartServer();
-
-		auto proc = obs_source_get_proc_handler(source);
-		proc_handler_add(proc, "void get_server_name(out string name)", [](void *context, calldata_t *data)
-		{
-			auto self = cast(context);
-			if (self->server.died)
-				self->StartServer();
-
-			calldata_set_string(data, "name", self->server.name.c_str());
-		}, this);
+		server.name = obs_data_get_string(settings, "pipe_name");
+		if (!server.name.empty())
+			StartServer();
 	}
 
 protected:
@@ -141,7 +131,7 @@ void RegisterAudioBufferSource()
 	info.type = OBS_SOURCE_TYPE_INPUT;
 	info.output_flags = OBS_SOURCE_AUDIO;
 	info.get_name = [](auto) { return "AudioBuffer Source"; };
-	info.create = [](auto, obs_source_t *source) { return static_cast<void*>(new AudioBufferSource{ source }); };
+	info.create = [](obs_data_t *settings, obs_source_t *source) { return static_cast<void*>(new AudioBufferSource{ settings, source }); };
 	info.destroy = [](void *context) { delete cast(context); };
 
 	obs_register_source(&info);
