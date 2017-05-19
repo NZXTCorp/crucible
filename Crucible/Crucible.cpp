@@ -58,6 +58,7 @@ extern "C" {
 }
 
 extern OBSEncoder CreateAudioEncoder(const char *name);
+extern void RegisterAudioBufferSource();
 extern void RegisterFramebufferSource();
 
 static IPCClient event_client, log_client;
@@ -1538,7 +1539,7 @@ struct CrucibleContext {
 	obs_video_info ovi;
 	uint32_t fps_den;
 	std::string webcam_device;
-	OBSSource tunes, mic, gameCapture, webcam, theme, window, wallpaper;
+	OBSSource tunes, mic, gameCapture, webcam, theme, window, wallpaper, audioBuffer;
 	OBSSourceSignal micMuted, pttActive, micAcquired;
 	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess, screenshotSaved, processInaccessible;
 	OBSEncoder h264, aac, stream_h264, recordingStream_h264;
@@ -1633,6 +1634,7 @@ struct CrucibleContext {
 		if (!obs_reset_audio(&ai))
 			throw "Couldn't initialize audio";
 
+		RegisterAudioBufferSource();
 		RegisterFramebufferSource();
 
 		if (standalone)
@@ -2897,6 +2899,12 @@ struct CrucibleContext {
 		game_and_webcam.game = nullptr;
 	}
 
+	void CreateAudioBufferSource(obs_data_t *settings)
+	{
+		InitRef(audioBuffer, "Couldn't create audio buffer source", obs_source_release,
+			obs_source_create(OBS_SOURCE_TYPE_INPUT, "AudioBufferSource", "audio buffer", settings, nullptr));
+	}
+
 	void CreateGameCapture(obs_data_t *settings)
 	{
 		if (!settings)
@@ -3802,6 +3810,7 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 		cc.UpdateFilenames(obs_data_get_string(obj, "filename"), obs_data_get_string(obj, "profiler_data"));
 	}
 
+	cc.CreateAudioBufferSource(OBSDataGetObj(obj, "audio_buffer"));
 	cc.CreateGameCapture(OBSDataGetObj(obj, "game_capture"));
 
 	blog(LOG_INFO, "Starting new capture");
