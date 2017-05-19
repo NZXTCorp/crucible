@@ -9,6 +9,7 @@
 #include <atomic>
 #include <mutex>
 #include <vector>
+#include <map>
 
 #define CONCAT2(x, y) x ## y
 #define CONCAT(x, y) CONCAT2(x, y)
@@ -78,6 +79,8 @@ struct AudioBufferSource {
 
 	obs_source_audio frame = {};
 
+	map<uint64_t, obs_source_audio_stream_t*> streams;
+
 	CrucibleAudioBufferServer server;
 
 	AudioBufferSource() = default;
@@ -106,7 +109,14 @@ protected:
 
 			frame.timestamp = os_gettime_ns();
 
-			obs_source_output_audio(source, &frame);
+			auto it = streams.find(id);
+			if (it == end(streams)) {
+				auto stream = obs_source_add_audio_stream(source);
+				blog(LOG_INFO, "[AudioBufferSource '%s']: adding new stream %llu (%p)", obs_source_get_name(source), id, stream);
+				it = streams.emplace(id, stream).first;
+			}
+
+			obs_source_output_audio_stream(source, it->second, &frame);
 		});
 	}
 };
