@@ -12,6 +12,8 @@
 
 #include "../../Crucible/scopeguard.hpp"
 
+#include <array>
+
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include "glext.h"
@@ -30,11 +32,13 @@
 PFNGLACTIVETEXTUREARBPROC s_glActiveTextureARB;
 PFNGLBINDBUFFERPROC s_glBindBuffer;
 PFNGLGENBUFFERSPROC s_glGenBuffers;
+PFNGLDELETEBUFFERSPROC s_glDeleteBuffers;
 PFNGLBUFFERDATAPROC s_glBufferData;
 PFNGLVERTEXATTRIBPOINTERPROC s_glVertexAttribPointer;
 PFNGLENABLEVERTEXATTRIBARRAYPROC s_glEnableVertexAttribArray;
 PFNGLBINDVERTEXARRAYPROC s_glBindVertexArray;
 PFNGLGENVERTEXARRAYSPROC s_glGenVertexArrays;
+PFNGLDELETEVERTEXARRAYSPROC s_glDeleteVertexArrays;
 
 PFNGLCREATESHADERPROC s_glCreateShader;
 PFNGLDELETESHADERPROC s_glDeleteShader;
@@ -74,11 +78,13 @@ bool LoadOpenGLFunctions()
 	
 	s_glBindBuffer = (PFNGLBINDBUFFERPROC)s_wglGetProcAddress("glBindBuffer");
 	s_glGenBuffers = (PFNGLGENBUFFERSPROC)s_wglGetProcAddress("glGenBuffers");
+	s_glDeleteBuffers = (PFNGLDELETEBUFFERSPROC)s_wglGetProcAddress("glDeleteBuffers");
 	s_glBufferData = (PFNGLBUFFERDATAPROC)s_wglGetProcAddress("glBufferData");
 	s_glVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC)s_wglGetProcAddress("glVertexAttribPointer");
 	s_glEnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC)s_wglGetProcAddress("glEnableVertexAttribArray");
 	s_glBindVertexArray = (PFNGLBINDVERTEXARRAYPROC)s_wglGetProcAddress("glBindVertexArray");
 	s_glGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC)s_wglGetProcAddress("glGenVertexArrays");
+	s_glDeleteVertexArrays = (PFNGLDELETEVERTEXARRAYSPROC)s_wglGetProcAddress("glDeleteVertexArrays");
 
 	s_glCreateShader = (PFNGLCREATESHADERPROC)s_wglGetProcAddress("glCreateShader");
 	s_glDeleteShader = (PFNGLDELETESHADERPROC)s_wglGetProcAddress("glDeleteShader");
@@ -283,6 +289,8 @@ void OpenGLRenderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 }
 
 static GLuint vshader = 0, fshader = 0, glprogram = 0;
+static std::array<GLuint, 3> gl_buffers = { 0 };
+static GLuint varray = 0;
 const GLchar *vertexShader =	"#version 330\n\n" \
 								"layout(location = 0) in vec3 vpos;\n" \
 								"layout(location = 1) in vec4 vcolor;\n" \
@@ -332,7 +340,6 @@ void RenderOGLTexture(int w, int h, GLuint texture) {
 		1.0f,  0.0f,
 	};
 
-	GLuint points = 0, color = 0, texcoords = 0, varray = 0;
 	GLint Result = 0, InfoLogLength = 0;
 
 	if (vshader == 0) {
@@ -386,17 +393,20 @@ void RenderOGLTexture(int w, int h, GLuint texture) {
 		return;
 	}
 
-	s_glGenBuffers(1, &points);
+	if (!gl_buffers[0])
+		s_glGenBuffers(gl_buffers.size(), gl_buffers.data());
+
+	GLuint points = gl_buffers[0], color = gl_buffers[1], texcoords = gl_buffers[2];
+
 	s_glBindBuffer(GL_ARRAY_BUFFER, points);
 	s_glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(float), indicatorPos, GL_STATIC_DRAW);
-	s_glGenBuffers(1, &color);
 	s_glBindBuffer(GL_ARRAY_BUFFER, color);
 	s_glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(float), indicatorColor, GL_STATIC_DRAW);
-	s_glGenBuffers(1, &texcoords);
 	s_glBindBuffer(GL_ARRAY_BUFFER, texcoords);
 	s_glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), texCoords, GL_STATIC_DRAW);
 
-	s_glGenVertexArrays(1, &varray);
+	if (!varray)
+		s_glGenVertexArrays(1, &varray);
 	s_glBindVertexArray(varray);
 
 	s_glBindBuffer(GL_ARRAY_BUFFER, points);
@@ -640,6 +650,12 @@ void overlay_gl_free()
 		if (glprogram && s_glDeleteProgram)
 			s_glDeleteProgram(glprogram);
 
+		if (gl_buffers[0] && s_glDeleteBuffers)
+			s_glDeleteBuffers(gl_buffers.size(), gl_buffers.data());
+
+		if (varray && s_glDeleteVertexArrays)
+			s_glDeleteVertexArrays(1, &varray);
+
 		render.FreeRenderer();
 	}
 
@@ -658,6 +674,11 @@ void overlay_gl_free()
 	vshader = 0;
 	fshader = 0;
 	glprogram = 0;
+
+	for (auto &buffer : gl_buffers)
+		buffer = 0;
+
+	varray = 0;
 
 	if (dc_valid && cur_context)
 		s_wglMakeCurrent(app_HDC, cur_context); // And then switch back the game's context.
