@@ -111,6 +111,18 @@ bool LoadOpenGLFunctions()
 	else
 		LOG_WARN("OpenGL Multi texturing not supported" LOG_CR);
 
+	if (s_glBindBuffer && s_glGenBuffers && s_glDeleteBuffers && s_glBufferData && s_glVertexAttribPointer &&
+		s_glEnableVertexAttribArray && s_glBindVertexArray && s_glGenVertexArrays && s_glDeleteVertexArrays &&
+		s_glCreateShader && s_glDeleteShader && s_glAttachShader && s_glBindAttribLocation &&
+		s_glCompileShader && s_glGetShaderiv && s_glGetShaderInfoLog && s_glShaderSource &&
+		s_glCreateProgram && s_glDeleteProgram && s_glGetProgramiv && s_glGetProgramInfoLog &&
+		s_glLinkProgram && s_glUseProgram) {
+		hlog("GL context is shader compatible");
+	} else {
+		hlog("GL context isn't shader compatible");
+		glsl_shader_error = true;
+	}
+
 	return true;
 }
 
