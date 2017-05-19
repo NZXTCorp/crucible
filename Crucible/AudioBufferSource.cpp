@@ -23,19 +23,8 @@ struct CrucibleAudioBufferServer {
 
 	atomic<bool> died = true;
 
-	struct Metadata {
-		uint32_t sample_rate;
-		enum speaker_layout speakers;
-		enum audio_format format;
-		uint32_t frames;
-	};
-
-	Metadata incoming_data;
-	bool have_metadata = false;
-
 	IPCServer server;
 
-#pragma optimize("tsg", on)
 	template <typename Fun>
 	void Start(Fun fun)
 	{
@@ -50,29 +39,7 @@ struct CrucibleAudioBufferServer {
 				return;
 			}
 
-			if (!have_metadata) {
-				if (size < info_header_fragment.size() + 2 || memcmp(info_header_fragment.data(), data, info_header_fragment.size()) != 0)
-					return;
-
-				auto info = OBSDataCreate({ data + info_header_fragment.size(), data + size - 1 });
-
-				incoming_data.sample_rate = static_cast<uint32_t>(obs_data_get_int(info, "sample_rate"));
-				incoming_data.speakers = static_cast<speaker_layout>(obs_data_get_int(info, "speaker_layout"));
-				incoming_data.format = static_cast<audio_format>(obs_data_get_int(info, "format"));
-				incoming_data.frames = static_cast<uint32_t>(obs_data_get_int(info, "frames"));
-
-				have_metadata = true;
-				return;
-			}
-
-			if (size < incoming_data.frames * incoming_data.format) {
-				have_metadata = false;
-				return;
-			}
-
-			have_metadata = false;
-
-			fun(data, size, incoming_data);
+			fun(data, size);
 		}, -1);
 	}
 
@@ -82,6 +49,22 @@ struct CrucibleAudioBufferServer {
 		died = true;
 	}
 };
+
+template <typename T, typename U>
+static void read(uint8_t *&read_ptr, U &val)
+{
+	T tmp;
+	memcpy(&tmp, read_ptr, sizeof(T));
+	read_ptr += sizeof(T);
+	val = static_cast<U>(tmp);
+}
+
+template <typename T>
+static void read(uint8_t *&read_ptr, T &val)
+{
+	memcpy(&val, read_ptr, sizeof(T));
+	read_ptr += sizeof(T);
+}
 
 struct AudioBufferSource;
 
@@ -109,13 +92,17 @@ struct AudioBufferSource {
 protected:
 	void StartServer()
 	{
-		server.Start([&](uint8_t *data, size_t size, CrucibleAudioBufferServer::Metadata metadata)
+		server.Start([&](uint8_t *data, size_t size)
 		{
-			frame.samples_per_sec = metadata.sample_rate;
-			frame.speakers = metadata.speakers;
-			frame.format = metadata.format;
-			frame.frames = metadata.frames;
-			frame.data[0] = data;			
+			auto read_ptr = data;
+			uint64_t id;
+
+			read(read_ptr, id);
+			read(read_ptr, frame.samples_per_sec);
+			read<uint32_t>(read_ptr, frame.speakers);
+			read<uint32_t>(read_ptr, frame.format);
+			read(read_ptr, frame.frames);
+			frame.data[0] = read_ptr;			
 
 			frame.timestamp = os_gettime_ns();
 
