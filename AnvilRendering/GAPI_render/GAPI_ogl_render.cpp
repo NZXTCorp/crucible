@@ -50,11 +50,11 @@ PFNGLGETPROGRAMINFOLOGPROC s_glGetProgramInfoLog;
 PFNGLLINKPROGRAMPROC s_glLinkProgram;
 PFNGLUSEPROGRAMPROC s_glUseProgram;
 
-
-
 HGLRC cur_context = nullptr;
 HDC app_HDC = nullptr;
 GLint s_iMaxTexUnits;
+
+static bool glsl_shader_error = false;
 
 bool LoadOpenGLFunctions()
 {
@@ -332,7 +332,6 @@ void RenderOGLTexture(int w, int h, GLuint texture) {
 	GLint Result = 0, InfoLogLength = 0;
 
 	if (vshader == 0) {
-		LOG_MSG("Compile vShader" LOG_CR);
 		vshader = s_glCreateShader(GL_VERTEX_SHADER);
 		s_glShaderSource(vshader, 1, &vertexShader, NULL);
 		s_glCompileShader(vshader);
@@ -341,12 +340,12 @@ void RenderOGLTexture(int w, int h, GLuint texture) {
 		if (InfoLogLength > 0) {
 			std::vector<char> ErrorMessage(InfoLogLength + 1);
 			s_glGetShaderInfoLog(vshader, InfoLogLength, NULL, &ErrorMessage[0]);
-			LOG_MSG("Vertex shader compile error: %s", &ErrorMessage[0]);
+			LOG_MSG("Vertex shader compile error: %s", &ErrorMessage[0] LOG_CR);
+			glsl_shader_error = true;
 		}
 	}
 
 	if (fshader == 0) {
-		LOG_MSG("Compile fShader" LOG_CR);
 		fshader = s_glCreateShader(GL_FRAGMENT_SHADER);
 		s_glShaderSource(fshader, 1, &fragmentShader, NULL);
 		s_glCompileShader(fshader);
@@ -355,17 +354,12 @@ void RenderOGLTexture(int w, int h, GLuint texture) {
 		if (InfoLogLength > 0) {
 			std::vector<char> ErrorMessage(InfoLogLength + 1);
 			s_glGetShaderInfoLog(fshader, InfoLogLength, NULL, &ErrorMessage[0]);
-			LOG_MSG("Fragment shader compile error: %s", &ErrorMessage[0]);
+			LOG_MSG("Fragment shader compile error: %s", &ErrorMessage[0] LOG_CR);
+			glsl_shader_error = true;
 		}
 	}
 
-	if (vshader == 0 || fshader == 0) {
-		LOG_MSG("v: %d f: %d", vshader, fshader);
-		return;
-	}
-
 	if (glprogram == 0) {
-		LOG_MSG("Link GL Program" LOG_CR);
 		glprogram = s_glCreateProgram();
 		s_glAttachShader(glprogram, fshader);
 		s_glAttachShader(glprogram, vshader);
@@ -379,7 +373,13 @@ void RenderOGLTexture(int w, int h, GLuint texture) {
 			std::vector<char> ErrorMessage(InfoLogLength + 1);
 			s_glGetProgramInfoLog(glprogram, InfoLogLength, NULL, &ErrorMessage[0]);
 			LOG_MSG("GL Program compile error: %s", &ErrorMessage[0]);
+			glsl_shader_error = true;
 		}
+	}
+
+	if (glsl_shader_error) {
+		LOG_MSG("Could not set up OpenGL shaders and/or program. Using glVertex rendering fallback." LOG_CR);
+		return;
 	}
 
 	s_glGenBuffers(1, &points);
@@ -459,7 +459,36 @@ void OpenGLRenderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, BYTE alph
 
 	s_glColor4ub( 255, 255, 255, alpha );
 
-	RenderOGLTexture(w, h, m_uTexIDIndicators[eIndicatorEvent]);
+	if (!glsl_shader_error)
+		RenderOGLTexture(w, h, m_uTexIDIndicators[eIndicatorEvent]);
+	if (glsl_shader_error) {
+		h = g_Proc.m_Stats.m_SizeWnd.cy; // taller images are meant to hang down from the top of the screen
+
+		s_glBindTexture(GL_TEXTURE_2D, m_uTexIDIndicators[eIndicatorEvent]);
+		err = s_glGetError();
+		if (err)
+			LOG_MSG("DrawNewIndicator: glBindTexture returned error: %d" LOG_CR, err);
+
+		//s_glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+		//s_glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+
+		s_glColor4ub(255, 255, 255, alpha);
+
+		// draw things. fuck opengl and it's bottom-left origin (so vertical shit is all flipped)
+		s_glBegin(GL_QUADS);
+		s_glTexCoord2f(0.0, 0.0);
+		s_glVertex2i(x, h);
+
+		s_glTexCoord2f(0.0, 1.0);
+		s_glVertex2i(x, y);
+
+		s_glTexCoord2f(1.0, 1.0);
+		s_glVertex2i(x + w, y);
+
+		s_glTexCoord2f(1.0, 0.0);
+		s_glVertex2i(x + w, h);
+		s_glEnd();
+	}
 
 	err = s_glGetError( );
 	if ( err )
@@ -613,6 +642,7 @@ void overlay_gl_free()
 
 	initialized = false;
 	in_free = false;
+	glsl_shader_error = false;
 
 	vshader = 0;
 	fshader = 0;
@@ -707,7 +737,49 @@ static bool show_browser_tex_(const ActiveOverlay &active_overlay)
 		s_glDisable(GL_LIGHTING);
 		s_glDisable(GL_TEXTURE_1D);
 		
-		RenderOGLTexture(w, h, tex);
+		if(!glsl_shader_error)
+			RenderOGLTexture(w, h, tex);
+		if (glsl_shader_error) {
+			if (s_glActiveTextureARB)
+			{
+				for (int i = 1; i < s_iMaxTexUnits; i++) // leave unit 0 alone but disable others
+				{
+					s_glActiveTextureARB(s_TextureUnitNums[i]);
+					s_glDisable(GL_TEXTURE_2D);
+				}
+				s_glActiveTextureARB(GL_TEXTURE0_ARB);
+			}
+
+			s_glEnable(GL_TEXTURE_2D);
+
+			s_glDisable(GL_DEPTH_TEST);
+			s_glDisable(GL_CULL_FACE);
+			s_glShadeModel(GL_SMOOTH);
+
+			s_glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+			s_glBindTexture(GL_TEXTURE_2D, tex);
+			err = s_glGetError();
+			if (err)
+				LOG_MSG("show_browser_tex_: glBindTexture returned error: %d" LOG_CR, err);
+
+			s_glColor4ub(255, 255, 255, 255);
+
+			// draw things. fuck opengl and it's bottom-left origin (so vertical shit is all flipped)
+			s_glBegin(GL_QUADS);
+			s_glTexCoord2f(0.0, 0.0);
+			s_glVertex2i(x, h);
+
+			s_glTexCoord2f(0.0, 1.0);
+			s_glVertex2i(x, y);
+
+			s_glTexCoord2f(1.0, 1.0);
+			s_glVertex2i(x + w, y);
+
+			s_glTexCoord2f(1.0, 0.0);
+			s_glVertex2i(x + w, h);
+			s_glEnd();
+		}
 
 		err = s_glGetError();
 		if (err)
