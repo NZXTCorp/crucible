@@ -80,6 +80,7 @@ struct AudioBufferSource {
 	obs_source_audio frame = {};
 
 	map<uint64_t, obs_source_audio_stream_t*> streams;
+	atomic<uint32_t> num_streams = 0;
 
 	CrucibleAudioBufferServer server;
 
@@ -87,6 +88,13 @@ struct AudioBufferSource {
 	AudioBufferSource(obs_data_t *settings, obs_source_t *source)
 		: source(source)
 	{
+		proc_handler_add(obs_source_get_proc_handler(source), "void num_audio_streams(out int num)", [](void *context, calldata_t *data)
+		{
+			auto self = cast(context);
+			calldata_set_int(data, "num", self->num_streams);
+		}, this);
+
+
 		server.name = obs_data_get_string(settings, "pipe_name");
 		if (!server.name.empty())
 			StartServer();
@@ -114,6 +122,7 @@ protected:
 				auto stream = obs_source_add_audio_stream(source);
 				blog(LOG_INFO, "[AudioBufferSource '%s']: adding new stream %llu (%p)", obs_source_get_name(source), id, stream);
 				it = streams.emplace(id, stream).first;
+				num_streams += 1;
 			}
 
 			obs_source_output_audio_stream(source, it->second, &frame);
