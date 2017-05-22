@@ -676,6 +676,15 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendAudioBufferMuted(bool muted)
+	{
+		auto event = EventCreate("audio_buffer_muted");
+
+		obs_data_set_bool(event, "muted", muted);
+
+		SendEvent(event);
+	}
 }
 
 namespace AnvilCommands {
@@ -1689,7 +1698,9 @@ struct CrucibleContext {
 		obs_source_set_audio_mixers(tunes, buffer_only ? 0 : (1 << 0));
 		obs_source_set_audio_mixers(audioBuffer, (1 << 1) | (buffer_only ? (1 << 0) : 0));
 
-		obs_source_set_muted(audioBuffer, obs_source_muted(tunes) || (!buffer_only && !obs_output_active(recordingStream)));
+		auto audio_buffer_muted = obs_source_muted(tunes) || (!buffer_only && !obs_output_active(recordingStream));
+		obs_source_set_muted(audioBuffer, audio_buffer_muted);
+		ForgeEvents::SendAudioBufferMuted(audio_buffer_muted);
 	}
 
 	void InitSources()
