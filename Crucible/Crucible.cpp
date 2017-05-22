@@ -2894,6 +2894,7 @@ struct CrucibleContext {
 			obs_set_output_source(0, nullptr);
 
 		gameCapture = nullptr;
+		audioBuffer = nullptr;
 
 		obs_sceneitem_remove(game_and_webcam.game);
 		game_and_webcam.game = nullptr;
