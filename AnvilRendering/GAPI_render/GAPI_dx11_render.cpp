@@ -28,6 +28,8 @@ struct TEXMAPVERTEX
 	D3D11TEX tex;
 };
 
+DXGI_FORMAT textureFormat;
+
 static const char* s_DX11TextureShader =
 	"Texture2D txScreen : register( t0 );\r\n"
 	"SamplerState samLinear : register( s0 );\r\n"
@@ -154,7 +156,7 @@ void DX11Renderer::InitIndicatorTextures(IndicatorManager &manager, bool update)
 		desc.MipLevels = 1;
 		desc.SampleDesc.Count = 1;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-		desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+		desc.Format = textureFormat;
 		desc.Usage = D3D11_USAGE_IMMUTABLE;
 
 		D3D11_SUBRESOURCE_DATA texData;
@@ -401,7 +403,7 @@ bool DX11Renderer::InitRenderer( IndicatorManager &manager )
 	desc.MipLevels = 1;
 	desc.SampleDesc.Count = 1;
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	desc.Format = textureFormat;
 	desc.Usage = D3D11_USAGE_DYNAMIC;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
@@ -914,6 +916,12 @@ static DX11Renderer *get_renderer(IDXGISwapChain *swap)
 
 		g_Proc.m_Stats.m_SizeWnd.cx = desc.BufferDesc.Width;
 		g_Proc.m_Stats.m_SizeWnd.cy = desc.BufferDesc.Height;
+
+		if (desc.BufferDesc.Format == DXGI_FORMAT_R8G8B8A8_UNORM_SRGB)
+			textureFormat = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+		else
+			textureFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
+
 		window = desc.OutputWindow;
 
 		renderer.reset(new DX11Renderer{dev}); //release dev?
