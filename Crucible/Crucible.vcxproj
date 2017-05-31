@@ -81,6 +81,7 @@
     <ClCompile Include="AudioBufferSource.cpp" />
     <ClCompile Include="AudioEncoderSelection.cpp" />
     <ClCompile Include="Crucible.cpp" />
+    <ClCompile Include="NVENC\Encoder.cpp" />
     <ClCompile Include="RemoteDisplay.cpp" />
     <ClCompile Include="FramebufferSource.cpp" />
     <ClCompile Include="ScreenshotProvider.cpp" />
@@ -88,6 +89,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="IPC.hpp" />
+    <ClInclude Include="NVENC\dynlink_cuda.h" />
+    <ClInclude Include="NVENC\nvEncodeAPI.h" />
     <ClInclude Include="OBSHelpers.hpp" />
     <ClInclude Include="ProtectedObject.hpp" />
     <ClInclude Include="RemoteDisplay.h" />
