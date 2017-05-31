@@ -2959,6 +2959,8 @@ struct CrucibleContext {
 		if (source == gameCapture)
 			obs_set_output_source(0, nullptr);
 
+		obs_set_output_source(3, nullptr);
+
 		gameCapture = nullptr;
 		audioBuffer = nullptr;
 
@@ -2974,6 +2976,8 @@ struct CrucibleContext {
 			obs_source_create(OBS_SOURCE_TYPE_INPUT, "AudioBufferSource", "audio buffer", settings, nullptr));
 
 		obs_source_set_volume(audioBuffer, obs_source_get_volume(tunes));
+
+		obs_set_output_source(3, audioBuffer);
 
 		check_audio_streams = false;
 		check_audio_streams_timer.reset();
