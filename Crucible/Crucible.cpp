@@ -60,6 +60,7 @@ extern "C" {
 extern OBSEncoder CreateAudioEncoder(const char *name, uint32_t mixer_idx = 0);
 extern void RegisterAudioBufferSource();
 extern void RegisterFramebufferSource();
+extern void RegisterNVENCEncoder();
 
 static IPCClient event_client, log_client;
 
@@ -73,7 +74,8 @@ static void AddWaitHandleCallback(HANDLE h, function<void()> cb);
 static void RemoveWaitHandle(HANDLE h);
 
 static const vector<pair<string, string>> allowed_hardware_encoder_names = {
-	{ "ffmpeg_nvenc", "Nvidia NVENC" },
+	{ "crucible_nvenc", "Nvidia NVENC" },
+	{ "ffmpeg_nvenc", "Nvidia NVENC (via FFmpeg)" },
 	{ "obs_qsv11", "Intel Quick Sync Video" },
 	{ "amd_amf_h264", "AMD AMF Video Encoder" },
 };
@@ -1660,6 +1662,7 @@ struct CrucibleContext {
 
 		RegisterAudioBufferSource();
 		RegisterFramebufferSource();
+		RegisterNVENCEncoder();
 
 		if (standalone)
 		{
@@ -1842,6 +1845,20 @@ struct CrucibleContext {
 				obs_data_set_string(vsettings, "profile", "high");
 				obs_data_set_string(vsettings, "preset", "veryfast");
 				obs_data_set_int(vsettings, "keyint_sec", 1);
+			}
+
+		} else if (id == "crucible_nvenc"s) {
+			if (!stream_compatible) {
+				obs_data_set_int(vsettings, "bitrate", 2 * bitrate);
+				obs_data_set_string(vsettings, "profile", "high");
+				obs_data_set_int(vsettings, "keyint_sec", 1);
+
+			} else {
+				obs_data_set_int(vsettings, "bitrate", 2 * bitrate);
+				obs_data_set_string(vsettings, "rate_control", "cbr");
+				obs_data_set_string(vsettings, "profile", "high");
+				obs_data_set_int(vsettings, "keyint_sec", 1);
+				obs_data_set_bool(vsettings, "dynamic_bitrate", true);
 			}
 
 		} else if (id == "ffmpeg_nvenc"s) {
