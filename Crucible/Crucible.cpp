@@ -1829,7 +1829,7 @@ struct CrucibleContext {
 				obs_data_set_bool(vsettings, "cbr", true);
 				obs_data_set_string(vsettings, "profile", "high");
 				obs_data_set_string(vsettings, "preset", "veryfast");
-				obs_data_set_int(vsettings, "keyint_sec", 2);
+				obs_data_set_int(vsettings, "keyint_sec", 1);
 			}
 
 		} else if (id == "ffmpeg_nvenc"s) {
@@ -1843,7 +1843,7 @@ struct CrucibleContext {
 				obs_data_set_int(vsettings, "bitrate", 2 * bitrate);
 				obs_data_set_bool(vsettings, "cbr", true);
 				obs_data_set_string(vsettings, "profile", "high");
-				obs_data_set_int(vsettings, "keyint_sec", 2);
+				obs_data_set_int(vsettings, "keyint_sec", 1);
 			}
 
 		} else if (id == "obs_qsv11"s) {
@@ -1894,7 +1894,7 @@ struct CrucibleContext {
 				obs_data_set_int(vsettings, "bitrate", 2 * bitrate);
 				obs_data_set_bool(vsettings, "cbr", true);
 				obs_data_set_string(vsettings, "profile", "high");
-				obs_data_set_int(vsettings, "keyint_sec", 2);
+				obs_data_set_int(vsettings, "keyint_sec", 1);
 
 				if (max_encoder_resolution) {
 					auto props = obs_get_encoder_properties(id.c_str());
