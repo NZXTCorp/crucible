@@ -3324,7 +3324,7 @@ struct CrucibleContext {
 					id = "obs_x264"; // force software encoding
 
 				CreateH264Encoder(&recordingStream_h264, nullptr, true, id);
-				obs_output_set_video_encoder(recordingStream, h264);
+				obs_output_set_video_encoder(recordingStream, recordingStream_h264);
 			}
 		}
 	}
