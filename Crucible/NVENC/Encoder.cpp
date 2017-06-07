@@ -198,7 +198,7 @@ namespace {
 		uint32_t b_frames = 0;
 		uint32_t b_frames_actual = 0;
 		bool b_frames_strict = false;
-		uint32_t keyint_sec = 5;
+		double keyint_sec = 5.;
 
 		uint32_t bitrate = 0;
 		NV_ENC_PARAMS_RC_MODE rc_mode = NV_ENC_PARAMS_RC_VBR_HQ;
@@ -421,7 +421,7 @@ namespace {
 static void EncoderDefaults(obs_data_t *settings)
 {
 	obs_data_set_default_int(settings, "bitrate", 2500);
-	obs_data_set_default_int(settings, "keyint_sec", 0);
+	obs_data_set_default_double(settings, "keyint_sec", 0);
 	obs_data_set_default_string(settings, "preset", "default");
 	obs_data_set_default_string(settings, "profile", "high");
 	obs_data_set_default_string(settings, "rate_control", "vbr");
@@ -455,7 +455,7 @@ static void LoadConfig(Encoder *enc, obs_data_t *settings)
 	enc->b_frames_actual = enc->b_frames;
 	enc->b_frames_strict = obs_data_get_bool(settings, "bf_strict");
 
-	enc->keyint_sec = static_cast<uint32_t>(obs_data_get_int(settings, "keyint_sec"));
+	enc->keyint_sec = obs_data_get_double(settings, "keyint_sec");
 
 	enc->bitrate = static_cast<uint32_t>(obs_data_get_int(settings, "bitrate"));
 
@@ -953,7 +953,7 @@ try {
 
 		info("Encoder settings:\n"
 			"\tbitrate:      %d\n"
-			"\tkeyint:       %d (%d s)\n"
+			"\tkeyint:       %d (%g s)\n"
 			"\tpreset:       %s\n"
 			"\tprofile:      %s\n"
 			"\twidth:        %d\n"
