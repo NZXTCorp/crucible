@@ -1858,7 +1858,7 @@ struct CrucibleContext {
 				obs_data_set_bool(vsettings, "cbr", false);
 				obs_data_set_string(vsettings, "profile", "high");
 				obs_data_set_string(vsettings, "preset", "veryfast");
-				obs_data_set_int(vsettings, "keyint_sec", 1);
+				obs_data_set_double(vsettings, "keyint_sec", 1);
 
 				ostringstream os;
 				os << "vbv-maxrate=" << bitrate;
@@ -1870,20 +1870,20 @@ struct CrucibleContext {
 				obs_data_set_bool(vsettings, "cbr", true);
 				obs_data_set_string(vsettings, "profile", "high");
 				obs_data_set_string(vsettings, "preset", "veryfast");
-				obs_data_set_int(vsettings, "keyint_sec", 1);
+				obs_data_set_double(vsettings, "keyint_sec", 1);
 			}
 
 		} else if (id == "crucible_nvenc"s) {
 			if (!stream_compatible) {
 				obs_data_set_int(vsettings, "bitrate", 2 * bitrate);
 				obs_data_set_string(vsettings, "profile", "high");
-				obs_data_set_int(vsettings, "keyint_sec", 1);
+				obs_data_set_double(vsettings, "keyint_sec", 1);
 
 			} else {
 				obs_data_set_int(vsettings, "bitrate", 2 * bitrate);
 				obs_data_set_string(vsettings, "rate_control", "cbr");
 				obs_data_set_string(vsettings, "profile", "high");
-				obs_data_set_int(vsettings, "keyint_sec", 1);
+				obs_data_set_double(vsettings, "keyint_sec", 1);
 				obs_data_set_bool(vsettings, "dynamic_bitrate", true);
 			}
 
@@ -1892,13 +1892,13 @@ struct CrucibleContext {
 				obs_data_set_int(vsettings, "bitrate", 2 * bitrate);
 				obs_data_set_bool(vsettings, "cbr", false);
 				obs_data_set_string(vsettings, "profile", "high");
-				obs_data_set_int(vsettings, "keyint_sec", 1);
+				obs_data_set_double(vsettings, "keyint_sec", 1);
 
 			} else {
 				obs_data_set_int(vsettings, "bitrate", 2 * bitrate);
 				obs_data_set_bool(vsettings, "cbr", true);
 				obs_data_set_string(vsettings, "profile", "high");
-				obs_data_set_int(vsettings, "keyint_sec", 1);
+				obs_data_set_double(vsettings, "keyint_sec", 1);
 			}
 
 		} else if (id == "obs_qsv11"s) {
@@ -1907,7 +1907,7 @@ struct CrucibleContext {
 				obs_data_set_int(vsettings, "max_bitrate", 2 * bitrate);
 				obs_data_set_bool(vsettings, "cbr", false);
 				obs_data_set_string(vsettings, "profile", "high");
-				obs_data_set_int(vsettings, "keyint_sec", 1);
+				obs_data_set_double(vsettings, "keyint_sec", 1);
 
 				auto props = obs_get_encoder_properties(id.c_str());
 				DEFER{ obs_properties_destroy(props); };
@@ -1949,7 +1949,7 @@ struct CrucibleContext {
 				obs_data_set_int(vsettings, "bitrate", 2 * bitrate);
 				obs_data_set_bool(vsettings, "cbr", true);
 				obs_data_set_string(vsettings, "profile", "high");
-				obs_data_set_int(vsettings, "keyint_sec", 1);
+				obs_data_set_double(vsettings, "keyint_sec", 1);
 
 				if (max_encoder_resolution) {
 					auto props = obs_get_encoder_properties(id.c_str());
@@ -1971,7 +1971,7 @@ struct CrucibleContext {
 			if (!stream_compatible) {
 				obs_data_set_int(vsettings, "bitrate", 2 * bitrate);
 				obs_data_set_string(vsettings, "profile", "high");
-				obs_data_set_int(vsettings, "keyint_sec", 1);
+				obs_data_set_double(vsettings, "keyint_sec", 1);
 
 				obs_data_set_int(vsettings, "AMF.H264.Profile", 100); // VCEProfile_High
 				obs_data_set_int(vsettings, "AMF.H264.RateControlMethod", 1); // VCERateControlMethod_ConstantBitrate
@@ -1983,7 +1983,7 @@ struct CrucibleContext {
 			} else {
 				obs_data_set_int(vsettings, "bitrate", 2 * bitrate);
 				obs_data_set_string(vsettings, "profile", "high");
-				obs_data_set_int(vsettings, "keyint_sec", 2);
+				obs_data_set_double(vsettings, "keyint_sec", 0.5);
 
 				obs_data_set_int(vsettings, "AMF.H264.Profile", 100); // VCEProfile_High
 				obs_data_set_int(vsettings, "AMF.H264.RateControlMethod", 1); // VCERateControlMethod_ConstantBitrate
