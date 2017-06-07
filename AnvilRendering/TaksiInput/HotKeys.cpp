@@ -416,7 +416,7 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt, WORD key)
 
 	case HOTKEY_Stream:
 		if (activated && !TutorialLockStatus())
-			ToggleOverlay(OVERLAY_STREAMING);
+			ToggleOverlay(OVERLAY_NOTIFICATIONS);
 		return true;
 
 	case HOTKEY_Cancel:

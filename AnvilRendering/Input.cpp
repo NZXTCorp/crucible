@@ -300,7 +300,7 @@ static void ProcessHotKeys()
 			break;
 		case HOTKEY_Stream:
 			if (event.event == HKEVENT_PRESS && !TutorialLockStatus())
-				ToggleOverlay(OVERLAY_STREAMING);
+				ToggleOverlay(OVERLAY_NOTIFICATIONS);
 			break;
 		case HOTKEY_StartStopStream:
 			if (event.event == HKEVENT_PRESS && !TutorialLockStatus())
