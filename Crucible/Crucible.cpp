@@ -2581,6 +2581,7 @@ struct CrucibleContext {
 				};
 				force_stop(weakOutput);
 				force_stop(weakBuffer);
+				force_stop(weakRecordingStream);
 			});
 		};
 
