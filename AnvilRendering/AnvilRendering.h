@@ -38,6 +38,7 @@ extern IndicatorManager indicatorManager;
 
 enum IndicatorEvent;
 extern IndicatorEvent currentIndicator;
+extern bool show_notifications;
 
 template <typename Fun>
 void ShowCurrentIndicator(Fun &&func)

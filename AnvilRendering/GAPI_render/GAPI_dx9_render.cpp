@@ -736,9 +736,11 @@ C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev, IDirect3DSurface9 *backbu
 	if (g_bBrowserShowing && show_browser_tex())
 		return;
 
+	if (show_notifications)
+		show_browser_tex(OVERLAY_NOTIFICATIONS);
+
 	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)
 	{
-		show_browser_tex(OVERLAY_NOTIFICATIONS);
 		renderer->DrawNewIndicator(indicator, D3DCOLOR_ARGB(alpha, 255, 255, 255));
 	});
 }

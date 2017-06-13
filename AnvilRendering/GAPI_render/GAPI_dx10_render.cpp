@@ -878,9 +878,11 @@ C_EXPORT void overlay_draw_d3d10(IDXGISwapChain *swap)
 	if (g_bBrowserShowing && show_browser_tex(swap))
 		return;
 
+	if (show_notifications)
+		show_browser_tex(swap, OVERLAY_NOTIFICATIONS);
+
 	ShowCurrentIndicator([&](IndicatorEvent indicator, BYTE alpha)
 	{
-		show_browser_tex(swap, OVERLAY_NOTIFICATIONS);
 		renderer->DrawNewIndicator(indicator, alpha);
 	});
 }

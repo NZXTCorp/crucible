@@ -889,9 +889,11 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 	if (g_bBrowserShowing && show_browser_tex())
 		return;
 
+	if (show_notifications)
+		show_browser_tex(OVERLAY_NOTIFICATIONS);
+
 	ShowCurrentIndicator([](IndicatorEvent indicator, BYTE alpha)
 	{
-		show_browser_tex(OVERLAY_NOTIFICATIONS);
 		render.DrawNewIndicator(indicator, alpha);
 	});
 }

@@ -193,6 +193,7 @@ ULONGLONG m_ulIndicatorLastUpdate; // time we last updated current indicator eve
 
 
 IndicatorEvent currentIndicator = INDICATE_NONE;
+bool show_notifications = false;
 
 void ShowCurrentIndicator(const std::function<void(IndicatorEvent, BYTE /*alpha*/)> &func)
 {
@@ -247,6 +248,10 @@ static void HandleIndicatorCommand(Object &obj)
 		{"forward_buffer_in_progress", INDICATE_FORWARD_BUFFER},
 	};
 
+	auto show_notifications = obj.Maybe()["show_notifications"].As<Boolean>();
+	if (show_notifications)
+		::show_notifications = *show_notifications;
+
 	auto indicator = static_cast<String>(obj["indicator"]).Value();
 
 	auto elem = indicators.find(indicator);
@@ -257,6 +262,8 @@ static void HandleIndicatorCommand(Object &obj)
 		SetTutorialLock(true);
 
 	currentIndicator = elem->second;
+	if (!show_notifications)
+		::show_notifications = currentIndicator < INDICATE_NONE;
 }
 
 static void DisableIndicators(Object &obj)
@@ -479,6 +486,7 @@ static bool StartCrucibleServer()
 static void RestartCrucibleServer()
 {
 	currentIndicator = INDICATE_NONE;
+	show_notifications = false;
 	{
 		LOCK(hotkeys_mutex);
 		for (int t = 0; t < HOTKEY_QTY; t++)
