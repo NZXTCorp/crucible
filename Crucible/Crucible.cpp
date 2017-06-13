@@ -725,6 +725,8 @@ namespace AnvilCommands {
 
 	atomic<bool> disable_native_indicators = false;
 
+	atomic<bool> show_notifications = false;
+
 	const uint64_t enabled_timeout_seconds = 10;
 	atomic<uint64_t> enabled_timeout = 0;
 
@@ -877,6 +879,8 @@ namespace AnvilCommands {
 	void SendIndicator()
 	{
 		auto cmd = CommandCreate("indicator");
+
+		obs_data_set_bool(cmd, "show_notifications", show_notifications);
 
 		const char *indicator = recording ? "capturing" : "idle";
 		if (recording && using_mic) {
@@ -1246,6 +1250,12 @@ namespace AnvilCommands {
 		}
 
 		CreateIndicatorUpdater(stream_timeout_seconds, stream_timeout);
+	}
+
+	void ShowNotifications(bool show)
+	{
+		show_notifications = show;
+		SendIndicator();
 	}
 }
 
@@ -2550,6 +2560,7 @@ struct CrucibleContext {
 			}
 
 			if (game_capture_start_time) {
+				AnvilCommands::ShowNotifications(false);
 				ForgeEvents::SendGameCaptureStopped(chrono::steady_clock::now() - *game_capture_start_time);
 				game_capture_start_time.reset();
 			}
@@ -2653,6 +2664,7 @@ struct CrucibleContext {
 
 				if (!can_record && !game_capture_start_time) {
 					game_capture_start_time = chrono::steady_clock::now();
+					AnvilCommands::ShowNotifications(true);
 					ForgeEvents::SendGameCaptureStarted();
 				}
 
