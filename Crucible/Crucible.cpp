@@ -2567,7 +2567,7 @@ struct CrucibleContext {
 			{
 				if (auto ref = OBSGetStrongRef(weak)) {
 					blog(LOG_INFO, "end_capture: Stopping output '%s'", obs_output_get_name(ref));
-					obs_output_stop_with_timeout(ref, 15000);
+					obs_output_stop_with_timeout(ref, 2500);
 					if (ref == out)
 						out = nullptr;
 				} else {
@@ -2587,7 +2587,7 @@ struct CrucibleContext {
 
 			shared_ptr<void> force_stop_timer{ CreateWaitableTimer(nullptr, true, nullptr), HandleDeleter{} };
 			LARGE_INTEGER timeout = { 0 };
-			timeout.QuadPart = -175000000LL; // 17.5 seconds
+			timeout.QuadPart = -35000000LL; // 3.5 seconds
 			SetWaitableTimer(force_stop_timer.get(), &timeout, 0, nullptr, nullptr, false);
 
 			AddWaitHandleCallback(force_stop_timer.get(), [=, timer=force_stop_timer]
