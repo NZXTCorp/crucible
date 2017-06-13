@@ -2002,8 +2002,6 @@ struct CrucibleContext {
 			}
 		};
 
-		LOCK(updateMutex);
-
 		DEFER
 		{
 			obs_encoder_set_video(*enc, obs_get_video());
@@ -2347,7 +2345,6 @@ struct CrucibleContext {
 			auto id = calldata_int(data, "screenshot_id");
 			QueueOperation([=]
 			{
-				LOCK(updateMutex);
 				auto rs = find_if(begin(requested_screenshots), end(requested_screenshots), [&](const pair<string, long long> &p) { return p.second == id; });
 				if (rs == end(requested_screenshots))
 					return;
@@ -2904,8 +2901,6 @@ struct CrucibleContext {
 		AnvilCommands::ForwardBufferInProgress(false);
 	}
 
-	recursive_mutex updateMutex;
-
 	bool SaveRecordingBuffer(obs_data_t *settings, video_tracked_frame_id *tracked_id=nullptr)
 	{
 		if (!settings)
@@ -2927,7 +2922,6 @@ struct CrucibleContext {
 		bool continue_recording = obs_data_has_user_value(settings, "extra_recording_duration");
 
 		{
-			LOCK(updateMutex);
 			auto proc = obs_output_get_proc_handler(buffer);
 			proc_handler_call(proc, continue_recording ? "output_precise_buffer_and_keep_recording" : "output_precise_buffer", &param);
 		}
@@ -2951,7 +2945,6 @@ struct CrucibleContext {
 		calldata_set_int(&param, "code", code);
 
 		{
-			LOCK(updateMutex);
 			auto proc = obs_source_get_proc_handler(gameCapture);
 			proc_handler_call(proc, "injector_result", &param);
 		}
@@ -2973,7 +2966,6 @@ struct CrucibleContext {
 		calldata_set_int(&param, "code", code);
 
 		{
-			LOCK(updateMutex);
 			auto proc = obs_source_get_proc_handler(gameCapture);
 			proc_handler_call(proc, "monitored_process_exit", &param);
 		}
@@ -2983,7 +2975,6 @@ struct CrucibleContext {
 
 	void DeleteGameCapture()
 	{
-		LOCK(updateMutex);
 		auto source = OBSGetOutputSource(0);
 		if (source == gameCapture)
 			obs_set_output_source(0, nullptr);
@@ -3018,7 +3009,6 @@ struct CrucibleContext {
 		if (!settings)
 			return;
 
-		LOCK(updateMutex);
 		game_pid = static_cast<DWORD>(obs_data_get_int(settings, "process_id"));
 
 		auto path = GetModulePath(nullptr);
@@ -3477,7 +3467,6 @@ struct CrucibleContext {
 
 		record_audio_buffer_only = obs_data_get_bool(settings, "record_audio_buffer_only");
 
-		LOCK(updateMutex);
 		obs_source_update(tunes, desktop_audio_settings);
 		obs_source_update(mic, source_settings);
 		obs_source_enable_push_to_talk(mic, ptt);
@@ -3596,7 +3585,6 @@ struct CrucibleContext {
 		if (!path)
 			return;
 
-		LOCK(updateMutex);
 		filename = path;
 		profiler_filename = profiler_path;
 	}
@@ -3606,7 +3594,6 @@ struct CrucibleContext {
 		if (!settings)
 			return;
 
-		LOCK(updateMutex);
 		muxerSettings = settings;
 	}
 
@@ -3616,8 +3603,6 @@ struct CrucibleContext {
 		OutputResolution new_game_res, scaled;
 
 		{
-			LOCK(updateMutex);
-
 			if (width == 0 || height == 0)
 				return false;
 
@@ -3641,8 +3626,6 @@ struct CrucibleContext {
 		{
 			bool split_recording = RecordingActive() && output_dimensions_changed;
 			{
-				LOCK(updateMutex);
-
 				game_res = new_game_res;
 
 				ovi.base_width = width;
@@ -3687,7 +3670,6 @@ struct CrucibleContext {
 		};
 		uint32_t stream_rate = static_cast<uint32_t>(obs_data_get_int(settings, "stream_rate"));
 
-		LOCK(updateMutex);
 		if (max_rate) {
 			target_bitrate = max_rate;
 
@@ -3742,7 +3724,6 @@ struct CrucibleContext {
 		calldata_set_string(&data, "filename", filename);
 
 		{
-			LOCK(updateMutex);
 			auto proc = obs_source_get_proc_handler(gameCapture);
 			proc_handler_call(proc, "save_screenshot", &data);
 
@@ -3789,7 +3770,6 @@ struct CrucibleContext {
 		for (size_t i = 0; i < size; i++)
 			dhe.emplace(obs_data_get_string(OBSDataArrayItem(arr, i), "id"));
 
-		LOCK(updateMutex);
 		if (disallowed_hardware_encoders == dhe)
 			return;
 
@@ -3803,7 +3783,6 @@ struct CrucibleContext {
 	bool stopping = false;
 	void StopVideo(bool force=false, bool restart=false)
 	{
-		LOCK(updateMutex);
 		if (!force && (stopping || streaming || recording_game))
 			return;
 
@@ -3845,7 +3824,6 @@ struct CrucibleContext {
 
 	void StartVideo(bool restarting = false)
 	{
-		LOCK(updateMutex);
 		auto name = profile_store_name(obs_get_profiler_name_store(),
 			"StartVideo(%s)", filename.c_str());
 		profile_register_root(name, 0);
@@ -3869,7 +3847,6 @@ struct CrucibleContext {
 
 	void StartVideoCapture(bool restarting = false)
 	{
-		LOCK(updateMutex);
 		if (obs_output_active(output))
 			return;
 
