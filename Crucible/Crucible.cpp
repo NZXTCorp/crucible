@@ -3621,7 +3621,8 @@ struct CrucibleContext {
 				return false;
 		}
 
-		bool streaming = obs_output_active(stream);
+		bool stream_active = obs_output_active(stream);
+		bool recordingStream_active = obs_output_active(recordingStream);
 
 		{
 			bool split_recording = RecordingActive() && output_dimensions_changed;
@@ -3646,8 +3647,10 @@ struct CrucibleContext {
 			StartVideo(split_recording);
 
 			StartRecordingOutputs(output, buffer);
-			if (streaming)
+			if (stream_active)
 				obs_output_start(stream);
+			if (recordingStream_active)
+				obs_output_start(recordingStream);
 		}
 
 		return true;
