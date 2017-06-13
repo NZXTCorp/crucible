@@ -2522,18 +2522,19 @@ struct CrucibleContext {
 					DeleteGameCapture();
 			}
 
-			if (!game_end_bookmark_id) {
-				auto data = OBSDataCreate();
-				obs_data_set_bool(data, "suppress_indicator", true);
-				obs_data_set_obj(data, "extra_data", GenerateExtraData("game_exit"));
-				game_end_bookmark_id = CreateBookmark(data);
-			}
-			else {
-				blog(LOG_WARNING, "stopCapture: called with game_end_bookmark_id already set");
+			if (output) {
+				if (!game_end_bookmark_id) {
+					auto data = OBSDataCreate();
+					obs_data_set_bool(data, "suppress_indicator", true);
+					obs_data_set_obj(data, "extra_data", GenerateExtraData("game_exit"));
+					game_end_bookmark_id = CreateBookmark(data);
+				} else {
+					blog(LOG_WARNING, "stopCapture: called with game_end_bookmark_id already set");
+				}
 			}
 
 			auto ref = OBSGetStrongRef(weakOutput);
-			if (!game_end_bookmark_id && !obs_output_active(ref))
+			if (!ref || (!game_end_bookmark_id && !obs_output_active(ref)))
 				ForgeEvents::SendCleanupComplete(nullptr, game_pid ? *game_pid : 0);
 
 			if (streaming) {
@@ -2615,9 +2616,10 @@ struct CrucibleContext {
 				else
 					blog(LOG_WARNING, "startCapture: not sending AnvilCommands::Connect because game_pid is missing");
 
+				bool can_record = OBSGetStrongRef(weakOutput);
 				DEFER
 				{
-					if (game_start_bookmark_id)
+					if (game_start_bookmark_id || !can_record)
 						return;
 
 					auto data = OBSDataCreate();
@@ -2643,30 +2645,36 @@ struct CrucibleContext {
 
 	void CreateOutput(bool restarting = false)
 	{
-		auto osettings = OBSDataCreate();
-		obs_data_set_string(osettings, "path", filename.c_str());
-		obs_data_set_string(osettings, "muxer_settings", muxerSettings.c_str());
+		if (!filename.empty()) {
+			auto osettings = OBSDataCreate();
+			obs_data_set_string(osettings, "path", filename.c_str());
+			obs_data_set_string(osettings, "muxer_settings", muxerSettings.c_str());
 
-		{
-			OutputStatus status;
-			status.restarting = restarting;
-			SetOutputStatus(osettings, status);
-		}
+			{
+				OutputStatus status;
+				status.restarting = restarting;
+				SetOutputStatus(osettings, status);
+			}
 
-		InitRef(output, "Couldn't create output", obs_output_release,
+			InitRef(output, "Couldn't create output", obs_output_release,
 				obs_output_create("ffmpeg_muxer", "ffmpeg recorder", osettings, nullptr));
 
-		obs_output_set_video_encoder(output, streaming ? stream_h264 : h264);
-		obs_output_set_audio_encoder(output, aac, 0);
+			obs_output_set_video_encoder(output, streaming ? stream_h264 : h264);
+			obs_output_set_audio_encoder(output, aac, 0);
 
 
-		obs_data_set_string(buffer_settings, "muxer_settings", muxerSettings.c_str());
+			obs_data_set_string(buffer_settings, "muxer_settings", muxerSettings.c_str());
 
-		InitRef(buffer, "Couldn't create buffer output", obs_output_release,
+			InitRef(buffer, "Couldn't create buffer output", obs_output_release,
 				obs_output_create("ffmpeg_recordingbuffer", "ffmpeg recordingbuffer", buffer_settings, nullptr));
 
-		obs_output_set_video_encoder(buffer, streaming ? stream_h264 : h264);
-		obs_output_set_audio_encoder(buffer, aac, 0);
+			obs_output_set_video_encoder(buffer, streaming ? stream_h264 : h264);
+			obs_output_set_audio_encoder(buffer, aac, 0);
+
+		} else {
+			output = nullptr;
+			buffer = nullptr;
+		}
 
 
 		InitRef(recordingStream, "Couldn't create recording stream", obs_output_release,
@@ -2677,35 +2685,39 @@ struct CrucibleContext {
 		obs_output_set_service(recordingStream, stream_service);
 		
 		
-		stopRecording
-			.Disconnect()
-			.SetOwner(output)
-			.Connect();
+		if (output) {
+			stopRecording
+				.Disconnect()
+				.SetOwner(output)
+				.Connect();
 
-		startRecording
-			.Disconnect()
-			.SetOwner(output)
-			.Connect();
+			startRecording
+				.Disconnect()
+				.SetOwner(output)
+				.Connect();
 
-		sentTrackedFrame
-			.Disconnect()
-			.SetOwner(output)
-			.Connect();
+			sentTrackedFrame
+				.Disconnect()
+				.SetOwner(output)
+				.Connect();
+		}
 
-		bufferSaved
-			.Disconnect()
-			.SetOwner(buffer)
-			.Connect();
+		if (buffer) {
+			bufferSaved
+				.Disconnect()
+				.SetOwner(buffer)
+				.Connect();
 
-		bufferSaveFailed
-			.Disconnect()
-			.SetOwner(buffer)
-			.Connect();
+			bufferSaveFailed
+				.Disconnect()
+				.SetOwner(buffer)
+				.Connect();
 
-		bufferSentTrackedFrame
-			.Disconnect()
-			.SetOwner(buffer)
-			.Connect();
+			bufferSentTrackedFrame
+				.Disconnect()
+				.SetOwner(buffer)
+				.Connect();
+		}
 
 		recordingStreamStart
 			.Disconnect()
@@ -3639,7 +3651,7 @@ struct CrucibleContext {
 			if (output_dimensions_changed) {
 				StopVideo(true, split_recording); // Needs to be force stopped, otherwise the output settings aren't updated.
 
-				if (split_recording) { // Make a new filename for the split recording
+				if (split_recording && !recording_filename_prefix.empty()) { // Make a new filename for the split recording
 					auto cur = boost::posix_time::second_clock::local_time();
 					filename = recording_filename_prefix + to_iso_string(cur) + TimeZoneOffset() + ".mp4";
 				}
@@ -3647,7 +3659,8 @@ struct CrucibleContext {
 			
 			StartVideo(split_recording);
 
-			StartRecordingOutputs(output, buffer);
+			if (output)
+				StartRecordingOutputs(output, buffer);
 			if (stream_active)
 				obs_output_start(stream);
 			if (recordingStream_active)
