@@ -3867,8 +3867,14 @@ struct CrucibleContext {
 
 	void StartVideo(bool restarting = false)
 	{
+		auto iso_time = []
+		{
+			auto cur = boost::posix_time::second_clock::local_time();
+			return to_iso_string(cur) + TimeZoneOffset();
+		};
+
 		auto name = profile_store_name(obs_get_profiler_name_store(),
-			"StartVideo(%s)", filename.c_str());
+			"StartVideo(%s)", (filename.empty() ? iso_time() : filename).c_str());
 		profile_register_root(name, 0);
 
 		ProfileScope(name);
