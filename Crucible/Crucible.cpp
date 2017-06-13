@@ -3619,11 +3619,8 @@ struct CrucibleContext {
 		obs_encoder_update(h264, settings);
 	}
 
-	void UpdateFilenames(const char *path, const char *profiler_path)
+	void UpdateFilenames(string path, string profiler_path)
 	{
-		if (!path)
-			return;
-
 		filename = path;
 		profiler_filename = profiler_path;
 	}
@@ -3951,7 +3948,10 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 
 		cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
 		cc.UpdateStreamSettings();
-		cc.UpdateFilenames(obs_data_get_string(obj, "filename"), obs_data_get_string(obj, "profiler_data"));
+
+		cc.game_capture_start_time.reset();
+		cc.UpdateFilenames(obs_data_get_bool(obj, "recording_disabled") ? "" : obs_data_get_string(obj, "filename"),
+			obs_data_get_string(obj, "profiler_data"));
 	}
 
 	cc.CreateAudioBufferSource(OBSDataGetObj(obj, "audio_buffer"));
