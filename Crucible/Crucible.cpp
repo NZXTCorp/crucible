@@ -2549,7 +2549,7 @@ struct CrucibleContext {
 					if (ref == out)
 						out = nullptr;
 				} else {
-					auto name = obs_output_get_name(out);
+					auto name = out ? obs_output_get_name(out) : nullptr;
 					if (name)
 						blog(LOG_INFO, "end_capture: weak ref for output '%s' expired (weak = %p, output = %p)",
 							name, weak, static_cast<obs_output_t*>(out));
