@@ -153,6 +153,16 @@ namespace ForgeEvent
 		return SendEvent(EventCreate("quick_select_timeout_expired"));
 	}
 
+	bool SendAccept()
+	{
+		return SendEvent(EventCreate("accept_request"));
+	}
+
+	bool SendDecline()
+	{
+		return SendEvent(EventCreate("decline_request"));
+	}
+
 	bool StartStopStream()
 	{
 		return SendEvent(EventCreate("start_stop_stream_hotkey"));
@@ -314,6 +324,8 @@ static void HandleUpdateSettings(Object &obj)
 		UpdateHotkey(HOTKEY_QuickForwardClip, "quick_clip_forward_key");
 		UpdateHotkey(HOTKEY_Cancel, "cancel_key");
 		UpdateHotkey(HOTKEY_Select, "select_key");
+		UpdateHotkey(HOTKEY_Accept, "accept_key");
+		UpdateHotkey(HOTKEY_Decline, "decline_key");
 
 		indicatorManager.UpdateImages();
 

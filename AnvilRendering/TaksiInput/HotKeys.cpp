@@ -434,6 +434,15 @@ bool CTaksiHotKeys::DoHotKey( HOTKEY_TYPE eHotKey, HOTKEY_EVENT evt, WORD key)
 			return true;
 		break;
 
+	case HOTKEY_Accept:
+		if (quick_selecting || (g_bBrowserShowing && active_overlay == OVERLAY_NOTIFICATIONS))
+			ForgeEvent::SendAccept();
+		break;
+	case HOTKEY_Decline:
+		if (quick_selecting || (g_bBrowserShowing && active_overlay == OVERLAY_NOTIFICATIONS))
+			ForgeEvent::SendDecline();
+		break;
+
 	case HOTKEY_QuickClip:
 	case HOTKEY_QuickForwardClip:
 	case HOTKEY_Screenshot:

@@ -63,6 +63,8 @@ enum HOTKEY_TYPE
 	HOTKEY_QuickForwardClip,
 	HOTKEY_Cancel,
 	HOTKEY_Select,
+	HOTKEY_Accept,
+	HOTKEY_Decline,
 	HOTKEY_QTY,
 };
 
@@ -135,6 +137,8 @@ namespace ForgeEvent
 	bool DismissQuickSelect();
 	bool StartQuickSelect();
 	bool QuickSelectTimeoutExpired();
+	bool SendAccept();
+	bool SendDecline();
 }
 
 std::vector<uint8_t> *ReadNewFramebuffer(ActiveOverlay ov);
