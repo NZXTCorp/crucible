@@ -623,6 +623,20 @@ namespace ForgeEvents {
 		SendEvent(EventCreate("game_session_started"));
 	}
 
+	void SendGameCaptureStarted()
+	{
+		SendEvent(EventCreate("game_capture_started"));
+	}
+
+	void SendGameCaptureStopped(chrono::steady_clock::duration duration)
+	{
+		auto event = EventCreate("game_capture_stopped");
+
+		obs_data_set_double(event, "duration", chrono::duration_cast<chrono::milliseconds>(duration).count() / 1000.);
+
+		SendEvent(event);
+	}
+
 	void SendScreenshotSaved(boost::optional<std::string> error, uint32_t cx, uint32_t cy, const std::string filename)
 	{
 		auto event = EventCreate("screenshot_saved");
@@ -1597,6 +1611,8 @@ struct CrucibleContext {
 	bool recording_game = false;
 	boost::optional<int> game_start_bookmark_id, game_end_bookmark_id;
 
+	boost::optional<chrono::steady_clock::time_point> game_capture_start_time;
+
 	obs_hotkey_id ptt_hotkey_id = OBS_INVALID_HOTKEY_ID;
 	obs_hotkey_id mute_hotkey_id = OBS_INVALID_HOTKEY_ID;
 	obs_hotkey_id unmute_hotkey_id = OBS_INVALID_HOTKEY_ID;
@@ -2533,6 +2549,11 @@ struct CrucibleContext {
 				}
 			}
 
+			if (game_capture_start_time) {
+				ForgeEvents::SendGameCaptureStopped(chrono::steady_clock::now() - *game_capture_start_time);
+				game_capture_start_time.reset();
+			}
+
 			auto ref = OBSGetStrongRef(weakOutput);
 			if (!ref || (!game_end_bookmark_id && !obs_output_active(ref)))
 				ForgeEvents::SendCleanupComplete(nullptr, game_pid ? *game_pid : 0);
@@ -2629,6 +2650,11 @@ struct CrucibleContext {
 					if (game_start_bookmark_id)
 						ForgeEvents::SendGameSessionStarted();
 				};
+
+				if (!can_record && !game_capture_start_time) {
+					game_capture_start_time = chrono::steady_clock::now();
+					ForgeEvents::SendGameCaptureStarted();
+				}
 
 				if (UpdateSize(width, height))
 					return;
