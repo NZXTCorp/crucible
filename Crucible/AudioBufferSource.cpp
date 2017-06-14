@@ -110,8 +110,8 @@ protected:
 
 			read(read_ptr, id);
 			read(read_ptr, frame.samples_per_sec);
-			read<uint32_t>(read_ptr, frame.speakers);
-			read<uint32_t>(read_ptr, frame.format);
+			read<uint8_t>(read_ptr, frame.speakers);
+			read<uint8_t>(read_ptr, frame.format);
 			read(read_ptr, frame.frames);
 			frame.data[0] = read_ptr;			
 
