@@ -584,7 +584,6 @@ static bool CheckCapabilities(Encoder *enc)
 	auto check_cap = [&](NVENCCaps cap, auto &&validate)
 	{
 		params.capsToQuery = cap.cap;
-		int val;
 		if (NVENCStatus sts = enc->funcs.nvEncGetEncodeCaps(enc->nv_encoder, enc->init_params.encodeGUID, &params, &val)) {
 			warn("nvEncGetEncodeCaps returned %#x (%s) when checking %#x (%s)",
 				sts.sts, sts.Name(), cap.cap, cap.Name());
