@@ -451,13 +451,13 @@ static void LoadConfig(Encoder *enc, obs_data_t *settings)
 	using boost::iequals;
 
 	enc->dynamic_bitrate = obs_data_get_bool(settings, "dynamic_bitrate");
-	enc->b_frames = obs_data_get_int(settings, "bf");
+	enc->b_frames = static_cast<uint32_t>(obs_data_get_int(settings, "bf"));
 	enc->b_frames_actual = enc->b_frames;
 	enc->b_frames_strict = obs_data_get_bool(settings, "bf_strict");
 
-	enc->keyint_sec = obs_data_get_int(settings, "keyint_sec");
+	enc->keyint_sec = static_cast<uint32_t>(obs_data_get_int(settings, "keyint_sec"));
 
-	enc->bitrate = obs_data_get_int(settings, "bitrate");
+	enc->bitrate = static_cast<uint32_t>(obs_data_get_int(settings, "bitrate"));
 
 	auto profile = obs_data_get_string(settings, "profile");
 	if (iequals(profile, "baseline"))
@@ -598,7 +598,7 @@ static bool CheckCapabilities(Encoder *enc)
 	if (!check_cap(NV_ENC_CAPS_WIDTH_MAX, [&]
 	{
 		auto width = obs_encoder_get_width(enc->encoder);
-		if (val >= width)
+		if (val >= 0 && static_cast<uint32_t>(val) >= width)
 			return true;
 
 		warn("width %d not supported (maximum is %d)", width, val);
@@ -609,7 +609,7 @@ static bool CheckCapabilities(Encoder *enc)
 	if (!check_cap(NV_ENC_CAPS_HEIGHT_MAX, [&]
 	{
 		auto height = obs_encoder_get_height(enc->encoder);
-		if (val >= height)
+		if (val >= 0 && static_cast<uint32_t>(val) >= height)
 			return true;
 
 		warn("height %d not supported (maximum is %d)", height, val);
@@ -629,7 +629,7 @@ static bool CheckCapabilities(Encoder *enc)
 
 	if (enc->b_frames && !check_cap(NV_ENC_CAPS_NUM_MAX_BFRAMES, [&]
 	{
-		if (val >= enc->b_frames)
+		if (val >= 0 && static_cast<uint32_t>(val) >= enc->b_frames)
 			return true;
 
 		if (!enc->b_frames_strict) {
@@ -862,7 +862,7 @@ static bool EncoderUpdate(void *context, obs_data_t *settings)
 		enc->encode_config = encode_config;
 	});
 
-	enc->bitrate = obs_data_get_int(settings, "bitrate");
+	enc->bitrate = static_cast<uint32_t>(obs_data_get_int(settings, "bitrate"));
 
 	NV_ENC_RECONFIGURE_PARAMS params = { 0 };
 	params.version = NV_ENC_RECONFIGURE_PARAMS_VER;
@@ -1011,7 +1011,7 @@ static bool UploadFrame(Encoder *enc, encoder_frame *frame, Surface *surface)
 
 		auto base_target = reinterpret_cast<uint8_t*>(lock.bufferDataPtr) + plane * lock.pitch * surface->height;
 		auto copy_size = min(lock.pitch, frame->linesize[plane]);
-		for (auto line = 0; line < lines; line++)
+		for (uint32_t line = 0; line < lines; line++)
 			memcpy(base_target + lock.pitch * line, frame->data[plane] + frame->linesize[plane] * line, copy_size);
 	}
 
