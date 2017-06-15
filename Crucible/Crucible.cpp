@@ -1656,7 +1656,7 @@ struct CrucibleContext {
 		obs_audio_info ai;
 		ai.samples_per_sec = 44100;
 		ai.speakers = SPEAKERS_STEREO;
-		ai.buffer_ms = 1000;
+		ai.max_buffer_ms = 1000;
 		if (!obs_reset_audio(&ai))
 			throw "Couldn't initialize audio";
 
