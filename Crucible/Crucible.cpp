@@ -3403,7 +3403,7 @@ struct CrucibleContext {
 	{
 		ForgeEvents::SendStreamingStopExecuted(obs_output_active(recordingStream));
 
-		obs_output_stop(recordingStream);
+		obs_output_force_stop(recordingStream);
 	}
 
 	void StartStreaming(const char *server, const char *key, const char *version)
