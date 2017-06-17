@@ -1739,7 +1739,8 @@ struct CrucibleContext {
 		obs_source_set_audio_mixers(tunes, buffer_only ? 0 : (1 << 0));
 		obs_source_set_audio_mixers(audioBuffer, (1 << 1) | (buffer_only ? (1 << 0) : 0));
 
-		auto audio_buffer_muted = obs_source_muted(tunes) || (!buffer_only && !obs_output_active(recordingStream));
+		bool recordingStream_active = recordingStream && obs_output_active(recordingStream);
+		auto audio_buffer_muted = obs_source_muted(tunes) || (!buffer_only && !recordingStream_active);
 		obs_source_set_muted(audioBuffer, audio_buffer_muted);
 		ForgeEvents::SendAudioBufferMuted(audio_buffer_muted);
 	}
@@ -2458,8 +2459,6 @@ struct CrucibleContext {
 		
 		InitRef(stream_service, "Couldn't create streaming service", obs_service_release,
 			obs_service_create("forge_rtmp", "forge streaming", nullptr, nullptr));
-
-		obs_output_set_reconnect_settings(recordingStream, 5, 1);
 	}
 
 	void UpdateStreamSettings()
@@ -2513,7 +2512,6 @@ struct CrucibleContext {
 		auto weakGameCapture = OBSGetWeakRef(gameCapture);
 		auto weakOutput = OBSGetWeakRef(output);
 		auto weakBuffer = OBSGetWeakRef(buffer);
-		auto weakRecordingStream = OBSGetWeakRef(recordingStream);
 
 		blog(LOG_INFO, "ResetCaptureSignals: weakGameCapture = %p", static_cast<obs_weak_source_t*>(weakGameCapture));
 
@@ -2594,7 +2592,8 @@ struct CrucibleContext {
 
 			stop_(weakOutput, output);
 			stop_(weakBuffer, buffer);
-			stop_(weakRecordingStream, recordingStream);
+			if (recordingStream)
+				stop_(OBSGetWeakRef(recordingStream), recordingStream);
 
 			shared_ptr<void> force_stop_timer{ CreateWaitableTimer(nullptr, true, nullptr), HandleDeleter{} };
 			LARGE_INTEGER timeout = { 0 };
@@ -2614,7 +2613,8 @@ struct CrucibleContext {
 				};
 				force_stop(weakOutput);
 				force_stop(weakBuffer);
-				force_stop(weakRecordingStream);
+				if (recordingStream)
+					force_stop(OBSGetWeakRef(recordingStream));
 			});
 		};
 
@@ -2713,14 +2713,6 @@ struct CrucibleContext {
 			output = nullptr;
 			buffer = nullptr;
 		}
-
-
-		InitRef(recordingStream, "Couldn't create recording stream", obs_output_release,
-			obs_output_create("rtmp_output", "recording stream", nullptr, nullptr));
-
-		obs_output_set_video_encoder(recordingStream, recordingStream_h264);
-		obs_output_set_audio_encoder(recordingStream, recordingStream_aac, 0);
-		obs_output_set_service(recordingStream, stream_service);
 		
 		
 		if (output) {
@@ -2756,16 +2748,6 @@ struct CrucibleContext {
 				.SetOwner(buffer)
 				.Connect();
 		}
-
-		recordingStreamStart
-			.Disconnect()
-			.SetOwner(recordingStream)
-			.Connect();
-
-		recordingStreamStop
-			.Disconnect()
-			.SetOwner(recordingStream)
-			.Connect();
 
 		ResetCaptureSignals();
 	}
@@ -3358,6 +3340,30 @@ struct CrucibleContext {
 
 		DEFER{ ForgeEvents::SendStreamingStartExecuted(started); };
 
+		if (recordingStream) {
+			blog(LOG_WARNING, "Tried to start recording stream while recording stream was initialized");
+			return;
+		}
+
+		InitRef(recordingStream, "Couldn't create recording stream", obs_output_release,
+			obs_output_create("rtmp_output", "recording stream", nullptr, nullptr));
+
+		obs_output_set_video_encoder(recordingStream, recordingStream_h264);
+		obs_output_set_audio_encoder(recordingStream, recordingStream_aac, 0);
+		obs_output_set_service(recordingStream, stream_service);
+
+		obs_output_set_reconnect_settings(recordingStream, 5, 1);
+
+		recordingStreamStart
+			.Disconnect()
+			.SetOwner(recordingStream)
+			.Connect();
+
+		recordingStreamStop
+			.Disconnect()
+			.SetOwner(recordingStream)
+			.Connect();
+
 		if (!recordingStream) {
 			blog(LOG_WARNING, "Tried to start recording stream while recording stream wasn't initialized");
 			return;
@@ -3404,6 +3410,7 @@ struct CrucibleContext {
 		ForgeEvents::SendStreamingStopExecuted(obs_output_active(recordingStream));
 
 		obs_output_force_stop(recordingStream);
+		recordingStream = nullptr;
 	}
 
 	void StartStreaming(const char *server, const char *key, const char *version)
@@ -3670,7 +3677,7 @@ struct CrucibleContext {
 		}
 
 		bool stream_active = obs_output_active(stream);
-		bool recordingStream_active = obs_output_active(recordingStream);
+		bool recordingStream_active = recordingStream && obs_output_active(recordingStream);
 
 		{
 			bool split_recording = RecordingActive() && output_dimensions_changed;
@@ -3858,7 +3865,8 @@ struct CrucibleContext {
 
 		stop_(output);
 		stop_(buffer);
-		stop_(recordingStream);
+		if (recordingStream)
+			stop_(recordingStream);
 
 		output = nullptr;
 		buffer = nullptr;
