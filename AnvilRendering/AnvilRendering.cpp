@@ -478,9 +478,13 @@ BYTE GetHotKey(HOTKEY_TYPE t)
 	return 0;
 }
 
+static string command_connection_name;
 static bool StartCrucibleServer()
 {
-	return crucibleConnection.Start("AnvilRenderer" + to_string(GetCurrentProcessId()), CrucibleCommand::HandleCommands);
+	if (command_connection_name.empty())
+		return false;
+
+	return crucibleConnection.Start(command_connection_name, CrucibleCommand::HandleCommands);
 }
 
 static void RestartCrucibleServer()
@@ -525,10 +529,17 @@ static void CreateRestartThread()
 	});
 }
 
-C_EXPORT bool overlay_init(void (*hlog_)(const char *fmt, ...))
+C_EXPORT bool overlay_init(const char *command_connection_name, void (*hlog_)(const char *fmt, ...))
 {
 	hlog = hlog_;
 	hlog("Started overlay");
+
+	if (!command_connection_name) {
+		hlog("command_connection_name is null");
+		return false;
+	}
+
+	::command_connection_name = command_connection_name;
 
 	GetModuleHandleEx(
 		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
