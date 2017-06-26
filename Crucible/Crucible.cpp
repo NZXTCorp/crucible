@@ -169,11 +169,6 @@ static DStr GetModulePath(const char *name)
 #define BIT_STRING "32bit"
 #endif
 
-static string GetProcessIPCName(DWORD pid)
-{
-	return "Crucible_" + to_string(GetCurrentProcessId()) + "_" + to_string(pid);
-}
-
 static string recording_filename_prefix = "recording_";
 
 static string TimeZoneOffset()
@@ -826,7 +821,7 @@ namespace AnvilCommands {
 
 		pid = pid_;
 
-		auto connection_name = GetProcessIPCName(pid);
+		auto connection_name = "AnvilRenderer" + to_string(pid_);
 
 		if (!write_failed && current_connection == connection_name && anvil_client) {
 			SendIndicator();
@@ -3056,7 +3051,6 @@ struct CrucibleContext {
 
 		obs_data_set_string(settings, "overlay_dll", path);
 		obs_data_set_string(settings, "overlay_dll64", path64);
-		obs_data_set_string(settings, "overlay_ipc_name", GetProcessIPCName(*game_pid).c_str());
 		obs_data_set_bool(settings, "sli_compatibility", sli_compatibility);
 		//obs_data_set_bool(settings, "allow_ipc_injector", true);
 
