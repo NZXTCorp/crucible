@@ -480,7 +480,7 @@ BYTE GetHotKey(HOTKEY_TYPE t)
 
 static bool StartCrucibleServer()
 {
-	return crucibleConnection.Start("AnvilRenderer" + to_string(GetCurrentProcessId()), CrucibleCommand::HandleCommands);
+	return crucibleConnection.Start(ANVIL_PIPE_NAME + to_string(GetCurrentProcessId()), CrucibleCommand::HandleCommands);
 }
 
 static void RestartCrucibleServer()

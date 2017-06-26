@@ -7,6 +7,12 @@
 
 #define ANVIL_HOTKEYS
 
+#ifndef ANVIL_PIPE_NAME_SUFFIX
+#define ANVIL_PIPE_NAME_SUFFIX ""
+#endif
+
+#define ANVIL_PIPE_NAME "AnvilRenderer" ANVIL_PIPE_NAME_SUFFIX
+
 #define C_EXPORT extern "C" __declspec(dllexport)
 
 extern void (*hlog)(const char *fmt, ...);

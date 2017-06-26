@@ -821,7 +821,7 @@ namespace AnvilCommands {
 
 		pid = pid_;
 
-		auto connection_name = "AnvilRenderer" + to_string(pid_);
+		auto connection_name = ANVIL_PIPE_NAME + to_string(pid_);
 
 		if (!write_failed && current_connection == connection_name && anvil_client) {
 			SendIndicator();
