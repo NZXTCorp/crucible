@@ -42,6 +42,9 @@
     <ClCompile Include="NVENC\Encoder.cpp">
       <Filter>NVENC</Filter>
     </ClCompile>
+    <ClCompile Include="WebRTCOutput.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TestWindow.h">
