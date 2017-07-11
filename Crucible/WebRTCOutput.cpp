@@ -150,10 +150,7 @@ namespace {
 
 		RTCSource()
 		{
-			monitor.reset(reinterpret_cast<void*>(1), [](void *)
-			{
-				blog(LOG_INFO, "wat");
-			});
+			monitor.reset(reinterpret_cast<void*>(1), [](void *) {});
 			self = shared_ptr<RTCSource>(monitor, this);
 
 			obs_video_info ovi{};
