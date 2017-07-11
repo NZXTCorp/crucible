@@ -61,6 +61,9 @@ extern OBSEncoder CreateAudioEncoder(const char *name, uint32_t mixer_idx = 0);
 extern void RegisterAudioBufferSource();
 extern void RegisterFramebufferSource();
 extern void RegisterNVENCEncoder();
+#ifdef WEBRTC_WIN
+extern void RegisterWebRTCOutput();
+#endif
 
 static IPCClient event_client, log_client;
 
@@ -707,6 +710,27 @@ namespace ForgeEvents {
 		auto cmd = EventCreate("push_to_talk_status");
 		obs_data_set_bool(cmd, "active", active);
 		SendEvent(cmd);
+	}
+
+	void SendWebRTCSessionDescription(const string &type, const string &sdp)
+	{
+		auto event = EventCreate("webrtc_session_description");
+
+		obs_data_set_string(event, "type", type.c_str());
+		obs_data_set_string(event, "sdp", sdp.c_str());
+
+		SendEvent(event);
+	}
+
+	void SendWebRTCIceCandidate(const string &sdp_mid, int sdp_mline_index, const string &sdp)
+	{
+		auto event = EventCreate("webrtc_ice_candidate");
+
+		obs_data_set_string(event, "sdp_mid", sdp_mid.c_str());
+		obs_data_set_int(event, "sdp_mline_index", sdp_mline_index);
+		obs_data_set_string(event, "sdp", sdp.c_str());
+
+		SendEvent(event);
 	}
 }
 
@@ -1604,11 +1628,12 @@ struct CrucibleContext {
 	string filename = "";
 	string profiler_filename = "";
 	string muxerSettings = "";
-	OBSOutput output, buffer, stream, recordingStream;
+	OBSOutput output, buffer, stream, recordingStream, webrtc;
 	OBSOutputSignal startRecording, stopRecording;
 	OBSOutputSignal sentTrackedFrame, bufferSentTrackedFrame;
 	OBSOutputSignal bufferSaved, bufferSaveFailed;
 	OBSOutputSignal recordingStreamStart, recordingStreamStop;
+	OBSOutputSignal webrtcSessionDescription, webrtcICECandidate;
 	bool record_audio_buffer_only = false;
 	bool check_audio_streams = false;
 	shared_ptr<void> check_audio_streams_timer;
@@ -1677,7 +1702,7 @@ struct CrucibleContext {
 		ovi.fps_num = 30;
 		ovi.fps_den = fps_den = 1;
 		ovi.graphics_module = "libobs-d3d11.dll";
-		ovi.output_format = VIDEO_FORMAT_NV12;
+		ovi.output_format = VIDEO_FORMAT_I420;
 		ovi.output_width = 1280;
 		ovi.output_height = 720;
 		ovi.scale_type = OBS_SCALE_BICUBIC;
@@ -1700,6 +1725,9 @@ struct CrucibleContext {
 		RegisterAudioBufferSource();
 		RegisterFramebufferSource();
 		RegisterNVENCEncoder();
+#ifdef WEBRTC_WIN
+		RegisterWebRTCOutput();
+#endif
 
 		if (standalone)
 		{
@@ -2605,6 +2633,8 @@ struct CrucibleContext {
 			stop_(weakBuffer, buffer);
 			if (recordingStream)
 				stop_(OBSGetWeakRef(recordingStream), recordingStream);
+			if (webrtc)
+				stop_(OBSGetWeakRef(webrtc), webrtc);
 
 			shared_ptr<void> force_stop_timer{ CreateWaitableTimer(nullptr, true, nullptr), HandleDeleter{} };
 			LARGE_INTEGER timeout = { 0 };
@@ -2626,6 +2656,8 @@ struct CrucibleContext {
 				force_stop(weakBuffer);
 				if (recordingStream)
 					force_stop(OBSGetWeakRef(recordingStream));
+				if (webrtc)
+					force_stop(OBSGetWeakRef(webrtc));
 			});
 		};
 
@@ -3345,6 +3377,106 @@ struct CrucibleContext {
 		}
 	}
 
+	void CreateWebRTC(obs_data_t *settings)
+	{
+#ifdef WEBRTC_WIN
+		InitRef(webrtc, "Couldn't create webrtc output", obs_output_release,
+			obs_output_create("webrtc_output", "webrtc", settings, nullptr));
+
+		webrtcSessionDescription.Disconnect()
+			.SetSignal("session_description")
+			.SetOwner(webrtc)
+			.SetFunc([](calldata_t *data)
+		{
+			auto type = calldata_string(data, "type");
+			auto sdp = calldata_string(data, "sdp");
+			if (!type || !sdp) {
+				blog(LOG_WARNING, "webrtcSessionDescription: type(%p)/sdp(%p) missing");
+				return;
+			}
+
+			string type_ = type;
+			string sdp_ = sdp;
+			QueueOperation([=, type = move(type_), sdp = move(sdp_)]
+			{
+				ForgeEvents::SendWebRTCSessionDescription(type, sdp);
+			});
+		})
+			.Connect();
+
+		webrtcICECandidate.Disconnect()
+			.SetSignal("ice_candidate")
+			.SetOwner(webrtc)
+			.SetFunc([](calldata_t *data)
+		{
+			auto sdp_mid = calldata_string(data, "sdp_mid");
+			auto sdp = calldata_string(data, "sdp");
+			auto sdp_mline_index = calldata_int(data, "sdp_mline_index");
+			if (!sdp_mid || !sdp) {
+				blog(LOG_WARNING, "webrtcICECandidate: sdp_mid(%p)/sdp(%p) missing", sdp_mid, sdp);
+				return;
+			}
+
+			string sdp_mid_ = sdp_mid;
+			string sdp_ = sdp;
+			QueueOperation([=, sdp_mid = move(sdp_mid_), sdp = move(sdp_)]
+			{
+				ForgeEvents::SendWebRTCIceCandidate(sdp_mid, sdp_mline_index, sdp);
+			});
+		})
+			.Connect();
+
+		obs_output_set_media(webrtc, obs_get_video(), obs_get_audio());
+
+		obs_output_start(webrtc);
+#else
+		blog(LOG_WARNING, "WebRTC not enabled");
+#endif
+	}
+
+	void HandleRemoteWebRTCOffer(OBSData &obj)
+	{
+#ifdef WEBRTC_WIN
+		if (!webrtc) {
+			blog(LOG_WARNING, "Received remote offer while webrtc wasn't initialized");
+			return;
+		}
+
+		calldata_t data{};
+		DEFER{ calldata_free(&data); };
+
+		calldata_set_string(&data, "type", obs_data_get_string(obj, "type"));
+		calldata_set_string(&data, "sdp", obs_data_get_string(obj, "sdp"));
+
+		auto handler = obs_output_get_proc_handler(webrtc);
+		proc_handler_call(handler, "handle_remote_offer", &data);
+#else
+		blog(LOG_WARNING, "WebRTC not enabled");
+#endif
+	}
+
+	void AddRemoteICECandidate(OBSData &obj)
+	{
+#ifdef WEBRTC_WIN
+		if (!webrtc) {
+			blog(LOG_WARNING, "Received ice candidate while webrtc wasn't initialized");
+			return;
+		}
+
+		calldata_t data{};
+		DEFER{ calldata_free(&data); };
+
+		calldata_set_string(&data, "sdp_mid", obs_data_get_string(obj, "sdp_mid"));
+		calldata_set_int(&data, "sdp_mline_index", obs_data_get_int(obj, "sdp_mline_index"));
+		calldata_set_string(&data, "sdp", obs_data_get_string(obj, "sdp"));
+
+		auto handler = obs_output_get_proc_handler(webrtc);
+		proc_handler_call(handler, "add_remote_ice_candidate", &data);
+#else
+		blog(LOG_WARNING, "WebRTC not enabled");
+#endif
+	}
+
 	void StartRecordingStream(const char *server, const char *key, const char *version)
 	{
 		bool started = false;
@@ -3878,6 +4010,8 @@ struct CrucibleContext {
 		stop_(buffer);
 		if (recordingStream)
 			stop_(recordingStream);
+		if (webrtc)
+			stop_(webrtc);
 
 		output = nullptr;
 		buffer = nullptr;
@@ -4083,6 +4217,21 @@ static void HandleForgeWillClose(CrucibleContext &cc, OBSData&)
 {
 	cc.StopVideo(true);
 	SetEvent(exit_event);
+}
+
+static void HandleCreateWebRTCOutput(CrucibleContext &cc, OBSData &obj)
+{
+	cc.CreateWebRTC(OBSDataGetObj(obj, "webrtc"));
+}
+
+static void HandleRemoteWebRTCOffer(CrucibleContext &cc, OBSData &obj)
+{
+	cc.HandleRemoteWebRTCOffer(obj);
+}
+
+static void HandleAddRemoteICECandidate(CrucibleContext &cc, OBSData &obj)
+{
+	cc.AddRemoteICECandidate(obj);
 }
 
 static void HandleStartRecordingStream(CrucibleContext &cc, OBSData &obj)
@@ -4371,6 +4520,9 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "clip_accepted", [](CrucibleContext&, OBSData&) { AnvilCommands::ShowClipping(); } },
 		{ "clip_finished", HandleClipFinished },
 		{ "forge_will_close", HandleForgeWillClose },
+		{ "create_webrtc_output", HandleCreateWebRTCOutput },
+		{ "remote_webrtc_offer", HandleRemoteWebRTCOffer },
+		{ "add_remote_ice_candidate", HandleAddRemoteICECandidate },
 		{ "start_recording_stream", HandleStartRecordingStream },
 		{ "stop_recording_stream", HandleStopRecordingStream },
 		{ "start_streaming", HandleStartStreaming },
