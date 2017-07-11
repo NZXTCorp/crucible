@@ -701,6 +701,13 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendPTTStatus(bool active)
+	{
+		auto cmd = EventCreate("push_to_talk_status");
+		obs_data_set_bool(cmd, "active", active);
+		SendEvent(cmd);
+	}
 }
 
 namespace AnvilCommands {
@@ -1050,6 +1057,10 @@ namespace AnvilCommands {
 
 		if (!changed)
 			return;
+
+		if (changed && !boost::indeterminate(muted) && using_ptt) {
+			ForgeEvents::SendPTTStatus(!muted);
+		}
 
 		SendIndicator();
 	}
