@@ -550,30 +550,20 @@ namespace {
 		}
 	};
 
-	struct RTCSource : cricket::VideoCapturer, webrtc::LocalAudioSource {
+	struct RTCVideoSource : cricket::VideoCapturer {
 		bool have_video_info = false;
-		bool have_audio_info = false;
 		shared_ptr<void> monitor;
-		shared_ptr<RTCSource> self;
+		shared_ptr<RTCVideoSource> self;
 
 		RTCOutput *out;
 
 		int width = 0;
 		int height = 0;
 
-		uint32_t samples_per_sec = 0;
-		speaker_layout speakers;
-
-		unique_ptr<audio_resampler_t> resampler;
-		vector<uint8_t> audio_buffer;
-		vector<uint8_t> audio_out_buffer;
-		const audio_format dst_audio_format = AUDIO_FORMAT_16BIT;
-		const uint32_t audio_out_samples_per_sec = 48000;
-
-		RTCSource()
+		RTCVideoSource()
 		{
 			monitor.reset(reinterpret_cast<void*>(1), [](void *) {});
-			self = shared_ptr<RTCSource>(monitor, this);
+			self = shared_ptr<RTCVideoSource>(monitor, this);
 
 			[&]
 			{
@@ -586,30 +576,10 @@ namespace {
 				height = ovi.output_height;
 			}();
 
-			[&]
-			{
-				obs_audio_info oai{};
-				have_audio_info = obs_get_audio_info(&oai);
-				if (!have_audio_info)
-					return;
-
-				samples_per_sec = oai.samples_per_sec;
-				speakers = oai.speakers;
-
-				resample_info src{}, dst{};
-				src.format = AUDIO_FORMAT_FLOAT_PLANAR;
-				src.samples_per_sec = samples_per_sec;
-				src.speakers = speakers;
-
-				dst.format = dst_audio_format;
-				dst.samples_per_sec = audio_out_samples_per_sec;
-				dst.speakers = speakers;
-
-				resampler.reset(audio_resampler_create(&dst, &src));
-			}();
-
-			SetAudioOptions();
 		}
+
+		RTCVideoSource &operator=(const RTCVideoSource &) = delete;
+		RTCVideoSource(const RTCVideoSource &) = delete;
 
 		bool GetBestCaptureFormat(const cricket::VideoFormat &desired,
 			cricket::VideoFormat *best_format) override
@@ -675,6 +645,58 @@ namespace {
 			OnFrame(frame, width, height);
 		}
 
+		//virtual void OnSinkWantsChanged(const rtc::VideoSinkWants& wants);
+	};
+
+	struct RTCAudioSource : webrtc::LocalAudioSource {
+		bool have_audio_info = false;
+		shared_ptr<void> monitor;
+		shared_ptr<RTCAudioSource> self;
+
+		RTCOutput *out;
+
+		uint32_t samples_per_sec = 0;
+		speaker_layout speakers;
+
+		unique_ptr<audio_resampler_t> resampler;
+		vector<uint8_t> audio_buffer;
+		vector<uint8_t> audio_out_buffer;
+		const audio_format dst_audio_format = AUDIO_FORMAT_16BIT;
+		const uint32_t audio_out_samples_per_sec = 48000;
+
+		RTCAudioSource()
+		{
+			monitor.reset(reinterpret_cast<void*>(1), [](void *) {});
+			self = shared_ptr<RTCAudioSource>(monitor, this);
+
+			[&]
+			{
+				obs_audio_info oai{};
+				have_audio_info = obs_get_audio_info(&oai);
+				if (!have_audio_info)
+					return;
+
+				samples_per_sec = oai.samples_per_sec;
+				speakers = oai.speakers;
+
+				resample_info src{}, dst{};
+				src.format = AUDIO_FORMAT_FLOAT_PLANAR;
+				src.samples_per_sec = samples_per_sec;
+				src.speakers = speakers;
+
+				dst.format = dst_audio_format;
+				dst.samples_per_sec = audio_out_samples_per_sec;
+				dst.speakers = speakers;
+
+				resampler.reset(audio_resampler_create(&dst, &src));
+			}();
+
+			SetAudioOptions();
+		}
+
+		RTCAudioSource &operator=(const RTCAudioSource &) = delete;
+		RTCAudioSource(const RTCAudioSource &) = delete;
+
 		void ReceiveAudio(audio_data *frames)
 		{
 			if (!sink)
@@ -698,11 +720,6 @@ namespace {
 				did_output = true;
 			}
 		}
-
-		//virtual void OnSinkWantsChanged(const rtc::VideoSinkWants& wants);
-
-		RTCSource &operator=(const RTCSource &) = delete;
-		RTCSource(const RTCSource &) = delete;
 
 		// Inherited via AudioSourceInterface
 		void RegisterObserver(webrtc::ObserverInterface *observer) override
@@ -828,8 +845,8 @@ namespace {
 
 		vector<rtc::scoped_refptr<webrtc::MediaStreamInterface>> streams;
 
-
-		weak_ptr<RTCSource> source;
+		weak_ptr<RTCAudioSource> audio_source;
+		weak_ptr<RTCVideoSource> video_source;
 
 		vector<cricket::VideoCodec> codecs;
 
@@ -875,11 +892,18 @@ namespace {
 
 			auto stream = peer_connection_factory->CreateLocalMediaStream("stream");
 
-			rtc::scoped_refptr<RTCSource> source_ = new rtc::RefCountedObject<RTCSource>();
-			source_->out = out;
-			source = source_->self;
-			stream->AddTrack(peer_connection_factory->CreateAudioTrack("audio", source_));
-			stream->AddTrack(peer_connection_factory->CreateVideoTrack("video", peer_connection_factory->CreateVideoSource(source_)));
+			{
+				rtc::scoped_refptr<RTCAudioSource> source = new rtc::RefCountedObject<RTCAudioSource>();
+				source->out = out;
+				audio_source = source->self;
+				stream->AddTrack(peer_connection_factory->CreateAudioTrack("audio", source));
+			}
+			{
+				auto source = new RTCVideoSource;
+				source->out = out;
+				video_source = source->self;
+				stream->AddTrack(peer_connection_factory->CreateVideoTrack("video", peer_connection_factory->CreateVideoSource(source)));
+			}
 
 			if (!peer_connection->AddStream(stream))
 				throw "Failed to add stream to peer_connection";
@@ -1229,7 +1253,7 @@ static void ReceiveVideoRTC(void *data, video_data *frame)
 {
 	auto out = cast(data);
 
-	auto src = out->out->source.lock();
+	auto src = out->out->video_source.lock();
 	if (src)
 		src->ReceiveVideo(frame);
 }
@@ -1238,7 +1262,7 @@ static void ReceiveAudioRTC(void *data, audio_data *frames)
 {
 	auto out = cast(data);
 
-	auto src = out->out->source.lock();
+	auto src = out->out->audio_source.lock();
 	if (src)
 		src->ReceiveAudio(frames);
 }
