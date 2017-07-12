@@ -1779,7 +1779,8 @@ struct CrucibleContext {
 		obs_source_set_audio_mixers(audioBuffer, (1 << 1) | (buffer_only ? (1 << 0) : 0));
 
 		bool recordingStream_active = recordingStream && obs_output_active(recordingStream);
-		auto audio_buffer_muted = obs_source_muted(tunes) || (!buffer_only && !recordingStream_active);
+		bool webrtc_active = webrtc && obs_output_active(webrtc);
+		auto audio_buffer_muted = obs_source_muted(tunes) || (!buffer_only && !recordingStream_active && !webrtc_active);
 		obs_source_set_muted(audioBuffer, audio_buffer_muted);
 		ForgeEvents::SendAudioBufferMuted(audio_buffer_muted);
 	}
@@ -3427,8 +3428,11 @@ struct CrucibleContext {
 			.Connect();
 
 		obs_output_set_media(webrtc, obs_get_video(), obs_get_audio());
+		obs_output_set_mixer(webrtc, 1);
 
 		obs_output_start(webrtc);
+
+		UpdateSourceAudioSettings();
 #else
 		blog(LOG_WARNING, "WebRTC not enabled");
 #endif
