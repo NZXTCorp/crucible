@@ -556,6 +556,8 @@ namespace {
 		shared_ptr<void> monitor;
 		shared_ptr<RTCSource> self;
 
+		RTCOutput *out;
+
 		int width = 0;
 		int height = 0;
 
@@ -874,6 +876,7 @@ namespace {
 			auto stream = peer_connection_factory->CreateLocalMediaStream("stream");
 
 			rtc::scoped_refptr<RTCSource> source_ = new rtc::RefCountedObject<RTCSource>();
+			source_->out = out;
 			source = source_->self;
 			stream->AddTrack(peer_connection_factory->CreateAudioTrack("audio", source_));
 			stream->AddTrack(peer_connection_factory->CreateVideoTrack("video", peer_connection_factory->CreateVideoSource(source_)));
