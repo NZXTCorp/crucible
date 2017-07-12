@@ -3,7 +3,10 @@
 #include <webrtc/base/ssladapter.h>
 #include <webrtc/base/win32socketinit.h>
 #include <webrtc/base/win32socketserver.h>
+#include <webrtc/media/base/audiosource.h>
 #include <webrtc/media/engine/webrtcvideoencoderfactory.h>
+#include <webrtc/modules/audio_device/include/audio_device.h>
+#include <webrtc/pc/localaudiosource.h>
 #include <webrtc/video_encoder.h>
 
 #include <memory>
@@ -11,6 +14,7 @@
 
 #include <obs.hpp>
 #include <obs-output.h>
+#include <media-io/audio-resampler.h>
 
 #include "ProtectedObject.hpp"
 #include "ThreadTools.hpp"
@@ -28,6 +32,16 @@ using namespace std;
 #define debug(format, ...) do_log(LOG_DEBUG,   output, format, ##__VA_ARGS__)
 
 //#define USE_OBS_ENCODER
+
+namespace std {
+	template <>
+	struct default_delete<audio_resampler_t> {
+		void operator()(audio_resampler_t *resampler)
+		{
+			audio_resampler_destroy(resampler);
+		}
+	};
+}
 
 
 namespace {
@@ -75,6 +89,402 @@ namespace {
 #define warn(format, ...)  do_log(LOG_WARNING, out ? out->output : nullptr, format, ##__VA_ARGS__)
 #define info(format, ...)  do_log(LOG_INFO,    out ? out->output : nullptr, format, ##__VA_ARGS__)
 #define debug(format, ...) do_log(LOG_DEBUG,   out ? out->output : nullptr, format, ##__VA_ARGS__)
+
+	struct RTCFakeAudioDeviceModule : webrtc::AudioDeviceModule {
+		RTCOutput *out;
+
+		// Inherited via AudioDeviceModule
+		virtual int64_t TimeUntilNextProcess() override
+		{
+			return 500; // 500 ms
+		}
+
+		virtual void Process() override { }
+
+		virtual int32_t ActiveAudioLayer(AudioLayer *audioLayer) const override
+		{
+			return -1;
+		}
+
+		virtual ErrorCode LastError() const override
+		{
+			return ErrorCode();
+		}
+
+		virtual int32_t RegisterEventObserver(webrtc::AudioDeviceObserver *eventCallback) override
+		{
+			return 0;
+		}
+
+		virtual int32_t RegisterAudioCallback(webrtc::AudioTransport *audioCallback) override
+		{
+			return 0;
+		}
+
+		virtual int32_t Init() override
+		{
+			return 0;
+		}
+
+		virtual int32_t Terminate() override
+		{
+			return 0;
+		}
+
+		virtual bool Initialized() const override
+		{
+			return true;
+		}
+
+		virtual int16_t PlayoutDevices() override
+		{
+			return 0;
+		}
+
+		virtual int16_t RecordingDevices() override
+		{
+			return 0;
+		}
+
+		virtual int32_t PlayoutDeviceName(uint16_t index, char name[webrtc::kAdmMaxDeviceNameSize], char guid[webrtc::kAdmMaxGuidSize]) override
+		{
+			return -1;
+		}
+
+		virtual int32_t RecordingDeviceName(uint16_t index, char name[webrtc::kAdmMaxDeviceNameSize], char guid[webrtc::kAdmMaxGuidSize]) override
+		{
+			return -1;
+		}
+
+		virtual int32_t SetPlayoutDevice(uint16_t index) override
+		{
+			return -1;
+		}
+
+		virtual int32_t SetPlayoutDevice(WindowsDeviceType device) override
+		{
+			return -1;
+		}
+
+		virtual int32_t SetRecordingDevice(uint16_t index) override
+		{
+			return -1;
+		}
+
+		virtual int32_t SetRecordingDevice(WindowsDeviceType device) override
+		{
+			return -1;
+		}
+		virtual int32_t PlayoutIsAvailable(bool * available) override
+		{
+			return -1;
+		}
+
+		virtual int32_t InitPlayout() override
+		{
+			return -1;
+		}
+
+		virtual bool PlayoutIsInitialized() const override
+		{
+			return false;
+		}
+
+		virtual int32_t RecordingIsAvailable(bool *available) override
+		{
+			if (available)
+				*available = true;
+			return 0;
+		}
+		virtual int32_t InitRecording() override
+		{
+			return 0;
+		}
+
+		virtual bool RecordingIsInitialized() const override
+		{
+			return true;
+		}
+
+		virtual int32_t StartPlayout() override
+		{
+			return int32_t();
+		}
+		virtual int32_t StopPlayout() override
+		{
+			return -1;
+		}
+		virtual bool Playing() const override
+		{
+			return false;
+		}
+
+		virtual int32_t StartRecording() override
+		{
+			return 0;
+		}
+		virtual int32_t StopRecording() override
+		{
+			return 0;
+		}
+
+		virtual bool Recording() const override
+		{
+			return true;
+		}
+
+		virtual int32_t SetAGC(bool enable) override
+		{
+			return -1;
+		}
+		virtual bool AGC() const override
+		{
+			return false;
+		}
+
+		virtual int32_t SetWaveOutVolume(uint16_t volumeLeft, uint16_t volumeRight) override
+		{
+			return -1;
+		}
+		virtual int32_t WaveOutVolume(uint16_t * volumeLeft, uint16_t * volumeRight) const override
+		{
+			return .1;
+		}
+		virtual int32_t InitSpeaker() override
+		{
+			return -1;
+		}
+
+		virtual bool SpeakerIsInitialized() const override
+		{
+			return false;
+		}
+
+		virtual int32_t InitMicrophone() override
+		{
+			return -1;
+		}
+		virtual bool MicrophoneIsInitialized() const override
+		{
+			return false;
+		}
+
+		virtual int32_t SpeakerVolumeIsAvailable(bool * available) override
+		{
+			return -1;
+		}
+
+		virtual int32_t SetSpeakerVolume(uint32_t volume) override
+		{
+			return -1;
+		}
+
+		virtual int32_t SpeakerVolume(uint32_t * volume) const override
+		{
+			return -1;
+		}
+		virtual int32_t MaxSpeakerVolume(uint32_t * maxVolume) const override
+		{
+			return -1;
+		}
+		virtual int32_t MinSpeakerVolume(uint32_t * minVolume) const override
+		{
+			return -1;
+		}
+		virtual int32_t SpeakerVolumeStepSize(uint16_t * stepSize) const override
+		{
+			return -1;
+		}
+		virtual int32_t MicrophoneVolumeIsAvailable(bool * available) override
+		{
+			return -1;
+		}
+		virtual int32_t SetMicrophoneVolume(uint32_t volume) override
+		{
+			return -1;
+		}
+		virtual int32_t MicrophoneVolume(uint32_t * volume) const override
+		{
+			return -1;
+		}
+		virtual int32_t MaxMicrophoneVolume(uint32_t * maxVolume) const override
+		{
+			return -1;
+		}
+		virtual int32_t MinMicrophoneVolume(uint32_t * minVolume) const override
+		{
+			return -1;
+		}
+		virtual int32_t MicrophoneVolumeStepSize(uint16_t * stepSize) const override
+		{
+			return -1;
+		}
+		virtual int32_t SpeakerMuteIsAvailable(bool * available) override
+		{
+			return -1;
+		}
+		virtual int32_t SetSpeakerMute(bool enable) override
+		{
+			return -1;
+		}
+		virtual int32_t SpeakerMute(bool * enabled) const override
+		{
+			return -1;
+		}
+		virtual int32_t MicrophoneMuteIsAvailable(bool * available) override
+		{
+			return -1;
+		}
+		virtual int32_t SetMicrophoneMute(bool enable) override
+		{
+			return -1;
+		}
+		virtual int32_t MicrophoneMute(bool * enabled) const override
+		{
+			return -1;
+		}
+		virtual int32_t MicrophoneBoostIsAvailable(bool * available) override
+		{
+			return -1;
+		}
+		virtual int32_t SetMicrophoneBoost(bool enable) override
+		{
+			return -1;
+		}
+		virtual int32_t MicrophoneBoost(bool * enabled) const override
+		{
+			return -1;
+		}
+		virtual int32_t StereoPlayoutIsAvailable(bool * available) const override
+		{
+			return -1;
+		}
+		virtual int32_t SetStereoPlayout(bool enable) override
+		{
+			return -1;
+		}
+		virtual int32_t StereoPlayout(bool * enabled) const override
+		{
+			return -1;
+		}
+		virtual int32_t StereoRecordingIsAvailable(bool * available) const override
+		{
+			if (available)
+				*available = true;
+			return 0;
+		}
+
+		virtual int32_t SetStereoRecording(bool enable) override
+		{
+			return 0;
+		}
+		virtual int32_t StereoRecording(bool * enabled) const override
+		{
+			if (enabled)
+				*enabled = true;
+			return 0;
+		}
+		virtual int32_t SetRecordingChannel(const ChannelType channel) override
+		{
+			return -1;
+		}
+		virtual int32_t RecordingChannel(ChannelType * channel) const override
+		{
+			return -1;
+		}
+		virtual int32_t SetPlayoutBuffer(const BufferType type, uint16_t sizeMS = 0) override
+		{
+			return -1;
+		}
+		virtual int32_t PlayoutBuffer(BufferType * type, uint16_t * sizeMS) const override
+		{
+			return -1;
+		}
+		virtual int32_t PlayoutDelay(uint16_t * delayMS) const override
+		{
+			return -1;
+		}
+		virtual int32_t RecordingDelay(uint16_t * delayMS) const override
+		{
+			return -1;
+		}
+		virtual int32_t CPULoad(uint16_t * load) const override
+		{
+			if (load)
+				*load = 0;
+			return 0;
+		}
+		virtual int32_t StartRawOutputFileRecording(const char pcmFileNameUTF8[webrtc::kAdmMaxFileNameSize]) override
+		{
+			return -1;
+		}
+		virtual int32_t StopRawOutputFileRecording() override
+		{
+			return -1;
+		}
+		virtual int32_t StartRawInputFileRecording(const char pcmFileNameUTF8[webrtc::kAdmMaxFileNameSize]) override
+		{
+			return -1;
+		}
+		virtual int32_t StopRawInputFileRecording() override
+		{
+			return -1;
+		}
+		virtual int32_t SetRecordingSampleRate(const uint32_t samplesPerSec) override
+		{
+			return 0;
+		}
+		virtual int32_t RecordingSampleRate(uint32_t * samplesPerSec) const override
+		{
+			if (samplesPerSec)
+				*samplesPerSec = 48000;
+			return 0;
+		}
+		virtual int32_t SetPlayoutSampleRate(const uint32_t samplesPerSec) override
+		{
+			return -1;
+		}
+		virtual int32_t PlayoutSampleRate(uint32_t * samplesPerSec) const override
+		{
+			return -1;
+		}
+		virtual int32_t ResetAudioDevice() override
+		{
+			return 0;
+		}
+		virtual int32_t SetLoudspeakerStatus(bool enable) override
+		{
+			return -1;
+		}
+		virtual int32_t GetLoudspeakerStatus(bool * enabled) const override
+		{
+			return -1;
+		}
+		virtual bool BuiltInAECIsAvailable() const override
+		{
+			return false;
+		}
+		virtual bool BuiltInAGCIsAvailable() const override
+		{
+			return false;
+		}
+		virtual bool BuiltInNSIsAvailable() const override
+		{
+			return false;
+		}
+		virtual int32_t EnableBuiltInAEC(bool enable) override
+		{
+			return -1;
+		}
+		virtual int32_t EnableBuiltInAGC(bool enable) override
+		{
+			return -1;
+		}
+		virtual int32_t EnableBuiltInNS(bool enable) override
+		{
+			return -1;
+		}
+	};
 
 	struct RTCFrameBuffer : webrtc::VideoFrameBuffer {
 		int width_;
@@ -140,26 +550,63 @@ namespace {
 		}
 	};
 
-	struct RTCSource : cricket::VideoCapturer {
+	struct RTCSource : cricket::VideoCapturer, webrtc::LocalAudioSource {
 		bool have_video_info = false;
+		bool have_audio_info = false;
 		shared_ptr<void> monitor;
 		shared_ptr<RTCSource> self;
 
 		int width = 0;
 		int height = 0;
 
+		uint32_t samples_per_sec = 0;
+		speaker_layout speakers;
+
+		unique_ptr<audio_resampler_t> resampler;
+		vector<uint8_t> audio_buffer;
+		vector<uint8_t> audio_out_buffer;
+		const audio_format dst_audio_format = AUDIO_FORMAT_16BIT;
+		const uint32_t audio_out_samples_per_sec = 48000;
+
 		RTCSource()
 		{
 			monitor.reset(reinterpret_cast<void*>(1), [](void *) {});
 			self = shared_ptr<RTCSource>(monitor, this);
 
-			obs_video_info ovi{};
-			have_video_info = obs_get_video_info(&ovi);
-			if (!have_video_info)
-				return;
+			[&]
+			{
+				obs_video_info ovi{};
+				have_video_info = obs_get_video_info(&ovi);
+				if (!have_video_info)
+					return;
 
-			width = ovi.output_width;
-			height = ovi.output_height;
+				width = ovi.output_width;
+				height = ovi.output_height;
+			}();
+
+			[&]
+			{
+				obs_audio_info oai{};
+				have_audio_info = obs_get_audio_info(&oai);
+				if (!have_audio_info)
+					return;
+
+				samples_per_sec = oai.samples_per_sec;
+				speakers = oai.speakers;
+
+				resample_info src{}, dst{};
+				src.format = AUDIO_FORMAT_FLOAT_PLANAR;
+				src.samples_per_sec = samples_per_sec;
+				src.speakers = speakers;
+
+				dst.format = dst_audio_format;
+				dst.samples_per_sec = audio_out_samples_per_sec;
+				dst.speakers = speakers;
+
+				resampler.reset(audio_resampler_create(&dst, &src));
+			}();
+
+			SetAudioOptions();
 		}
 
 		bool GetBestCaptureFormat(const cricket::VideoFormat &desired,
@@ -226,10 +673,86 @@ namespace {
 			OnFrame(frame, width, height);
 		}
 
+		void ReceiveAudio(audio_data *frames)
+		{
+			if (!sink)
+				return;
+			uint8_t  *output[MAX_AV_PLANES] = { 0 };
+			uint32_t out_frames;
+			uint64_t offset;
+
+			auto out_bytes_per_sample = get_audio_channels(speakers) * get_audio_bytes_per_channel(dst_audio_format);
+
+			audio_resampler_resample(resampler.get(), output, &out_frames, &offset, frames->data, frames->frames);
+
+			audio_buffer.insert(end(audio_buffer), output[0], output[0] + out_frames * out_bytes_per_sample);
+			
+			auto out_chunk_size = out_bytes_per_sample * (audio_out_samples_per_sec / 100);
+			bool did_output = false;
+			while (audio_buffer.size() >= out_chunk_size) {
+				audio_out_buffer.assign(begin(audio_buffer), begin(audio_buffer) + out_chunk_size);
+				audio_buffer.erase(begin(audio_buffer), begin(audio_buffer) + out_chunk_size);
+				sink->OnData(audio_out_buffer.data(), 16, audio_out_samples_per_sec, speakers, audio_out_samples_per_sec / 100);
+				did_output = true;
+			}
+		}
+
 		//virtual void OnSinkWantsChanged(const rtc::VideoSinkWants& wants);
 
 		RTCSource &operator=(const RTCSource &) = delete;
 		RTCSource(const RTCSource &) = delete;
+
+		// Inherited via AudioSourceInterface
+		void RegisterObserver(webrtc::ObserverInterface *observer) override
+		{
+		}
+
+		void UnregisterObserver(webrtc::ObserverInterface *observer) override
+		{
+		}
+
+		SourceState state() const override
+		{
+			return kLive;
+		}
+
+		bool remote() const override
+		{
+			return false;
+		}
+
+		webrtc::AudioTrackSinkInterface *sink = nullptr;
+		void AddSink(webrtc::AudioTrackSinkInterface *sink_)
+		{
+			if (!sink)
+				sink = sink_;
+		}
+
+		void RemoveSink(webrtc::AudioTrackSinkInterface *sink_)
+		{
+			if (sink == sink_)
+				sink = nullptr;
+		}
+
+		cricket::AudioOptions options_;
+		void SetAudioOptions()
+		{
+			options_.aecm_generate_comfort_noise.emplace(false);
+			options_.auto_gain_control.emplace(false);
+			options_.echo_cancellation.emplace(false);
+			options_.highpass_filter.emplace(false);
+			options_.intelligibility_enhancer.emplace(false);
+			options_.level_control.emplace(false);
+			options_.noise_suppression.emplace(false);
+			options_.residual_echo_detector.emplace(false);
+			options_.tx_agc_limiter.emplace(false);
+			options_.typing_detection.emplace(false);
+		}
+
+		const cricket::AudioOptions &options() const override
+		{
+			return options_;
+		}
 	};
 
 #ifdef USE_OBS_ENCODER
@@ -322,7 +845,17 @@ namespace {
 				this,
 				nullptr);
 #else
-			peer_connection_factory.swap(webrtc::CreatePeerConnectionFactory());
+			worker_and_network_thread = rtc::Thread::CreateWithSocketServer();
+			worker_and_network_thread->Start();
+
+			rtc::scoped_refptr<RTCFakeAudioDeviceModule> adm = new rtc::RefCountedObject<RTCFakeAudioDeviceModule>();
+			adm->out = out;
+			peer_connection_factory.swap(webrtc::CreatePeerConnectionFactory(
+				worker_and_network_thread.get(),
+				rtc::ThreadManager::Instance()->CurrentThread(),
+				adm,
+				nullptr,
+				nullptr));
 #endif
 			if (!peer_connection_factory)
 				throw "Could not create peer_connection_factory";
@@ -340,10 +873,9 @@ namespace {
 
 			auto stream = peer_connection_factory->CreateLocalMediaStream("stream");
 
-			/*stream->AddTrack(peer_connection_factory->CreateAudioTrack(
-				"audio", peer_connection_factory->CreateAudioSource(NULL)));*/
-			auto source_ = new RTCSource;
+			rtc::scoped_refptr<RTCSource> source_ = new rtc::RefCountedObject<RTCSource>();
 			source = source_->self;
+			stream->AddTrack(peer_connection_factory->CreateAudioTrack("audio", source_));
 			stream->AddTrack(peer_connection_factory->CreateVideoTrack("video", peer_connection_factory->CreateVideoSource(source_)));
 
 			if (!peer_connection->AddStream(stream))
@@ -699,11 +1231,20 @@ static void ReceiveVideoRTC(void *data, video_data *frame)
 		src->ReceiveVideo(frame);
 }
 
+static void ReceiveAudioRTC(void *data, audio_data *frames)
+{
+	auto out = cast(data);
+
+	auto src = out->out->source.lock();
+	if (src)
+		src->ReceiveAudio(frames);
+}
+
 void RegisterWebRTCOutput()
 {
 	obs_output_info ooi{};
 	ooi.id = "webrtc_output";
-	ooi.flags = OBS_OUTPUT_VIDEO;// | OBS_OUTPUT_ENCODED;
+	ooi.flags = OBS_OUTPUT_AV;// | OBS_OUTPUT_ENCODED;
 	ooi.get_name = [](auto) { return "WebRTC Output"; };
 	ooi.create = CreateRTC;
 	ooi.destroy = DestroyRTC;
@@ -711,6 +1252,7 @@ void RegisterWebRTCOutput()
 	ooi.stop = StopRTC;
 	//ooi.encoded_packet = ReceivePacketRTC;
 	ooi.raw_video = ReceiveVideoRTC;
+	ooi.raw_audio = ReceiveAudioRTC;
 	obs_register_output(&ooi);
 }
 
