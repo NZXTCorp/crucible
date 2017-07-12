@@ -1716,7 +1716,7 @@ struct CrucibleContext {
 			throw "Couldn't initialize video";
 
 		obs_audio_info ai;
-		ai.samples_per_sec = 44100;
+		ai.samples_per_sec = 48000;
 		ai.speakers = SPEAKERS_STEREO;
 		ai.max_buffer_ms = 1000;
 		if (!obs_reset_audio(&ai))
