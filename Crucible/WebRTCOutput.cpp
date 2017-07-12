@@ -77,7 +77,7 @@ namespace {
 
 		rtc::scoped_refptr<RTCControl> out;
 
-		RTCOutput(obs_output_t *output, string ice_server_uri);
+		RTCOutput(obs_output_t *output, string ice_server_uri, bool create_offer);
 		void PostRTCMessage(function<void()> func);
 	};
 
@@ -850,7 +850,7 @@ namespace {
 
 		vector<cricket::VideoCodec> codecs;
 
-		void Init(const string &ice_server_uri)
+		void Init(const string &ice_server_uri, bool create_offer)
 		{
 			codecs.emplace_back("H264");
 #ifdef USE_OBS_ENCODER
@@ -910,13 +910,13 @@ namespace {
 
 			streams.push_back(stream);
 
-#if 0
-			webrtc::PeerConnectionInterface::RTCOfferAnswerOptions options;
-			options.offer_to_receive_audio = 0;
-			options.offer_to_receive_video = 0;
+			if (create_offer) {
+				webrtc::PeerConnectionInterface::RTCOfferAnswerOptions options;
+				options.offer_to_receive_audio = 0;
+				options.offer_to_receive_video = 0;
 
-			peer_connection->CreateOffer(this, options);
-#endif
+				peer_connection->CreateOffer(this, options);
+			}
 		}
 
 		// PeerConnectionObserver
@@ -1040,7 +1040,7 @@ namespace {
 	};
 
 
-	RTCOutput::RTCOutput(obs_output_t *output, string ice_server_uri)
+	RTCOutput::RTCOutput(obs_output_t *output, string ice_server_uri, bool create_offer)
 		: output(output), ice_server_uri(ice_server_uri)
 	{
 		signal_thread.make_joinable = [&]
@@ -1054,7 +1054,7 @@ namespace {
 
 		exception_ptr ptr;
 
-		signal_thread.Run([&, ready_signal]
+		signal_thread.Run([&, ready_signal, create_offer]
 		{
 			rtc::Win32Thread rtc_thread;
 			rtc::ThreadManager::Instance()->SetCurrentThread(&rtc_thread);
@@ -1075,7 +1075,7 @@ namespace {
 
 				out->out = this;
 
-				out->Init(this->ice_server_uri);
+				out->Init(this->ice_server_uri, create_offer);
 
 				SetEvent(ready_signal.get());
 
@@ -1218,7 +1218,7 @@ try {
 
 static void *CreateRTC(obs_data_t *settings, obs_output_t *output)
 try {
-	auto out = make_unique<RTCOutput>(output, obs_data_get_string(settings, "server"));
+	auto out = make_unique<RTCOutput>(output, obs_data_get_string(settings, "server"), obs_data_get_bool(settings, "create_offer"));
 
 	if (out)
 		AddSignalHandlers(out.get());
