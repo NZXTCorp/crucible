@@ -16,6 +16,7 @@
 #include <obs-output.h>
 #include <media-io/audio-resampler.h>
 
+#include "OBSHelpers.hpp"
 #include "ProtectedObject.hpp"
 #include "ThreadTools.hpp"
 #include "scopeguard.hpp"
@@ -1232,6 +1233,93 @@ static void AddRemoteIceCandidate(void *context, calldata_t *data)
 	});
 }
 
+static void CreateOffer(void *context, calldata_t *data)
+{
+	auto out = cast(context);
+	shared_ptr<void> offer_complete_signal(CreateEvent(nullptr, true, false, nullptr), HandleDeleter());
+	auto err = make_shared<string>();
+	OBSData description = static_cast<obs_data_t*>(calldata_ptr(data, "description"));
+
+	out->PostRTCMessage([out, offer_complete_signal, err, description]
+	{
+		auto fail = [&](string str)
+		{
+			warn("CreateOffer: %s", str.c_str());
+			*err = move(str);
+			SetEvent(offer_complete_signal.get());
+		};
+
+		if (!out->out->peer_connection)
+			return fail("Got create_offer call without active peer_connection");
+
+		struct Observer : webrtc::CreateSessionDescriptionObserver {
+			string err;
+			unique_ptr<webrtc::SessionDescriptionInterface> desc;
+			function<void(Observer*)> continuation;
+
+			void Continue()
+			{
+				if (continuation)
+					continuation(this);
+			}
+
+			void OnSuccess(webrtc::SessionDescriptionInterface *desc_) override
+			{
+				desc.reset(desc_);
+				Continue();
+			}
+
+			void OnFailure(const std::string &error) override
+			{
+				err = error;
+				Continue();
+			}
+		};
+
+		rtc::scoped_refptr<Observer> observer = new rtc::RefCountedObject<Observer>();
+		observer->continuation = [=](Observer *observer)
+		{
+			DEFER{ SetEvent(offer_complete_signal.get()); };
+
+			auto fail = [=](string str)
+			{
+				warn("CreateOffer: %s", str.c_str());
+				*err = str;
+			};
+
+			if (!observer->err.empty())
+				return fail(observer->err);
+
+			string sdp;
+			if (observer->desc->ToString(&sdp)) {
+				obs_data_set_string(description, "type", observer->desc->type().c_str());
+				obs_data_set_string(description, "sdp", sdp.c_str());
+
+				out->out->peer_connection->SetLocalDescription(DummySetSessionDescriptionObserver::Create(), observer->desc.release());
+			} else
+				return fail("observer->desc->ToString(&sdp) failed");
+		};
+
+		webrtc::PeerConnectionInterface::RTCOfferAnswerOptions options;
+		options.offer_to_receive_audio = 0;
+		options.offer_to_receive_video = 0;
+		out->out->peer_connection->CreateOffer(observer, options);
+	});
+
+	auto fail = [&](string err)
+	{
+		warn("CreateOffer: %s", err.c_str());
+		calldata_set_string(data, "error", err.c_str());
+		return;
+	};
+
+	if (WaitForSingleObject(offer_complete_signal.get(), 5000) != WAIT_OBJECT_0)
+		fail("Timeout while waiting for offer_complete_signal");
+
+	if (!err->empty())
+		calldata_set_string(data, "error", err->c_str());
+}
+
 static const char *signal_prototypes[] = {
 	"void session_description(ptr output, string type, string sdp)",
 	"void ice_candidate(ptr output, string sdp_mid, int sdp_mline_index, string sdp)",
@@ -1250,6 +1338,7 @@ static void AddSignalHandlers(RTCOutput *out)
 
 		proc_handler_add(handler, "void handle_remote_offer(string sdp)", HandleRemoteOffer, out);
 		proc_handler_add(handler, "void add_remote_ice_candidate(string sdp_mid, int sdp_mline_index, string sdp)", AddRemoteIceCandidate, out);
+		proc_handler_add(handler, "void create_offer(in out ptr description, out string error)", CreateOffer, out);
 	}
 }
 
