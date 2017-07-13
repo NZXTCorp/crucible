@@ -712,6 +712,17 @@ namespace ForgeEvents {
 		SendEvent(cmd);
 	}
 
+	void SendCreateWebRTCOutputResult(OBSData &original, boost::optional<string> err)
+	{
+		auto event = original;
+
+		obs_data_set_string(event, "event", "create_webrtc_output_result");
+		if (err)
+			obs_data_set_string(event, "error", err->c_str());
+
+		SendEvent(event);
+	}
+
 	void SendWebRTCSessionDescription(const string &type, const string &sdp)
 	{
 		auto event = EventCreate("webrtc_session_description");
@@ -3378,9 +3389,25 @@ struct CrucibleContext {
 		}
 	}
 
-	void CreateWebRTC(obs_data_t *settings)
+	boost::optional<string> CreateWebRTC(obs_data_t *settings)
 	{
+		auto fail = [&](const char *err)
+		{
+			blog(LOG_WARNING, "CrucibleContext::CreateWebRTC: %s", err);
+			return err;
+		};
+
 #ifdef WEBRTC_WIN
+		if (!gameCapture)
+			return fail("Tried to create webrtc output while no game capture is active");
+
+		if (webrtc && obs_output_active(webrtc)) {
+			blog(LOG_WARNING, "CreateWebRTC: webrtc output already active, stopping");
+			obs_output_force_stop(webrtc);
+		}
+
+		webrtc = nullptr;
+
 		InitRef(webrtc, "Couldn't create webrtc output", obs_output_release,
 			obs_output_create("webrtc_output", "webrtc", settings, nullptr));
 
@@ -3430,11 +3457,14 @@ struct CrucibleContext {
 		obs_output_set_media(webrtc, obs_get_video(), obs_get_audio());
 		obs_output_set_mixer(webrtc, 1);
 
-		obs_output_start(webrtc);
+		if (!obs_output_start(webrtc))
+			return fail("Failed to start webrtc output");
 
 		UpdateSourceAudioSettings();
+
+		return boost::none;
 #else
-		blog(LOG_WARNING, "WebRTC not enabled");
+		return fail("WebRTC not enabled");
 #endif
 	}
 
@@ -4228,7 +4258,8 @@ static void HandleForgeWillClose(CrucibleContext &cc, OBSData&)
 
 static void HandleCreateWebRTCOutput(CrucibleContext &cc, OBSData &obj)
 {
-	cc.CreateWebRTC(OBSDataGetObj(obj, "webrtc"));
+	auto err = cc.CreateWebRTC(OBSDataGetObj(obj, "webrtc"));
+	ForgeEvents::SendCreateWebRTCOutputResult(obj, err);
 }
 
 static void HandleRemoteWebRTCOffer(CrucibleContext &cc, OBSData &obj)
