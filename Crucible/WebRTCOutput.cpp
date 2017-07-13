@@ -77,6 +77,16 @@ namespace {
 
 		rtc::scoped_refptr<RTCControl> out;
 
+		struct Timestamps {
+			rtc::Optional<uint64_t> audio;
+			rtc::Optional<uint64_t> video;
+		};
+
+		ProtectedObject<Timestamps> next_timestamps;
+
+		bool warned_about_audio_timestamp = false;
+		uint64_t video_frame_time;
+
 		RTCOutput(obs_output_t *output, string ice_server_uri, bool create_offer);
 		void PostRTCMessage(function<void()> func);
 	};
@@ -660,6 +670,9 @@ namespace {
 		static const uint32_t samples_per_sec = 48000;
 
 		unique_ptr<audio_resampler_t> resampler;
+
+		rtc::Optional<uint64_t> max_output_timestamp;
+		rtc::Optional<uint64_t> buffer_start_timestamp;
 		vector<uint8_t> audio_buffer;
 		vector<uint8_t> audio_out_buffer;
 
@@ -677,6 +690,8 @@ namespace {
 
 		bool Start()
 		{
+			max_output_timestamp.reset();
+			buffer_start_timestamp.reset();
 			have_audio_info = false;
 
 			auto audio = obs_output_audio(out->output);
@@ -706,13 +721,16 @@ namespace {
 			return true;
 		}
 
-		void ReceiveAudio(audio_data *frames)
+		void ReceiveAudio(audio_data *frames, rtc::Optional<uint64_t> output_timestamp)
 		{
 			if (!sink)
 				return;
 
 			if (!have_audio_info)
 				return;
+
+			if (!buffer_start_timestamp)
+				buffer_start_timestamp.emplace(frames->timestamp);
 
 			auto out_bytes_per_sample = get_audio_channels(speakers) * get_audio_bytes_per_channel(audio_format);
 
@@ -728,14 +746,20 @@ namespace {
 
 				audio_buffer.insert(end(audio_buffer), output[0], output[0] + out_frames * out_bytes_per_sample);
 			}
+
+			max_output_timestamp = output_timestamp;
+			if (!max_output_timestamp)
+				return;
 			
 			auto out_chunk_size = out_bytes_per_sample * (samples_per_sec / 100);
+			auto out_chunk_duration = 10'000'000; // 10 ms as ns
 			bool did_output = false;
-			while (audio_buffer.size() >= out_chunk_size) {
+			while (audio_buffer.size() >= out_chunk_size && (*buffer_start_timestamp + out_chunk_duration) <= *max_output_timestamp) {
 				audio_out_buffer.assign(begin(audio_buffer), begin(audio_buffer) + out_chunk_size);
 				audio_buffer.erase(begin(audio_buffer), begin(audio_buffer) + out_chunk_size);
 				sink->OnData(audio_out_buffer.data(), 16, samples_per_sec, speakers, samples_per_sec / 100);
 				did_output = true;
+				buffer_start_timestamp.emplace(*buffer_start_timestamp + out_chunk_duration);
 			}
 		}
 
@@ -1277,6 +1301,21 @@ static bool StartRTC(void *data)
 			return false;
 	}
 
+	{
+		auto video = obs_output_video(out->output);
+		out->video_frame_time = video_output_get_frame_time(video);
+	}
+
+	{
+		auto timestamps = out->next_timestamps.Lock();
+		if (timestamps) {
+			timestamps->audio.reset();
+			timestamps->video.reset();
+		}
+
+		out->warned_about_audio_timestamp = false;
+	}
+
 	return obs_output_begin_data_capture(out->output, 0);
 }
 
@@ -1288,6 +1327,18 @@ static void ReceiveVideoRTC(void *data, video_data *frame)
 {
 	auto out = cast(data);
 
+	{
+		auto timestamps = out->next_timestamps.Lock();
+		if (timestamps) {
+			timestamps->video.emplace(frame->timestamp + out->video_frame_time); // this should allow sending audio up to the next frame, to slightly reduce overall delay
+
+			if (!out->warned_about_audio_timestamp && timestamps->audio && *timestamps->audio < frame->timestamp) {
+				warn("Audio timestamps are behind video timestamps: %llu < %llu", *timestamps->audio, frame->timestamp);
+				out->warned_about_audio_timestamp = true;
+			}
+		}
+	}
+
 	auto src = out->out->video_source.lock();
 	if (src)
 		src->ReceiveVideo(frame);
@@ -1297,9 +1348,18 @@ static void ReceiveAudioRTC(void *data, audio_data *frames)
 {
 	auto out = cast(data);
 
+	rtc::Optional<uint64_t> video_timestamp;
+	{
+		auto timestamps = out->next_timestamps.Lock();
+		if (timestamps) {
+			timestamps->audio.emplace(frames->timestamp);
+			video_timestamp = timestamps->video;
+		}
+	}
+
 	auto src = out->out->audio_source.lock();
 	if (src)
-		src->ReceiveAudio(frames);
+		src->ReceiveAudio(frames, move(video_timestamp));
 }
 
 void RegisterWebRTCOutput()
