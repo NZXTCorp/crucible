@@ -3825,6 +3825,7 @@ struct CrucibleContext {
 
 		bool stream_active = obs_output_active(stream);
 		bool recordingStream_active = recordingStream && obs_output_active(recordingStream);
+		bool webrtc_active = webrtc && obs_output_active(webrtc);
 
 		{
 			bool split_recording = RecordingActive() && output_dimensions_changed;
@@ -3854,6 +3855,8 @@ struct CrucibleContext {
 				obs_output_start(stream);
 			if (recordingStream_active)
 				obs_output_start(recordingStream);
+			if (webrtc_active)
+				obs_output_start(webrtc);
 		}
 
 		return true;
