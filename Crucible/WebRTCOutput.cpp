@@ -1091,11 +1091,19 @@ namespace {
 				(*handle)->Stop();
 		};
 
+		shared_ptr<void> init_signal(CreateEvent(nullptr, true, false, nullptr), HandleDeleter());
 		shared_ptr<void> ready_signal(CreateEvent(nullptr, true, false, nullptr), HandleDeleter());
 
 		exception_ptr ptr;
 
-		signal_thread.Run([&, ready_signal, create_offer]
+		signal_thread.make_joinable = [&]
+		{
+			auto handle = rtc_thread_handle.Lock();
+			if (handle && *handle)
+				(*handle)->Quit();
+		};
+
+		signal_thread.Run([&, init_signal, ready_signal, create_offer]
 		{
 			rtc::Win32Thread rtc_thread;
 			rtc::ThreadManager::Instance()->SetCurrentThread(&rtc_thread);
@@ -1105,6 +1113,8 @@ namespace {
 				*handle = rtc::ThreadManager::Instance()->CurrentThread();
 			}
 			DEFER{ *rtc_thread_handle.Lock() = nullptr; };
+
+			SetEvent(init_signal.get());
 
 			rtc::InitializeSSL();
 			DEFER{ rtc::CleanupSSL(); };
@@ -1127,7 +1137,10 @@ namespace {
 			rtc_thread.Run();
 		});
 
-		if (WaitForSingleObject(ready_signal.get(), 500) != WAIT_OBJECT_0)
+		if (WaitForSingleObject(init_signal.get(), 2000) != WAIT_OBJECT_0)
+			blog(LOG_ERROR, "signal_thread did not set its handle in time, crucible will likely crash");
+
+		if (WaitForSingleObject(ready_signal.get(), 1500) != WAIT_OBJECT_0)
 			if (ptr)
 				rethrow_exception(ptr);
 			else
