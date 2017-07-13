@@ -655,14 +655,13 @@ namespace {
 
 		RTCOutput *out;
 
-		uint32_t samples_per_sec = 0;
-		speaker_layout speakers;
+		static const speaker_layout speakers = SPEAKERS_STEREO;
+		static const audio_format audio_format = AUDIO_FORMAT_16BIT;
+		static const uint32_t samples_per_sec = 48000;
 
 		unique_ptr<audio_resampler_t> resampler;
 		vector<uint8_t> audio_buffer;
 		vector<uint8_t> audio_out_buffer;
-		const audio_format dst_audio_format = AUDIO_FORMAT_16BIT;
-		const uint32_t audio_out_samples_per_sec = 48000;
 
 		RTCAudioSource(RTCOutput *out)
 			: out(out)
@@ -683,19 +682,18 @@ namespace {
 				auto aoi = *aoi_;
 				have_audio_info = true;
 
-				samples_per_sec = aoi.samples_per_sec;
-				speakers = aoi.speakers;
+				if (aoi.samples_per_sec != samples_per_sec || aoi.format != audio_format || aoi.speakers != speakers) {
+					resample_info src{}, dst{};
+					src.format = aoi.format;
+					src.samples_per_sec = aoi.samples_per_sec;
+					src.speakers = aoi.speakers;
 
-				resample_info src{}, dst{};
-				src.format = aoi.format;
-				src.samples_per_sec = samples_per_sec;
-				src.speakers = speakers;
+					dst.format = audio_format;
+					dst.samples_per_sec = samples_per_sec;
+					dst.speakers = speakers;
 
-				dst.format = dst_audio_format;
-				dst.samples_per_sec = audio_out_samples_per_sec;
-				dst.speakers = speakers;
-
-				resampler.reset(audio_resampler_create(&dst, &src));
+					resampler.reset(audio_resampler_create(&dst, &src));
+				}
 			}();
 
 			SetAudioOptions();
@@ -708,22 +706,31 @@ namespace {
 		{
 			if (!sink)
 				return;
-			uint8_t  *output[MAX_AV_PLANES] = { 0 };
-			uint32_t out_frames;
-			uint64_t offset;
 
-			auto out_bytes_per_sample = get_audio_channels(speakers) * get_audio_bytes_per_channel(dst_audio_format);
+			if (!have_audio_info)
+				return;
 
-			audio_resampler_resample(resampler.get(), output, &out_frames, &offset, frames->data, frames->frames);
+			auto out_bytes_per_sample = get_audio_channels(speakers) * get_audio_bytes_per_channel(audio_format);
 
-			audio_buffer.insert(end(audio_buffer), output[0], output[0] + out_frames * out_bytes_per_sample);
+			if (!resampler) {
+				audio_buffer.insert(end(audio_buffer), frames->data[0], frames->data[0] + frames->frames * out_bytes_per_sample);
+
+			} else {
+				uint8_t  *output[MAX_AV_PLANES] = { 0 };
+				uint32_t out_frames;
+				uint64_t offset;
+
+				audio_resampler_resample(resampler.get(), output, &out_frames, &offset, frames->data, frames->frames);
+
+				audio_buffer.insert(end(audio_buffer), output[0], output[0] + out_frames * out_bytes_per_sample);
+			}
 			
-			auto out_chunk_size = out_bytes_per_sample * (audio_out_samples_per_sec / 100);
+			auto out_chunk_size = out_bytes_per_sample * (samples_per_sec / 100);
 			bool did_output = false;
 			while (audio_buffer.size() >= out_chunk_size) {
 				audio_out_buffer.assign(begin(audio_buffer), begin(audio_buffer) + out_chunk_size);
 				audio_buffer.erase(begin(audio_buffer), begin(audio_buffer) + out_chunk_size);
-				sink->OnData(audio_out_buffer.data(), 16, audio_out_samples_per_sec, speakers, audio_out_samples_per_sec / 100);
+				sink->OnData(audio_out_buffer.data(), 16, samples_per_sec, speakers, samples_per_sec / 100);
 				did_output = true;
 			}
 		}
