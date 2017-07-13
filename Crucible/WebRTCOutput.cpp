@@ -248,7 +248,7 @@ namespace {
 		}
 		virtual int32_t WaveOutVolume(uint16_t * volumeLeft, uint16_t * volumeRight) const override
 		{
-			return .1;
+			return -1;
 		}
 		virtual int32_t InitSpeaker() override
 		{
@@ -1152,7 +1152,7 @@ static void AddRemoteIceCandidate(void *context, calldata_t *data)
 	auto out = cast(context);
 
 	auto sdp_mid = calldata_string(data, "sdp_mid");
-	auto sdp_mline_index = calldata_int(data, "sdp_mline_index");
+	auto sdp_mline_index = static_cast<int>(calldata_int(data, "sdp_mline_index"));
 	auto sdp = calldata_string(data, "sdp");
 
 	if (!sdp_mid || !sdp) {
