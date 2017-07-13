@@ -664,7 +664,8 @@ namespace {
 		const audio_format dst_audio_format = AUDIO_FORMAT_16BIT;
 		const uint32_t audio_out_samples_per_sec = 48000;
 
-		RTCAudioSource()
+		RTCAudioSource(RTCOutput *out)
+			: out(out)
 		{
 			monitor.reset(reinterpret_cast<void*>(1), [](void *) {});
 			self = shared_ptr<RTCAudioSource>(monitor, this);
@@ -893,8 +894,7 @@ namespace {
 			auto stream = peer_connection_factory->CreateLocalMediaStream("stream");
 
 			{
-				rtc::scoped_refptr<RTCAudioSource> source = new rtc::RefCountedObject<RTCAudioSource>();
-				source->out = out;
+				rtc::scoped_refptr<RTCAudioSource> source = new rtc::RefCountedObject<RTCAudioSource>(out);
 				audio_source = source->self;
 				stream->AddTrack(peer_connection_factory->CreateAudioTrack("audio", source));
 			}
