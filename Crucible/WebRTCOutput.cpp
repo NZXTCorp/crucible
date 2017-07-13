@@ -672,16 +672,22 @@ namespace {
 
 			[&]
 			{
-				obs_audio_info oai{};
-				have_audio_info = obs_get_audio_info(&oai);
-				if (!have_audio_info)
+				auto audio = obs_output_audio(out->output);
+				if (!audio)
 					return;
 
-				samples_per_sec = oai.samples_per_sec;
-				speakers = oai.speakers;
+				auto aoi_ = audio_output_get_info(audio);
+				if (!aoi_)
+					return;
+
+				auto aoi = *aoi_;
+				have_audio_info = true;
+
+				samples_per_sec = aoi.samples_per_sec;
+				speakers = aoi.speakers;
 
 				resample_info src{}, dst{};
-				src.format = AUDIO_FORMAT_FLOAT_PLANAR;
+				src.format = aoi.format;
 				src.samples_per_sec = samples_per_sec;
 				src.speakers = speakers;
 
