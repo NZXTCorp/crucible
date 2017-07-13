@@ -3389,7 +3389,7 @@ struct CrucibleContext {
 		}
 	}
 
-	boost::optional<string> CreateWebRTC(obs_data_t *settings)
+	boost::optional<string> CreateWebRTC(obs_data_t *settings, OBSData &obj)
 	{
 		auto fail = [&](const char *err)
 		{
@@ -3468,6 +3468,23 @@ struct CrucibleContext {
 
 		if (!obs_output_start(webrtc))
 			return fail("Failed to start webrtc output");
+
+		if (obs_data_get_bool(obj, "create_offer")) {
+			auto proc = obs_output_get_proc_handler(webrtc);
+
+			calldata_t data{};
+			DEFER{ calldata_free(&data); };
+
+			auto offer = OBSDataCreate();
+			calldata_set_ptr(&data, "description", offer);
+
+			proc_handler_call(proc, "create_offer", &data);
+
+			if (auto err = calldata_string(&data, "error"))
+				return err;
+
+			obs_data_set_obj(obj, "description", offer);
+		}
 
 		UpdateSourceAudioSettings();
 
@@ -4267,7 +4284,7 @@ static void HandleForgeWillClose(CrucibleContext &cc, OBSData&)
 
 static void HandleCreateWebRTCOutput(CrucibleContext &cc, OBSData &obj)
 {
-	auto err = cc.CreateWebRTC(OBSDataGetObj(obj, "webrtc"));
+	auto err = cc.CreateWebRTC(OBSDataGetObj(obj, "webrtc"), obj);
 	ForgeEvents::SendCreateWebRTCOutputResult(obj, err);
 }
 
