@@ -564,22 +564,22 @@ namespace {
 		{
 			monitor.reset(reinterpret_cast<void*>(1), [](void *) {});
 			self = shared_ptr<RTCVideoSource>(monitor, this);
-
-			[&]
-			{
-				obs_video_info ovi{};
-				have_video_info = obs_get_video_info(&ovi);
-				if (!have_video_info)
-					return;
-
-				width = ovi.output_width;
-				height = ovi.output_height;
-			}();
-
 		}
 
 		RTCVideoSource &operator=(const RTCVideoSource &) = delete;
 		RTCVideoSource(const RTCVideoSource &) = delete;
+
+		bool Start()
+		{
+			obs_video_info ovi{};
+			have_video_info = obs_get_video_info(&ovi);
+			if (!have_video_info)
+				return false;
+
+			width = ovi.output_width;
+			height = ovi.output_height;
+			return true;
+		}
 
 		bool GetBestCaptureFormat(const cricket::VideoFormat &desired,
 			cricket::VideoFormat *best_format) override
@@ -669,38 +669,42 @@ namespace {
 			monitor.reset(reinterpret_cast<void*>(1), [](void *) {});
 			self = shared_ptr<RTCAudioSource>(monitor, this);
 
-			[&]
-			{
-				auto audio = obs_output_audio(out->output);
-				if (!audio)
-					return;
-
-				auto aoi_ = audio_output_get_info(audio);
-				if (!aoi_)
-					return;
-
-				auto aoi = *aoi_;
-				have_audio_info = true;
-
-				if (aoi.samples_per_sec != samples_per_sec || aoi.format != audio_format || aoi.speakers != speakers) {
-					resample_info src{}, dst{};
-					src.format = aoi.format;
-					src.samples_per_sec = aoi.samples_per_sec;
-					src.speakers = aoi.speakers;
-
-					dst.format = audio_format;
-					dst.samples_per_sec = samples_per_sec;
-					dst.speakers = speakers;
-
-					resampler.reset(audio_resampler_create(&dst, &src));
-				}
-			}();
-
 			SetAudioOptions();
 		}
 
 		RTCAudioSource &operator=(const RTCAudioSource &) = delete;
 		RTCAudioSource(const RTCAudioSource &) = delete;
+
+		bool Start()
+		{
+			have_audio_info = false;
+
+			auto audio = obs_output_audio(out->output);
+			if (!audio)
+				return false;
+
+			auto aoi_ = audio_output_get_info(audio);
+			if (!aoi_)
+				return false;
+
+			auto aoi = *aoi_;
+			have_audio_info = true;
+
+			if (aoi.samples_per_sec != samples_per_sec || aoi.format != audio_format || aoi.speakers != speakers) {
+				resample_info src{}, dst{};
+				src.format = aoi.format;
+				src.samples_per_sec = aoi.samples_per_sec;
+				src.speakers = aoi.speakers;
+
+				dst.format = audio_format;
+				dst.samples_per_sec = samples_per_sec;
+				dst.speakers = speakers;
+
+				resampler.reset(audio_resampler_create(&dst, &src));
+			}
+
+			return true;
+		}
 
 		void ReceiveAudio(audio_data *frames)
 		{
@@ -1254,8 +1258,26 @@ static void StopRTC(void *data)
 static bool StartRTC(void *data)
 {
 	auto out = cast(data);
-	obs_output_begin_data_capture(out->output, 0);
-	return true;
+
+	{
+		auto audio = out->out->audio_source.lock();
+		if (!audio)
+			return false;
+
+		if (!audio->Start())
+			return false;
+	}
+
+	{
+		auto video = out->out->video_source.lock();
+		if (!video)
+			return false;
+
+		if (!video->Start())
+			return false;
+	}
+
+	return obs_output_begin_data_capture(out->output, 0);
 }
 
 static void ReceivePacketRTC(void *data, encoder_packet *packet)
