@@ -1713,7 +1713,7 @@ struct CrucibleContext {
 		ovi.fps_num = 30;
 		ovi.fps_den = fps_den = 1;
 		ovi.graphics_module = "libobs-d3d11.dll";
-		ovi.output_format = VIDEO_FORMAT_I420;
+		ovi.output_format = VIDEO_FORMAT_NV12;
 		ovi.output_width = 1280;
 		ovi.output_height = 720;
 		ovi.scale_type = OBS_SCALE_BICUBIC;
@@ -3407,6 +3407,15 @@ struct CrucibleContext {
 		}
 
 		webrtc = nullptr;
+
+		{
+			auto ovi_ = ovi;
+			ovi.output_format = VIDEO_FORMAT_I420;
+			if (!ResetVideo()) {
+				ovi = ovi_;
+				return fail("Setting webrtc video settings failed");
+			}
+		}
 
 		InitRef(webrtc, "Couldn't create webrtc output", obs_output_release,
 			obs_output_create("webrtc_output", "webrtc", settings, nullptr));

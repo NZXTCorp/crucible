@@ -1317,6 +1317,9 @@ static bool StartRTC(void *data)
 	{
 		auto video = obs_output_video(out->output);
 		out->video_frame_time = video_output_get_frame_time(video);
+		auto format = video_output_get_format(video);
+		if (format != VIDEO_FORMAT_I420)
+			return false;
 	}
 
 	{
