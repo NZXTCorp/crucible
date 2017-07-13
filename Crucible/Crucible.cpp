@@ -723,6 +723,17 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
+	void SendRemoteOfferResult(OBSData &original, boost::optional<string> err)
+	{
+		auto event = original;
+
+		obs_data_set_string(event, "event", "remote_webrtc_offer_result");
+		if (err)
+			obs_data_set_string(event, "error", err->c_str());
+
+		SendEvent(event);
+	}
+
 	void SendWebRTCSessionDescription(const string &type, const string &sdp)
 	{
 		auto event = EventCreate("webrtc_session_description");
@@ -3494,24 +3505,38 @@ struct CrucibleContext {
 #endif
 	}
 
-	void HandleRemoteWebRTCOffer(OBSData &obj)
+	boost::optional<string> HandleRemoteWebRTCOffer(OBSData &obj)
 	{
+		auto fail = [&](const char *err)
+		{
+			blog(LOG_WARNING, "CrucibleContext::HandleRemoteWebRTCOffer: %s", err);
+			return err;
+		};
+
 #ifdef WEBRTC_WIN
-		if (!webrtc) {
-			blog(LOG_WARNING, "Received remote offer while webrtc wasn't initialized");
-			return;
-		}
+		if (!webrtc)
+			return fail("Received remote offer while webrtc wasn't initialized");
 
 		calldata_t data{};
 		DEFER{ calldata_free(&data); };
+
+		auto answer = OBSDataCreate();
+		calldata_set_ptr(&data, "description", answer);
 
 		calldata_set_string(&data, "type", obs_data_get_string(obj, "type"));
 		calldata_set_string(&data, "sdp", obs_data_get_string(obj, "sdp"));
 
 		auto handler = obs_output_get_proc_handler(webrtc);
 		proc_handler_call(handler, "handle_remote_offer", &data);
+
+		if (auto err = calldata_string(&data, "error"))
+			return err;
+
+		obs_data_set_obj(obj, "description", answer);
+
+		return boost::none;
 #else
-		blog(LOG_WARNING, "WebRTC not enabled");
+		return fail("WebRTC not enabled");
 #endif
 	}
 
@@ -4290,7 +4315,8 @@ static void HandleCreateWebRTCOutput(CrucibleContext &cc, OBSData &obj)
 
 static void HandleRemoteWebRTCOffer(CrucibleContext &cc, OBSData &obj)
 {
-	cc.HandleRemoteWebRTCOffer(obj);
+	auto err = cc.HandleRemoteWebRTCOffer(obj);
+	ForgeEvents::SendRemoteOfferResult(obj, err);
 }
 
 static void HandleAddRemoteICECandidate(CrucibleContext &cc, OBSData &obj)
