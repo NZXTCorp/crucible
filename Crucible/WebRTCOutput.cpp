@@ -87,7 +87,7 @@ namespace {
 		bool warned_about_audio_timestamp = false;
 		uint64_t video_frame_time;
 
-		RTCOutput(obs_output_t *output, string ice_server_uri, bool create_offer);
+		RTCOutput(obs_output_t *output, string ice_server_uri);
 		void PostRTCMessage(function<void()> func);
 	};
 
@@ -892,7 +892,7 @@ namespace {
 
 		vector<cricket::VideoCodec> codecs;
 
-		void Init(const string &ice_server_uri, bool create_offer)
+		void Init(const string &ice_server_uri)
 		{
 			codecs.emplace_back("H264");
 #ifdef USE_OBS_ENCODER
@@ -950,14 +950,6 @@ namespace {
 				throw "Failed to add stream to peer_connection";
 
 			streams.push_back(stream);
-
-			if (create_offer) {
-				webrtc::PeerConnectionInterface::RTCOfferAnswerOptions options;
-				options.offer_to_receive_audio = 0;
-				options.offer_to_receive_video = 0;
-
-				peer_connection->CreateOffer(this, options);
-			}
 		}
 
 		// PeerConnectionObserver
@@ -1081,7 +1073,7 @@ namespace {
 	};
 
 
-	RTCOutput::RTCOutput(obs_output_t *output, string ice_server_uri, bool create_offer)
+	RTCOutput::RTCOutput(obs_output_t *output, string ice_server_uri)
 		: output(output), ice_server_uri(ice_server_uri)
 	{
 		signal_thread.make_joinable = [&]
@@ -1103,7 +1095,7 @@ namespace {
 				(*handle)->Quit();
 		};
 
-		signal_thread.Run([&, init_signal, ready_signal, create_offer]
+		signal_thread.Run([&, init_signal, ready_signal]
 		{
 			rtc::Win32Thread rtc_thread;
 			rtc::ThreadManager::Instance()->SetCurrentThread(&rtc_thread);
@@ -1126,7 +1118,7 @@ namespace {
 
 				out->out = this;
 
-				out->Init(this->ice_server_uri, create_offer);
+				out->Init(this->ice_server_uri);
 
 				SetEvent(ready_signal.get());
 
@@ -1272,7 +1264,7 @@ try {
 
 static void *CreateRTC(obs_data_t *settings, obs_output_t *output)
 try {
-	auto out = make_unique<RTCOutput>(output, obs_data_get_string(settings, "server"), obs_data_get_bool(settings, "create_offer"));
+	auto out = make_unique<RTCOutput>(output, obs_data_get_string(settings, "server"));
 
 	if (out)
 		AddSignalHandlers(out.get());
