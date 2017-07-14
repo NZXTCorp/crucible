@@ -562,7 +562,7 @@ namespace {
 		}
 	};
 
-	struct RTCVideoSource : cricket::VideoCapturer {
+	struct RTCVideoSource : webrtc::VideoTrackSourceInterface {
 		bool have_video_info = false;
 		shared_ptr<void> monitor;
 		shared_ptr<RTCVideoSource> self;
@@ -593,49 +593,9 @@ namespace {
 			return true;
 		}
 
-		bool GetBestCaptureFormat(const cricket::VideoFormat &desired,
-			cricket::VideoFormat *best_format) override
-		{
-			if (!best_format)
-				return false;
-
-			*best_format = desired;
-			return true;
-		}
-
-		// Inherited via VideoCapturer
-		cricket::CaptureState Start(const cricket::VideoFormat &capture_format) override
-		{
-			return cricket::CS_RUNNING;
-		}
-
-		void Stop() override
-		{
-		}
-
-		bool IsRunning() override
-		{
-			return capture_state() == cricket::CS_RUNNING;
-		}
-
-		bool IsScreencast() const override
-		{
-			return false;
-		}
-
-		bool GetPreferredFourccs(vector<uint32_t> *fourccs) override
-		{
-			if (!fourccs)
-				return false;
-
-			fourccs->clear();
-			fourccs->emplace_back(cricket::FOURCC_NV12);
-			return true;
-		}
-
 		void ReceiveVideo(video_data *data)
 		{
-			if (!have_video_info)
+			if (!have_video_info || !sink)
 				return;
 
 			rtc::scoped_refptr<RTCFrameBuffer> buffer = new rtc::RefCountedObject<RTCFrameBuffer>();
@@ -654,10 +614,10 @@ namespace {
 			buffer->stride_v = data->linesize[2];
 
 			webrtc::VideoFrame frame(buffer, webrtc::kVideoRotation_0, data->timestamp / 1000);
-			OnFrame(frame, width, height);
+			sink->OnFrame(frame);
 		}
 
-		void OnSinkWantsChanged(const rtc::VideoSinkWants &wants) override
+		void OnSinkWantsChanged(const rtc::VideoSinkWants &wants)
 		{
 			auto compute_res = [](const rtc::Optional<int> &pixel_count)->rtc::Optional<pair<int, int>>
 			{
@@ -678,8 +638,60 @@ namespace {
 					max, max_res.first, max_res.second,
 					target, target_res.first, target_res.second);
 			}
+		}
 
-			cricket::VideoCapturer::OnSinkWantsChanged(wants);
+		// Inherited via VideoTrackSourceInterface
+		void RegisterObserver(webrtc::ObserverInterface *observer) override
+		{
+		}
+
+		void UnregisterObserver(webrtc::ObserverInterface *observer) override
+		{
+		}
+
+		SourceState state() const override
+		{
+			return have_video_info ? kLive : kEnded;
+		}
+
+		bool remote() const override
+		{
+			return false;
+		}
+
+		rtc::VideoSinkInterface<webrtc::VideoFrame> *sink = nullptr;
+		void AddOrUpdateSink(rtc::VideoSinkInterface<webrtc::VideoFrame> *sink_, const rtc::VideoSinkWants &wants) override
+		{
+			if (sink && sink_ != sink)
+				return;
+
+			sink = sink_;
+			OnSinkWantsChanged(wants);
+		}
+
+		void RemoveSink(rtc::VideoSinkInterface<webrtc::VideoFrame> *sink_) override
+		{
+			if (sink == sink_)
+				sink = nullptr;
+		}
+
+		bool is_screencast() const override
+		{
+			return false;
+		}
+
+		rtc::Optional<bool> needs_denoising() const override
+		{
+			return rtc::Optional<bool>(false);
+		}
+
+		bool GetStats(Stats *stats) override
+		{
+			if (have_video_info) {
+				stats->input_width = width;
+				stats->input_height = height;
+			}
+			return have_video_info;
 		}
 	};
 
@@ -966,10 +978,10 @@ namespace {
 				stream->AddTrack(peer_connection_factory->CreateAudioTrack("audio", source));
 			}
 			{
-				auto source = new RTCVideoSource;
+				rtc::scoped_refptr<RTCVideoSource> source = new rtc::RefCountedObject<RTCVideoSource>();
 				source->out = out;
 				video_source = source->self;
-				stream->AddTrack(peer_connection_factory->CreateVideoTrack("video", peer_connection_factory->CreateVideoSource(source)));
+				stream->AddTrack(peer_connection_factory->CreateVideoTrack("video", source));
 			}
 
 			if (!peer_connection->AddStream(stream))
