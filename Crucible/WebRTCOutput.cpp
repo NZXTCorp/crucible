@@ -657,7 +657,30 @@ namespace {
 			OnFrame(frame, width, height);
 		}
 
-		//virtual void OnSinkWantsChanged(const rtc::VideoSinkWants& wants);
+		void OnSinkWantsChanged(const rtc::VideoSinkWants &wants) override
+		{
+			auto compute_res = [](const rtc::Optional<int> &pixel_count)->rtc::Optional<pair<int, int>>
+			{
+				if (pixel_count) {
+					auto base = 1280. * 720;
+					auto ratio = sqrt(base / *pixel_count);
+					return rtc::Optional<pair<int, int>>(make_pair(static_cast<int>(1280 / ratio), static_cast<int>(720 / ratio)));
+				}
+				return{};
+			};
+
+			if (wants.max_pixel_count || wants.target_pixel_count) {
+				auto max = wants.max_pixel_count.value_or(-1);
+				auto target = wants.target_pixel_count.value_or(-1);
+				auto max_res = compute_res(wants.max_pixel_count).value_or(make_pair(-1, -1));
+				auto target_res = compute_res(wants.target_pixel_count).value_or(make_pair(-1, -1));
+				info("Wants changed: {max: %d (%dx%d), target: %d (%dx%d)}",
+					max, max_res.first, max_res.second,
+					target, target_res.first, target_res.second);
+			}
+
+			cricket::VideoCapturer::OnSinkWantsChanged(wants);
+		}
 	};
 
 	struct RTCAudioSource : webrtc::LocalAudioSource {
