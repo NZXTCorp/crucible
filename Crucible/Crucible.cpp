@@ -734,6 +734,17 @@ namespace ForgeEvents {
 		SendEvent(event);
 	}
 
+	void SendStopWebRTCOutputResult(OBSData &original, boost::optional<string> err)
+	{
+		auto event = original;
+
+		obs_data_set_string(event, "event", "stop_webrtc_output_result");
+		if (err)
+			obs_data_set_string(event, "error", err->c_str());
+
+		SendEvent(event);
+	}
+
 	void SendWebRTCSessionDescription(const string &type, const string &sdp)
 	{
 		auto event = EventCreate("webrtc_session_description");
@@ -3540,6 +3551,27 @@ struct CrucibleContext {
 #endif
 	}
 
+	boost::optional<string> StopWebRTCOutput()
+	{
+		auto fail = [&](const char *err)
+		{
+			blog(LOG_WARNING, "CrucibleContext::CreateWebRTC: %s", err);
+			return err;
+		};
+
+#ifdef WEBRTC_WIN
+		if (!webrtc)
+			return fail("Received stop request while webrtc wasn't initialized");
+
+		obs_output_force_stop(webrtc);
+		webrtc = nullptr;
+
+		return boost::none;
+#else
+		return fail("WebRTC not enabled");
+#endif
+	}
+
 	void AddRemoteICECandidate(OBSData &obj)
 	{
 #ifdef WEBRTC_WIN
@@ -4319,6 +4351,12 @@ static void HandleRemoteWebRTCOffer(CrucibleContext &cc, OBSData &obj)
 	ForgeEvents::SendRemoteOfferResult(obj, err);
 }
 
+static void HandleStopWebRTCOutput(CrucibleContext &cc, OBSData &obj)
+{
+	auto err = cc.StopWebRTCOutput();
+	ForgeEvents::SendStopWebRTCOutputResult(obj, err);
+}
+
 static void HandleAddRemoteICECandidate(CrucibleContext &cc, OBSData &obj)
 {
 	cc.AddRemoteICECandidate(obj);
@@ -4612,6 +4650,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "forge_will_close", HandleForgeWillClose },
 		{ "create_webrtc_output", HandleCreateWebRTCOutput },
 		{ "remote_webrtc_offer", HandleRemoteWebRTCOffer },
+		{ "stop_webrtc_output", HandleStopWebRTCOutput },
 		{ "add_remote_ice_candidate", HandleAddRemoteICECandidate },
 		{ "start_recording_stream", HandleStartRecordingStream },
 		{ "stop_recording_stream", HandleStopRecordingStream },
