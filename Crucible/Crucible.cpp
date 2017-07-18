@@ -3420,7 +3420,8 @@ struct CrucibleContext {
 		};
 
 #ifdef WEBRTC_WIN
-		if (!gameCapture)
+		bool poke_firewall = obs_data_get_bool(obj, "poke_firewall");
+		if (!gameCapture && !poke_firewall)
 			return fail("Tried to create webrtc output while no game capture is active");
 
 		if (webrtc && obs_output_active(webrtc)) {
