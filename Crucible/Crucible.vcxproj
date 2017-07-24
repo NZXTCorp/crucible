@@ -72,8 +72,8 @@
     <LocalDebuggerCommandArguments>-standalone</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug+WebRTC|Win32'">
-    <IncludePath>$(OBSLib);$(Boost);$(ForgeLib)\libwebrtc\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(ForgeLib)\libwebrtc\lib\Debug;$(OBSBuild)\Debug;$(Boost)\stage\lib;$(OBSBuild)\..\deps\ipc-util\Debug;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(OBSLib);$(Boost);$(ForgeLib)\libwebrtc\include;$(DepsPath32)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(DepsPath32)\bin;$(ForgeLib)\libwebrtc\lib\Debug;$(OBSBuild)\Debug;$(Boost)\stage\lib;$(OBSBuild)\..\deps\ipc-util\Debug;$(LibraryPath)</LibraryPath>
     <LocalDebuggerEnvironment>PATH=$(PATH);$(OBSBuild)\..\rundir\Debug\bin\32bit\</LocalDebuggerEnvironment>
     <LocalDebuggerCommandArguments>-standalone</LocalDebuggerCommandArguments>
     <OutDir>$(SolutionDir)\Debug\</OutDir>
@@ -85,8 +85,8 @@
     <LocalDebuggerCommandArguments>-standalone</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release+WebRTC|Win32'">
-    <IncludePath>$(OBSLib);$(Boost);$(ForgeLib)\libwebrtc\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(ForgeLib)\libwebrtc\lib\RelWithDebInfo;$(OBSBuild)\RelWithDebInfo;$(Boost)\stage\lib;$(OBSBuild)\..\deps\ipc-util\RelWithDebInfo;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(OBSLib);$(Boost);$(ForgeLib)\libwebrtc\include;$(DepsPath32)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(DepsPath32)\bin;$(ForgeLib)\libwebrtc\lib\RelWithDebInfo;$(OBSBuild)\RelWithDebInfo;$(Boost)\stage\lib;$(OBSBuild)\..\deps\ipc-util\RelWithDebInfo;$(LibraryPath)</LibraryPath>
     <LocalDebuggerEnvironment>PATH=$(PATH);$(OBSBuild)\..\rundir\RelWithDebInfo\bin\32bit\</LocalDebuggerEnvironment>
     <LocalDebuggerCommandArguments>-standalone</LocalDebuggerCommandArguments>
     <OutDir>$(SolutionDir)\Release\</OutDir>
@@ -112,7 +112,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>msdmo.lib;wmcodecdspuuid.lib;dmoguids.lib;crypt32.lib;iphlpapi.lib;ole32.lib;secur32.lib;winmm.lib;ws2_32.lib;webrtc.lib;obs.lib;ipc-util.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>msdmo.lib;wmcodecdspuuid.lib;dmoguids.lib;crypt32.lib;iphlpapi.lib;ole32.lib;secur32.lib;winmm.lib;ws2_32.lib;webrtc.lib;obs.lib;ipc-util.lib;x264.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4217 /IGNORE:4049 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
@@ -147,7 +147,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>msdmo.lib;wmcodecdspuuid.lib;dmoguids.lib;crypt32.lib;iphlpapi.lib;ole32.lib;secur32.lib;winmm.lib;ws2_32.lib;webrtc.lib;obs.lib;ipc-util.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>msdmo.lib;wmcodecdspuuid.lib;dmoguids.lib;crypt32.lib;iphlpapi.lib;ole32.lib;secur32.lib;winmm.lib;ws2_32.lib;webrtc.lib;obs.lib;ipc-util.lib;x264.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4217 /IGNORE:4049 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
@@ -165,6 +165,12 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug+WebRTC|Win32'">NOMINMAX;_CRT_SECURE_NO_WARNINGS;WEBRTC_WIN;ANVIL_PIPE_NAME_SUFFIX=$(ANVIL_PIPE_NAME_SUFFIX);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release+WebRTC|Win32'">NOMINMAX;_CRT_SECURE_NO_WARNINGS;WEBRTC_WIN;ANVIL_PIPE_NAME_SUFFIX=$(ANVIL_PIPE_NAME_SUFFIX);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="x264.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug'">true</ExcludedFromBuild>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release+WebRTC|Win32'">NOMINMAX;_CRT_SECURE_NO_WARNINGS;WEBRTC_WIN;ANVIL_PIPE_NAME_SUFFIX=$(ANVIL_PIPE_NAME_SUFFIX);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug+WebRTC|Win32'">NOMINMAX;_CRT_SECURE_NO_WARNINGS;WEBRTC_WIN;ANVIL_PIPE_NAME_SUFFIX=$(ANVIL_PIPE_NAME_SUFFIX);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

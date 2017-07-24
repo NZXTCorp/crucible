@@ -16,6 +16,9 @@
     <Filter Include="NVENC">
       <UniqueIdentifier>{da5ddc43-091d-4598-9e4c-e274f892a5d1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="WebRTC">
+      <UniqueIdentifier>{24602d64-39d5-4f64-a79d-3a6dcd444d6e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Crucible.cpp">
@@ -44,6 +47,9 @@
     </ClCompile>
     <ClCompile Include="WebRTCOutput.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="x264.cpp">
+      <Filter>WebRTC</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
