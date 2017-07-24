@@ -45,6 +45,7 @@ namespace std {
 	};
 }
 
+unique_ptr<webrtc::VideoEncoder> CreateWebRTCX264Encoder(obs_output_t*, const cricket::VideoCodec&);
 
 namespace {
 	struct DummySetSessionDescriptionObserver : webrtc::SetSessionDescriptionObserver {
@@ -853,7 +854,6 @@ namespace {
 		}
 	};
 
-#ifdef USE_OBS_ENCODER
 	struct RTCEncoder : webrtc::VideoEncoder {
 		int32_t InitEncode(const webrtc::VideoCodec *codec_settings,
 			int32_t number_of_cores,
@@ -907,12 +907,52 @@ namespace {
 			return "Crucible video";
 		}
 	};
-#endif
+
+	struct RTCEncoderFactory : cricket::WebRtcVideoEncoderFactory {
+		RTCOutput *out;
+		vector<cricket::VideoCodec> codecs;
+
+		RTCEncoderFactory(RTCOutput *out)
+			: out(out)
+		{
+			codecs.emplace_back("H264");
+			{
+				auto &h264 = codecs.back();
+				h264.SetParam("level-asymmetry-allowed", 1);
+			}
+		}
+
+		// Inherited via WebRtcVideoEncoderFactory
+		webrtc::VideoEncoder *CreateVideoEncoder(const cricket::VideoCodec &codec) override
+		{
+			auto str = codec.ToString();
+			info("Requested codec: %s", str.c_str());
+
+			if (codec.name == codecs.front().name)
+				return CreateWebRTCX264Encoder(out->output, codec).release();
+
+			return nullptr;
+		}
+
+		const vector<cricket::VideoCodec> &supported_codecs() const override
+		{
+			return codecs;
+		}
+
+		bool EncoderTypeHasInternalSource(webrtc::VideoCodecType type) const override
+		{
+			return false;
+		}
+
+		void DestroyVideoEncoder(webrtc::VideoEncoder *encoder) override
+		{
+			delete encoder;
+		}
+	};
 
 	struct RTCControl :
 		webrtc::PeerConnectionObserver,
 		webrtc::CreateSessionDescriptionObserver,
-		cricket::WebRtcVideoEncoderFactory,
 		rtc::MessageHandler {
 
 		RTCOutput *out;
@@ -927,11 +967,8 @@ namespace {
 		weak_ptr<RTCAudioSource> audio_source;
 		weak_ptr<RTCVideoSource> video_source;
 
-		vector<cricket::VideoCodec> codecs;
-
 		void Init(const string &ice_server_uri)
 		{
-			codecs.emplace_back("H264");
 #ifdef USE_OBS_ENCODER
 			worker_and_network_thread = rtc::Thread::CreateWithSocketServer();
 			worker_and_network_thread->Start();
@@ -952,7 +989,7 @@ namespace {
 				worker_and_network_thread.get(),
 				rtc::ThreadManager::Instance()->CurrentThread(),
 				adm,
-				nullptr,
+				new RTCEncoderFactory(out),
 				nullptr));
 #endif
 			if (!peer_connection_factory)
@@ -1079,30 +1116,6 @@ namespace {
 		{
 			//TODO handle description error
 		}
-
-
-		// Inherited via WebRtcVideoEncoderFactory
-		webrtc::VideoEncoder *CreateVideoEncoder(const cricket::VideoCodec &codec) override
-		{
-			auto str = codec.ToString();
-			info("Requested codec: %s", str.c_str());
-			return nullptr;
-		}
-
-		const vector<cricket::VideoCodec> &supported_codecs() const override
-		{
-			return codecs;
-		}
-
-		bool EncoderTypeHasInternalSource(webrtc::VideoCodecType type) const override
-		{
-			return true;
-		}
-
-		void DestroyVideoEncoder(webrtc::VideoEncoder *encoder) override
-		{
-		}
-
 
 		// Inherited via MessageHandler
 		void OnMessage(rtc::Message *msg) override

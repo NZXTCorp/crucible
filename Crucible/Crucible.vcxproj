@@ -171,6 +171,8 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug'">true</ExcludedFromBuild>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release+WebRTC|Win32'">NOMINMAX;_CRT_SECURE_NO_WARNINGS;WEBRTC_WIN;ANVIL_PIPE_NAME_SUFFIX=$(ANVIL_PIPE_NAME_SUFFIX);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug+WebRTC|Win32'">NOMINMAX;_CRT_SECURE_NO_WARNINGS;WEBRTC_WIN;ANVIL_PIPE_NAME_SUFFIX=$(ANVIL_PIPE_NAME_SUFFIX);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
