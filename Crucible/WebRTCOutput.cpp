@@ -959,6 +959,7 @@ namespace {
 				throw "Could not create peer_connection_factory";
 
 			webrtc::PeerConnectionInterface::RTCConfiguration config;
+			config.set_prerenderer_smoothing(false);
 			config.media_config.video.periodic_alr_bandwidth_probing = true;
 			if (!ice_server_uri.empty()) {
 				webrtc::PeerConnectionInterface::IceServer server;
