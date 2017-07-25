@@ -1696,6 +1696,7 @@ struct CrucibleContext {
 	obs_hotkey_id mute_hotkey_id = OBS_INVALID_HOTKEY_ID;
 	obs_hotkey_id unmute_hotkey_id = OBS_INVALID_HOTKEY_ID;
 
+	obs_hotkey_id custom_ptt_hotkey_id = OBS_INVALID_HOTKEY_ID;
 	obs_hotkey_id bookmark_hotkey_id = OBS_INVALID_HOTKEY_ID;
 
 	struct obs_service_info forge_streaming_service;
@@ -3723,6 +3724,7 @@ struct CrucibleContext {
 			return;
 
 		DStr str;
+		bool try_custom_ptt = false;
 
 		AnvilCommands::disable_native_indicators = obs_data_get_bool(settings, "disable_native_indicators");
 
@@ -3769,6 +3771,15 @@ struct CrucibleContext {
 		auto source_settings = OBSDataGetObj(microphone, "source_settings");
 		
 		auto continuous = enabled && !ptt;
+
+		if (!enabled) {
+			try_custom_ptt = true;
+		}
+		else {
+			obs_hotkey_load_bindings(custom_ptt_hotkey_id, nullptr, 0);
+			custom_ptt_hotkey_id = OBS_INVALID_HOTKEY_ID;
+		}
+
 		ptt = enabled && ptt;
 
 		obs_key_combination combo = {
@@ -3791,6 +3802,8 @@ struct CrucibleContext {
 		obs_source_enable_push_to_talk(mic, ptt);
 		AnvilCommands::MicUpdated(ptt, enabled, ptt);
 		obs_hotkey_load_bindings(ptt_hotkey_id, &combo, ptt ? 1 : 0);
+		if(try_custom_ptt)
+			obs_hotkey_load_bindings(custom_ptt_hotkey_id, &combo, 1);
 		obs_hotkey_load_bindings(mute_hotkey_id, &combo, continuous ? 1 : 0);
 		obs_hotkey_load_bindings(unmute_hotkey_id, &combo, continuous ? 1 : 0);
 		obs_set_output_source(2, enabled ? mic : nullptr);
@@ -4906,6 +4919,12 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 		{
 			if (pressed)
 				static_cast<CrucibleContext*>(data)->CreateBookmark(OBSDataCreate());
+		}, &crucibleContext);
+
+		crucibleContext.custom_ptt_hotkey_id = obs_hotkey_register_frontend("custom PTT key", "custom PTT key",
+			[](void *data, obs_hotkey_id id, obs_hotkey_t *hotkey, bool pressed)
+		{
+			ForgeEvents::SendPTTStatus(pressed);
 		}, &crucibleContext);
 
 		auto handleCommand = [&](const uint8_t *data, size_t size)
