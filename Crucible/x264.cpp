@@ -178,14 +178,16 @@ namespace {
 			param.rc.i_bitrate = codec_settings->startBitrate;
 
 #if 1
+			param.b_vfr_input = false;
+#else
 			param.b_vfr_input = true;
 
 			param.i_timebase_num = 1;
 			param.i_timebase_den = 90'000;
 #endif
 
-			param.i_fps_num = 1;
-			param.i_fps_den = 30;
+			param.i_fps_num = 30;
+			param.i_fps_den = 1;
 
 			param.b_annexb = true;
 
