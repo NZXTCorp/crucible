@@ -96,7 +96,10 @@ static bool convert_profile(x264_param_t &param, webrtc::H264::Profile profile)
 	return true;
 }
 
-static webrtc::FrameType convert_frame_type(int type) {
+static webrtc::FrameType convert_frame_type(int type, int keyframe) {
+	if (keyframe)
+		return webrtc::kVideoFrameKey;
+
 	switch (type) {
 	case X264_TYPE_KEYFRAME:
 		return webrtc::kVideoFrameKey;
@@ -291,7 +294,7 @@ namespace {
 				bitstream_parser.ParseBitstream(buffer.data(), buffer.size());
 				bitstream_parser.GetLastSliceQp(&encoded_image.qp_);
 
-				encoded_image._frameType = convert_frame_type(pic_out.i_type);
+				encoded_image._frameType = convert_frame_type(pic_out.i_type, pic_out.b_keyframe);
 				encoded_image._completeFrame = true;
 
 				webrtc::CodecSpecificInfo codec_specific;
