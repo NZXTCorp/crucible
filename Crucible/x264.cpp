@@ -219,6 +219,9 @@ namespace {
 			param.i_fps_num = info->fps_num;
 			param.i_fps_den = info->fps_den;
 
+			param.i_keyint_max = info->fps_num * 2 / info->fps_den;
+			param.i_keyint_min = min(param.i_keyint_max, param.i_keyint_min);
+
 			param.vui.i_transfer = get_x264_cs_val(info->colorspace, x264_transfer_names);
 			param.vui.i_colmatrix = get_x264_cs_val(info->colorspace, x264_colmatrix_names);
 			param.vui.i_colmatrix = get_x264_cs_val(info->colorspace, x264_colorprim_names);
