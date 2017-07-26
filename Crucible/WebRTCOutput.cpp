@@ -1257,7 +1257,7 @@ static void HandleRemoteOffer(void *context, calldata_t *data)
 			dstr_vprintf(str, format, args);
 			va_end(args);
 
-			warn("HandleRemoteOffer: %s", str);
+			warn("HandleRemoteOffer: %s", str->array);
 			*err = str;
 			SetEvent(answer_complete_signal.get());
 		};
