@@ -286,7 +286,7 @@ namespace {
 
 			if (nal_count) {
 				auto encoded_image = encoded_images.front();
-				encoded_images.pop_back();
+				encoded_images.pop_front();
 
 				webrtc::RTPFragmentationHeader frag_header;
 				RTPFragmentize(encoded_image, buffer, nal_count, nals, &frag_header);
