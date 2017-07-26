@@ -3944,9 +3944,8 @@ struct CrucibleContext {
 
 			scaled = ScaleResolution(target, new_game_res, recording_resolution_limit);
 
-			output_dimensions_changed = width != ovi.base_width || height != ovi.base_height; // Temporary fix because of the way the game capture source transform is handled.
-
-			if (width == ovi.base_width && height == ovi.base_height && !output_dimensions_changed)
+			if (width == ovi.base_width && height == ovi.base_height && 
+				scaled.width == ovi.output_width && scaled.height == ovi.output_height) 
 				return false;
 		}
 
