@@ -3955,7 +3955,7 @@ struct CrucibleContext {
 		bool webrtc_active = webrtc && obs_output_active(webrtc);
 
 		{
-			bool split_recording = RecordingActive() && output_dimensions_changed;
+			bool split_recording = RecordingActive();
 			{
 				game_res = new_game_res;
 
@@ -3965,13 +3965,11 @@ struct CrucibleContext {
 				ovi.output_height = scaled.height;
 			}
 
-			if (output_dimensions_changed) {
-				StopVideo(true, split_recording); // Needs to be force stopped, otherwise the output settings aren't updated.
+			StopVideo(true, split_recording); // Needs to be force stopped, otherwise the output settings aren't updated.
 
-				if (split_recording && !recording_filename_prefix.empty()) { // Make a new filename for the split recording
-					auto cur = boost::posix_time::second_clock::local_time();
-					filename = recording_filename_prefix + to_iso_string(cur) + TimeZoneOffset() + ".mp4";
-				}
+			if (split_recording && !recording_filename_prefix.empty()) { // Make a new filename for the split recording
+				auto cur = boost::posix_time::second_clock::local_time();
+				filename = recording_filename_prefix + to_iso_string(cur) + TimeZoneOffset() + ".mp4";
 			}
 			
 			StartVideo(split_recording);
