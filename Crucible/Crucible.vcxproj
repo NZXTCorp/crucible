@@ -149,6 +149,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>msdmo.lib;wmcodecdspuuid.lib;dmoguids.lib;crypt32.lib;iphlpapi.lib;ole32.lib;secur32.lib;winmm.lib;ws2_32.lib;webrtc.lib;obs.lib;ipc-util.lib;x264.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4217 /IGNORE:4049 %(AdditionalOptions)</AdditionalOptions>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
