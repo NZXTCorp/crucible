@@ -159,12 +159,12 @@ namespace {
 
 			auto h264_settings = codec_settings->H264();
 
-			param.pf_log = x264_log;
-			param.p_log_private = output;
-			param.i_log_level = X264_LOG_DEBUG;
-
 			if (x264_param_default_preset(&param, "veryfast", "zerolatency"))
 				return WEBRTC_VIDEO_CODEC_ERROR;
+
+			param.pf_log = x264_log;
+			param.p_log_private = output;
+			param.i_log_level = X264_LOG_WARNING;
 
 			param.i_level_idc = 31;
 
