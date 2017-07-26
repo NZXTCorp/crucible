@@ -173,7 +173,7 @@ namespace {
 
 			param.rc.f_rf_constant = 0.f;
 			param.rc.i_rc_method = X264_RC_ABR;
-			param.rc.b_filler = true;
+			param.rc.b_filler = false; // OBS normally uses this, but webrtc's bitstream parser can't handle filler nals (nal unit 12), and it doesn't seem to be necessary currently
 			param.i_csp = X264_CSP_I420;
 
 			param.rc.i_vbv_buffer_size = codec_settings->startBitrate;
