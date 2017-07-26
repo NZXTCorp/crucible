@@ -12,6 +12,8 @@
 #include <memory>
 #include <vector>
 
+#include <boost/optional.hpp>
+
 #include <obs.hpp>
 #include <obs-output.h>
 #include <media-io/audio-resampler.h>
@@ -45,7 +47,7 @@ namespace std {
 	};
 }
 
-unique_ptr<webrtc::VideoEncoder> CreateWebRTCX264Encoder(obs_output_t*, const cricket::VideoCodec&);
+unique_ptr<webrtc::VideoEncoder> CreateWebRTCX264Encoder(obs_output_t*, const cricket::VideoCodec&, boost::optional<int> keyframe_interval);
 
 namespace {
 	struct DummySetSessionDescriptionObserver : webrtc::SetSessionDescriptionObserver {
@@ -89,8 +91,10 @@ namespace {
 
 		bool warned_about_audio_timestamp = false;
 		uint64_t video_frame_time;
+		
+		boost::optional<int> keyframe_interval;
 
-		RTCOutput(obs_output_t *output, string ice_server_uri);
+		RTCOutput(obs_output_t *output, string ice_server_uri, boost::optional<int> keyframe_interval);
 		void PostRTCMessage(function<void()> func);
 	};
 
@@ -929,7 +933,7 @@ namespace {
 			info("Requested codec: %s", str.c_str());
 
 			if (codec.name == codecs.front().name)
-				return CreateWebRTCX264Encoder(out->output, codec).release();
+				return CreateWebRTCX264Encoder(out->output, codec, out->keyframe_interval).release();
 
 			return nullptr;
 		}
@@ -1125,8 +1129,8 @@ namespace {
 	};
 
 
-	RTCOutput::RTCOutput(obs_output_t *output, string ice_server_uri)
-		: output(output), ice_server_uri(ice_server_uri)
+	RTCOutput::RTCOutput(obs_output_t *output, string ice_server_uri, boost::optional<int> keyframe_interval)
+		: output(output), ice_server_uri(ice_server_uri), keyframe_interval(keyframe_interval)
 	{
 		signal_thread.make_joinable = [&]
 		{
@@ -1458,7 +1462,7 @@ try {
 
 static void *CreateRTC(obs_data_t *settings, obs_output_t *output)
 try {
-	auto out = make_unique<RTCOutput>(output, obs_data_get_string(settings, "server"));
+	auto out = make_unique<RTCOutput>(output, obs_data_get_string(settings, "server"), !obs_data_has_user_value(settings, "keyint") ? boost::optional<int>() : obs_data_get_int(settings, "keyint"));
 
 	if (out)
 		AddSignalHandlers(out.get());

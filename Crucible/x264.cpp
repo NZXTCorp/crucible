@@ -12,6 +12,8 @@
 #include <memory>
 #include <vector>
 
+#include <boost/optional.hpp>
+
 #include <util/dstr.hpp>
 
 
@@ -144,8 +146,10 @@ namespace {
 
 		webrtc::EncodedImageCallback *callback = nullptr;
 
-		x264Encoder(obs_output_t *output, const cricket::VideoCodec &codec)
-			: output(output)
+		boost::optional<int> keyframe_interval;
+
+		x264Encoder(obs_output_t *output, const cricket::VideoCodec &codec, boost::optional<int> keyframe_interval)
+			: output(output), keyframe_interval(keyframe_interval)
 		{
 			info("Created encoder");
 
@@ -219,7 +223,12 @@ namespace {
 			param.i_fps_num = info->fps_num;
 			param.i_fps_den = info->fps_den;
 
-			param.i_keyint_max = info->fps_num * 2 / info->fps_den;
+			if (!keyframe_interval)
+				param.i_keyint_max = info->fps_num * 2 / info->fps_den;
+			else {
+				param.i_keyint_max = *keyframe_interval;
+				info("custom keyint_max: %d", *keyframe_interval);
+			}
 			param.i_keyint_min = min(param.i_keyint_max, param.i_keyint_min);
 
 			param.vui.i_transfer = get_x264_cs_val(info->colorspace, x264_transfer_names);
@@ -393,7 +402,7 @@ static void RTPFragmentize(webrtc::EncodedImage &encoded_image,
 }
 
 
-unique_ptr<webrtc::VideoEncoder> CreateWebRTCX264Encoder(obs_output_t *out, const cricket::VideoCodec &codec)
+unique_ptr<webrtc::VideoEncoder> CreateWebRTCX264Encoder(obs_output_t *out, const cricket::VideoCodec &codec, boost::optional<int> keyframe_interval)
 {
-	return make_unique<x264Encoder>(out, codec);
+	return make_unique<x264Encoder>(out, codec, keyframe_interval);
 }
