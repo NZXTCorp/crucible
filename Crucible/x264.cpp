@@ -329,13 +329,15 @@ namespace {
 
 		int32_t SetRates(uint32_t bitrate, uint32_t framerate) override
 		{
-			info("Updating bitrate: %d -> %d", param.rc.i_bitrate, bitrate);
+			if (bitrate != param.rc.i_bitrate) {
+				info("Updating bitrate: %d -> %d", param.rc.i_bitrate, bitrate);
 
-			param.rc.i_vbv_buffer_size = bitrate;
-			param.rc.i_vbv_max_bitrate = bitrate;
-			param.rc.i_bitrate = bitrate;
+				param.rc.i_vbv_buffer_size = bitrate;
+				param.rc.i_vbv_max_bitrate = bitrate;
+				param.rc.i_bitrate = bitrate;
 
-			x264_encoder_reconfig(context.get(), &param);
+				x264_encoder_reconfig(context.get(), &param);
+			}
 
 			return WEBRTC_VIDEO_CODEC_OK;
 		}
