@@ -201,9 +201,6 @@ namespace {
 			param.i_timebase_den = 90'000;
 #endif
 
-			param.i_fps_num = 30;
-			param.i_fps_den = 1;
-
 			param.b_annexb = true;
 
 			param.i_slice_max_size = max_payload_size;
@@ -218,6 +215,9 @@ namespace {
 			auto info = video_output_get_info(video);
 			if (!info)
 				return WEBRTC_VIDEO_CODEC_ERROR;
+
+			param.i_fps_num = info->fps_num;
+			param.i_fps_den = info->fps_den;
 
 			param.vui.i_transfer = get_x264_cs_val(info->colorspace, x264_transfer_names);
 			param.vui.i_colmatrix = get_x264_cs_val(info->colorspace, x264_colmatrix_names);
