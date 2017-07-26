@@ -147,6 +147,8 @@ namespace {
 		x264Encoder(obs_output_t *output, const cricket::VideoCodec &codec)
 			: output(output)
 		{
+			info("Created encoder");
+
 			string packetization_mode_str;
 			if (codec.GetParam(cricket::kH264FmtpPacketizationMode, &packetization_mode_str) && packetization_mode_str == "1")
 				packetization_mode = webrtc::H264PacketizationMode::NonInterleaved;
@@ -158,6 +160,16 @@ namespace {
 			Release();
 
 			auto h264_settings = codec_settings->H264();
+
+			info("InitEncode:\n"
+				"\twidth: %d\n"
+				"\theight: %d\n"
+				"\tbitrate: %d\n"
+				"\tmax_payload_size: %d",
+				codec_settings->width,
+				codec_settings->height,
+				codec_settings->startBitrate,
+				max_payload_size);
 
 			if (x264_param_default_preset(&param, "veryfast", "zerolatency"))
 				return WEBRTC_VIDEO_CODEC_ERROR;
@@ -314,6 +326,8 @@ namespace {
 
 		int32_t SetRates(uint32_t bitrate, uint32_t framerate) override
 		{
+			info("Updating bitrate: %d -> %d", param.rc.i_bitrate, bitrate);
+
 			param.rc.i_vbv_buffer_size = bitrate;
 			param.rc.i_vbv_max_bitrate = bitrate;
 			param.rc.i_bitrate = bitrate;
