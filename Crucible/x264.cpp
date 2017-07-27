@@ -241,6 +241,9 @@ namespace {
 			if (!convert_profile(param, h264_settings.profile))
 				return WEBRTC_VIDEO_CODEC_ERROR;
 
+			param.rc.i_lookahead = 2;
+			param.i_sync_lookahead = 2;
+
 			context.reset(x264_encoder_open(&param));
 			if (!context)
 				return WEBRTC_VIDEO_CODEC_ERROR;
