@@ -15,6 +15,7 @@
 #include <boost/optional.hpp>
 
 #include <util/dstr.hpp>
+#include <util/profiler.hpp>
 
 
 #define do_log(level, output, format, ...) \
@@ -148,6 +149,8 @@ namespace {
 
 		boost::optional<int> keyframe_interval;
 
+		const char *profiler_name = nullptr;
+
 		x264Encoder(obs_output_t *output, const cricket::VideoCodec &codec, boost::optional<int> keyframe_interval)
 			: output(output), keyframe_interval(keyframe_interval)
 		{
@@ -165,15 +168,19 @@ namespace {
 
 			auto h264_settings = codec_settings->H264();
 
+			profiler_name = profile_store_name(obs_get_profiler_name_store(), "webrtc_x264(%p)", this);
+
 			info("InitEncode:\n"
 				"\twidth: %d\n"
 				"\theight: %d\n"
 				"\tbitrate: %d\n"
-				"\tmax_payload_size: %d",
+				"\tmax_payload_size: %d\n"
+				"\tname_store: %p (%p)",
 				codec_settings->width,
 				codec_settings->height,
 				codec_settings->startBitrate,
-				max_payload_size);
+				max_payload_size,
+				profiler_name, this);
 
 			if (x264_param_default_preset(&param, "veryfast", "zerolatency"))
 				return WEBRTC_VIDEO_CODEC_ERROR;
@@ -270,6 +277,8 @@ namespace {
 		deque<webrtc::EncodedImage> encoded_images;
 		int32_t Encode(const webrtc::VideoFrame &frame, const webrtc::CodecSpecificInfo *codec_specific_info, const vector<webrtc::FrameType> *frame_types) override
 		{
+			ProfileScope(profiler_name);
+
 			bool keyframe = false;
 			if (frame_types) {
 				if (frame_types->front() == webrtc::kEmptyFrame)
@@ -296,9 +305,12 @@ namespace {
 
 			x264_nal_t *nals = nullptr;
 			int nal_count = 0;
-			auto size = x264_encoder_encode(context.get(), &nals, &nal_count, &pic, &pic_out);
-			if (size < 0)
-				return WEBRTC_VIDEO_CODEC_ERROR;
+			{
+				ProfileScope("x264_encoder_encode");
+				auto size = x264_encoder_encode(context.get(), &nals, &nal_count, &pic, &pic_out);
+				if (size < 0)
+					return WEBRTC_VIDEO_CODEC_ERROR;
+			}
 
 			{
 				encoded_images.emplace_back();
@@ -316,10 +328,16 @@ namespace {
 				encoded_images.pop_front();
 
 				webrtc::RTPFragmentationHeader frag_header;
-				RTPFragmentize(encoded_image, buffer, nal_count, nals, &frag_header);
+				{
+					ProfileScope("RTPFragmentize");
+					RTPFragmentize(encoded_image, buffer, nal_count, nals, &frag_header);
+				}
 
-				bitstream_parser.ParseBitstream(buffer.data(), buffer.size());
-				bitstream_parser.GetLastSliceQp(&encoded_image.qp_);
+				{
+					ProfileScope("bitstream_parser");
+					bitstream_parser.ParseBitstream(buffer.data(), buffer.size());
+					bitstream_parser.GetLastSliceQp(&encoded_image.qp_);
+				}
 
 				encoded_image._frameType = convert_frame_type(pic_out.i_type, pic_out.b_keyframe);
 				encoded_image._completeFrame = true;
@@ -327,6 +345,8 @@ namespace {
 				webrtc::CodecSpecificInfo codec_specific;
 				codec_specific.codecType = webrtc::kVideoCodecH264;
 				codec_specific.codecSpecific.H264.packetization_mode = packetization_mode;
+
+				ProfileScope("OnEncodedImage");
 				callback->OnEncodedImage(encoded_image, &codec_specific, &frag_header);
 			}
 
