@@ -17,6 +17,8 @@
 #include <util/dstr.hpp>
 #include <util/profiler.hpp>
 
+#include "OBSHelpers.hpp"
+
 
 #define do_log(level, output, format, ...) \
 	blog(level, "[WebRTC(x264): '%s'] " format, \
@@ -159,6 +161,23 @@ namespace {
 			string packetization_mode_str;
 			if (codec.GetParam(cricket::kH264FmtpPacketizationMode, &packetization_mode_str) && packetization_mode_str == "1")
 				packetization_mode = webrtc::H264PacketizationMode::NonInterleaved;
+		}
+
+		~x264Encoder()
+		{
+			if (!profiler_name)
+				return;
+
+			auto snap = ProfileSnapshotCreate();
+			profiler_snapshot_filter_roots(snap.get(), [](void *data, const char *name, bool *remove)
+			{
+				auto profiler_name = static_cast<const char*>(data);
+
+				*remove = strcmp(profiler_name, name) != 0;
+
+				return true;
+			}, const_cast<char*>(profiler_name));
+			profiler_print(snap.get());
 		}
 
 		// Inherited via VideoEncoder
