@@ -47,6 +47,15 @@ namespace std {
 	};
 }
 
+struct OutputResolution {
+	uint32_t width;
+	uint32_t height;
+
+	uint32_t pixels() const { return width * height; }
+};
+
+OutputResolution ScaleResolution(const OutputResolution &target, const OutputResolution &source, OutputResolution max_dimensions = { numeric_limits<uint32_t>::max(), numeric_limits<uint32_t>::max() });
+
 unique_ptr<webrtc::VideoEncoder> CreateWebRTCX264Encoder(obs_output_t*, const cricket::VideoCodec&, boost::optional<int> keyframe_interval);
 
 namespace {
@@ -586,15 +595,11 @@ namespace {
 		RTCVideoSource &operator=(const RTCVideoSource &) = delete;
 		RTCVideoSource(const RTCVideoSource &) = delete;
 
-		bool Start()
+		bool Start(uint32_t width_, uint32_t height_)
 		{
-			obs_video_info ovi{};
-			have_video_info = obs_get_video_info(&ovi);
-			if (!have_video_info)
-				return false;
-
-			width = ovi.output_width;
-			height = ovi.output_height;
+			have_video_info = true;
+			width = width_;
+			height = height_;
 			return true;
 		}
 
@@ -1495,21 +1500,43 @@ static bool StartRTC(void *data)
 			return false;
 	}
 
+	OutputResolution scaled;
+	{
+		obs_video_info ovi{};
+		if (!obs_get_video_info(&ovi))
+			return false;
+
+		if (ovi.output_format == VIDEO_FORMAT_I420)
+			scaled = { ovi.output_width, ovi.output_height };
+		else {
+			info("using video conversion due to output format mismatch (%d <> %d)", ovi.output_format, VIDEO_FORMAT_I420);
+
+			OutputResolution webrtc_target_res = { 1280, 720 };
+			scaled = ScaleResolution(webrtc_target_res, { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
+
+			video_scale_info vsi{};
+			vsi.colorspace = ovi.colorspace;
+			vsi.format = VIDEO_FORMAT_I420;
+			vsi.width = scaled.width;
+			vsi.height = scaled.height;
+			vsi.range = ovi.range;
+
+			obs_output_set_video_conversion(out->output, &vsi);
+		}
+	}
+
 	{
 		auto video = out->out->video_source.lock();
 		if (!video)
 			return false;
 
-		if (!video->Start())
+		if (!video->Start(scaled.width, scaled.height))
 			return false;
 	}
 
 	{
 		auto video = obs_output_video(out->output);
 		out->video_frame_time = video_output_get_frame_time(video);
-		auto format = video_output_get_format(video);
-		if (format != VIDEO_FORMAT_I420)
-			return false;
 	}
 
 	{

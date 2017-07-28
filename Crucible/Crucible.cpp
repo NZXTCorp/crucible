@@ -1480,7 +1480,7 @@ static boost::optional<OutputResolution> ScaleResolutionInteger(const OutputReso
 	return boost::none;
 }
 
-static OutputResolution ScaleResolution(const OutputResolution &target, const OutputResolution &source, OutputResolution max_dimensions = { numeric_limits<uint32_t>::max(), numeric_limits<uint32_t>::max() })
+OutputResolution ScaleResolution(const OutputResolution &target, const OutputResolution &source, OutputResolution max_dimensions = { numeric_limits<uint32_t>::max(), numeric_limits<uint32_t>::max() })
 {
 	{
 		auto res = ScaleResolutionInteger(target, source, max_dimensions);
@@ -3435,10 +3435,8 @@ struct CrucibleContext {
 		{
 			auto ovi_ = ovi;
 			ovi.output_format = VIDEO_FORMAT_I420;
-			if (!ResetVideo()) {
+			if (!ResetVideo())
 				ovi = ovi_;
-				return fail("Setting webrtc video settings failed");
-			}
 		}
 
 		InitRef(webrtc, "Couldn't create webrtc output", obs_output_release,
