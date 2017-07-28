@@ -1583,8 +1583,3 @@ void RegisterWebRTCOutput()
 	ooi.raw_audio = ReceiveAudioRTC;
 	obs_register_output(&ooi);
 }
-
-void PumpWebRTCMessages()
-{
-
-}
