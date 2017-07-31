@@ -959,10 +959,38 @@ namespace {
 		}
 	};
 
+	template <int level>
+	struct RTCLog : rtc::LogSink {
+		obs_output_t *output = nullptr;
+
+		~RTCLog()
+		{
+			Remove();
+		}
+
+		void Register(obs_output_t *out, rtc::LoggingSeverity min_severity)
+		{
+			output = out;
+			rtc::LogMessage::AddLogToStream(this, min_severity);
+		}
+
+		void Remove()
+		{
+			rtc::LogMessage::RemoveLogToStream(this);
+		}
+
+		void OnLogMessage(const std::string &message) override
+		{
+			do_log(level, output, "%s", message.c_str());
+		}
+	};
+
 	struct RTCControl :
 		webrtc::PeerConnectionObserver,
 		webrtc::CreateSessionDescriptionObserver,
 		rtc::MessageHandler {
+
+		RTCLog<LOG_WARNING> rtc_warning;
 
 		RTCOutput *out;
 
@@ -978,6 +1006,8 @@ namespace {
 
 		void Init(const string &ice_server_uri)
 		{
+			rtc_warning.Register(out->output, rtc::LS_WARNING);
+
 #ifdef USE_OBS_ENCODER
 			worker_and_network_thread = rtc::Thread::CreateWithSocketServer();
 			worker_and_network_thread->Start();
@@ -1491,6 +1521,13 @@ static void PrintStats(RTCOutput *out) // the stats included don't seem to be ve
 static void DestroyRTC(void *data)
 try {
 	auto out = unique_ptr<RTCOutput>(cast(data));
+
+	// Capture rtc summaries during shutdown
+	RTCLog<LOG_INFO> rtc_info;
+	rtc_info.Register(out->output, rtc::LS_INFO);
+	if (out->out)
+		out->out->rtc_warning.Remove();
+
 	out.reset();
 } catch (...) {
 	auto out = cast(data);
