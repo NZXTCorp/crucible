@@ -1456,6 +1456,38 @@ static void AddSignalHandlers(RTCOutput *out)
 	}
 }
 
+static void PrintStats(RTCOutput *out) // the stats included don't seem to be very useful at the moment
+{
+	shared_ptr<void> stats_printed_signal(CreateEvent(nullptr, true, false, nullptr), HandleDeleter());
+
+	out->PostRTCMessage([&]
+	{
+		if (!out->out || !out->out->peer_connection)
+			return;
+
+		struct Collector : webrtc::RTCStatsCollectorCallback {
+			RTCOutput *out = nullptr;
+			shared_ptr<void> printed_signal;
+
+			Collector(RTCOutput *out, shared_ptr<void> printed_signal)
+				: out(out), printed_signal(printed_signal)
+			{ }
+
+			void OnStatsDelivered(const rtc::scoped_refptr<const webrtc::RTCStatsReport> &report) override
+			{
+				for (auto &stat : *report)
+					info("%s", stat.ToString().c_str());
+			}
+		};
+
+		out->out->peer_connection->GetStats(new rtc::RefCountedObject<Collector>(out, stats_printed_signal));
+	});
+
+	auto res = WaitForSingleObject(stats_printed_signal.get(), 10000);
+	if (res != WAIT_OBJECT_0)
+		warn("Waiting for stats_printed_signal failed: %d", res);
+}
+
 static void DestroyRTC(void *data)
 try {
 	auto out = unique_ptr<RTCOutput>(cast(data));
