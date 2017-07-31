@@ -12,6 +12,7 @@
 #include <memory>
 #include <vector>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/optional.hpp>
 
 #include <obs.hpp>
@@ -962,10 +963,15 @@ namespace {
 	template <int level>
 	struct RTCLog : rtc::LogSink {
 		obs_output_t *output = nullptr;
+		uint64_t rtcp_rr_not_received_logged = 0;
+		uint64_t rtcp_rr_no_sequence_increase_logged = 0;
 
 		~RTCLog()
 		{
 			Remove();
+			if (rtcp_rr_not_received_logged || rtcp_rr_no_sequence_increase_logged)
+				do_log(LOG_INFO, output, "skipped: RTCP RR not received: %llu, RTC RR extended highest sequence number: %llu",
+					rtcp_rr_not_received_logged, rtcp_rr_no_sequence_increase_logged);
 		}
 
 		void Register(obs_output_t *out, rtc::LoggingSeverity min_severity)
@@ -981,6 +987,16 @@ namespace {
 
 		void OnLogMessage(const std::string &message) override
 		{
+			if (boost::starts_with(message, "(rtp_rtcp_impl.cc:")) {
+				if (message.find("Timeout: No RTCP RR received.") != message.npos) {
+					if (rtcp_rr_not_received_logged++)
+						return;
+				}
+				if (message.find("Timeout: No increase in RTCP RR extended highest sequence number.") != message.npos) {
+					if (rtcp_rr_no_sequence_increase_logged++)
+						return;
+				}
+			}
 			do_log(level, output, "%s", message.c_str());
 		}
 	};
