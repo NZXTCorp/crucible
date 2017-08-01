@@ -2637,9 +2637,18 @@ struct CrucibleContext {
 				game_capture_start_time.reset();
 			}
 
-			auto ref = OBSGetStrongRef(weakOutput);
-			if (!ref || (!game_end_bookmark_id && !obs_output_active(ref)))
-				ForgeEvents::SendCleanupComplete(nullptr, game_pid ? *game_pid : 0);
+			bool should_send_cleanup_complete = false;
+			{
+				auto ref = OBSGetStrongRef(weakOutput);
+				should_send_cleanup_complete = !ref || (!game_end_bookmark_id && !obs_output_active(ref));
+			}
+
+			auto send_cleanup_complete = [&]
+			{
+				if (should_send_cleanup_complete)
+					ForgeEvents::SendCleanupComplete(nullptr, game_pid ? *game_pid : 0);
+			};
+			DEFER{ send_cleanup_complete(); };
 
 			if (streaming) {
 				blog(LOG_INFO, "end_capture: Not stopping outputs because stream is active");
