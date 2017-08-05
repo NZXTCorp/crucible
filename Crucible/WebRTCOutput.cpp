@@ -1480,6 +1480,8 @@ static void CreateOffer(void *context, calldata_t *data)
 		calldata_set_string(data, "error", err->c_str());
 }
 
+static void GetStats(void *context, calldata_t *calldata);
+
 static const char *signal_prototypes[] = {
 	"void session_description(ptr output, string type, string sdp)",
 	"void ice_candidate(ptr output, string sdp_mid, int sdp_mline_index, string sdp)",
@@ -1499,12 +1501,15 @@ static void AddSignalHandlers(RTCOutput *out)
 		proc_handler_add(handler, "void handle_remote_offer(string type, string sdp, in out ptr description, out string error)", HandleRemoteOffer, out);
 		proc_handler_add(handler, "void add_remote_ice_candidate(string sdp_mid, int sdp_mline_index, string sdp)", AddRemoteIceCandidate, out);
 		proc_handler_add(handler, "void create_offer(in out ptr description, out string error)", CreateOffer, out);
+		proc_handler_add(handler, "void get_stats(in out ptr data, out string error)", GetStats, out);
 	}
 }
 
-static void PrintStats(RTCOutput *out) // the stats included don't seem to be very useful at the moment
+static void GetStats(void *context, calldata_t *calldata)
 {
-	shared_ptr<void> stats_printed_signal(CreateEvent(nullptr, true, false, nullptr), HandleDeleter());
+	auto out = cast(context);
+	auto data = reinterpret_cast<obs_data_t*>(calldata_ptr(calldata, "data"));
+	shared_ptr<void> get_stats_signal(CreateEvent(nullptr, true, false, nullptr), HandleDeleter());
 
 	out->PostRTCMessage([&]
 	{
@@ -1513,25 +1518,81 @@ static void PrintStats(RTCOutput *out) // the stats included don't seem to be ve
 
 		struct Collector : webrtc::RTCStatsCollectorCallback {
 			RTCOutput *out = nullptr;
-			shared_ptr<void> printed_signal;
+			shared_ptr<void> finished_signal;
+			OBSData data;
 
-			Collector(RTCOutput *out, shared_ptr<void> printed_signal)
-				: out(out), printed_signal(printed_signal)
+			Collector(RTCOutput *out, shared_ptr<void> printed_signal, obs_data_t *data)
+				: out(out), finished_signal(printed_signal), data(data)
 			{ }
 
 			void OnStatsDelivered(const rtc::scoped_refptr<const webrtc::RTCStatsReport> &report) override
 			{
-				for (auto &stat : *report)
-					info("%s", stat.ToString().c_str());
+				for (auto &stat : *report) {
+					auto stat_obj = OBSDataCreate();
+					obs_data_set_obj(data, stat.id().c_str(), stat_obj);
+
+					obs_data_set_string(stat_obj, "type", stat.type());
+					obs_data_set_int(stat_obj, "timestamp_us", stat.timestamp_us());
+
+					auto set_string = [](obs_data_t *obj, const char *name, const string &str) { obs_data_set_string(obj, name, str.c_str()); };
+
+					for (auto &member : stat.Members()) {
+						if (!member->is_defined())
+							continue;
+						switch (member->type()) {
+						case webrtc::RTCStatsMemberInterface::kBool:                 obs_data_set_bool(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<bool>>()); break;
+						case webrtc::RTCStatsMemberInterface::kInt32:                obs_data_set_int(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<int32_t>>()); break;
+						case webrtc::RTCStatsMemberInterface::kUint32:               obs_data_set_int(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<uint32_t>>()); break;
+						case webrtc::RTCStatsMemberInterface::kInt64:                obs_data_set_int(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<int64_t>>()); break;
+						case webrtc::RTCStatsMemberInterface::kUint64:               obs_data_set_int(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<uint64_t>>()); break;
+						case webrtc::RTCStatsMemberInterface::kDouble:               obs_data_set_double(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<double>>()); break;
+						case webrtc::RTCStatsMemberInterface::kString:               set_string(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<string>>()); break;
+
+						case webrtc::RTCStatsMemberInterface::kSequenceBool:         CopySequence(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<vector<bool>>>(), obs_data_set_bool); break;
+						case webrtc::RTCStatsMemberInterface::kSequenceInt32:        CopySequence(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<vector<int32_t>>>(), obs_data_set_int); break;
+						case webrtc::RTCStatsMemberInterface::kSequenceUint32:       CopySequence(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<vector<uint32_t>>>(), obs_data_set_int); break;
+						case webrtc::RTCStatsMemberInterface::kSequenceInt64:        CopySequence(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<vector<int64_t>>>(), obs_data_set_int); break;
+						case webrtc::RTCStatsMemberInterface::kSequenceUint64:       CopySequence(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<vector<uint64_t>>>(), obs_data_set_int); break;
+						case webrtc::RTCStatsMemberInterface::kSequenceDouble:       CopySequence(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<vector<double>>>(), obs_data_set_double); break;
+						case webrtc::RTCStatsMemberInterface::kSequenceString:       CopySequence(stat_obj, member->name(), *member->cast_to<webrtc::RTCStatsMember<vector<string>>>(), set_string); break;
+						}
+					}
+					//info("%s", stat.ToString().c_str());
+				}
+
+				SetEvent(finished_signal.get());
+			}
+
+			template <typename T, typename Fun>
+			void CopySequence(obs_data_t *stat_obj, const char *name, const vector<T> &seq, Fun &&f)
+			{
+				auto arr = OBSDataArrayCreate();
+				obs_data_set_array(stat_obj, name, arr);
+
+				for (auto item : seq) {
+					auto obj = OBSDataCreate();
+					obs_data_array_push_back(arr, obj);
+
+					f(obj, "val", item);
+				}
 			}
 		};
 
-		out->out->peer_connection->GetStats(new rtc::RefCountedObject<Collector>(out, stats_printed_signal));
+		out->out->peer_connection->GetStats(new rtc::RefCountedObject<Collector>(out, get_stats_signal, data));
 	});
 
-	auto res = WaitForSingleObject(stats_printed_signal.get(), 10000);
-	if (res != WAIT_OBJECT_0)
-		warn("Waiting for stats_printed_signal failed: %d", res);
+	auto fail = [&](string err)
+	{
+		warn("GetStats: %s", err.c_str());
+		calldata_set_string(calldata, "error", err.c_str());
+	};
+
+	auto res = WaitForSingleObject(get_stats_signal.get(), 10000);
+	if (res != WAIT_OBJECT_0) {
+		ostringstream ss;
+		ss << "Waiting for get_stats_signal failed: " << res;
+		fail(ss.str());
+	}
 }
 
 static void DestroyRTC(void *data)
