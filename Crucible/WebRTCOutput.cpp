@@ -104,7 +104,7 @@ namespace {
 		
 		boost::optional<int> keyframe_interval;
 
-		RTCOutput(obs_output_t *output, string ice_server_uri, boost::optional<int> keyframe_interval);
+		RTCOutput(obs_output_t *output, string ice_server_uri, boost::optional<int> keyframe_interval, string stream_label);
 		void PostRTCMessage(function<void()> func);
 	};
 
@@ -1020,7 +1020,7 @@ namespace {
 		weak_ptr<RTCAudioSource> audio_source;
 		weak_ptr<RTCVideoSource> video_source;
 
-		void Init(const string &ice_server_uri)
+		void Init(const string &ice_server_uri, const string &stream_label)
 		{
 			rtc_warning.Register(out->output, rtc::LS_WARNING);
 
@@ -1063,7 +1063,13 @@ namespace {
 			if (!peer_connection)
 				throw "Could not create peer_connection";
 
-			auto stream = peer_connection_factory->CreateLocalMediaStream("stream");
+			const char *stream_label_str = "stream";
+			if (!stream_label.empty())
+				stream_label_str = stream_label.c_str();
+
+			info("Using stream label '%s'", stream_label_str);
+
+			auto stream = peer_connection_factory->CreateLocalMediaStream(stream_label_str);
 
 			{
 				rtc::scoped_refptr<RTCAudioSource> source = new rtc::RefCountedObject<RTCAudioSource>(out);
@@ -1180,7 +1186,7 @@ namespace {
 	};
 
 
-	RTCOutput::RTCOutput(obs_output_t *output, string ice_server_uri, boost::optional<int> keyframe_interval)
+	RTCOutput::RTCOutput(obs_output_t *output, string ice_server_uri, boost::optional<int> keyframe_interval, string stream_label)
 		: output(output), ice_server_uri(ice_server_uri), keyframe_interval(keyframe_interval)
 	{
 		signal_thread.make_joinable = [&]
@@ -1202,7 +1208,7 @@ namespace {
 				(*handle)->Quit();
 		};
 
-		signal_thread.Run([&, init_signal, ready_signal]
+		signal_thread.Run([&, init_signal, ready_signal, stream_label]
 		{
 			rtc::Win32Thread rtc_thread;
 			rtc::ThreadManager::Instance()->SetCurrentThread(&rtc_thread);
@@ -1225,7 +1231,7 @@ namespace {
 
 				out->out = this;
 
-				out->Init(this->ice_server_uri);
+				out->Init(this->ice_server_uri, stream_label);
 
 				SetEvent(ready_signal.get());
 
@@ -1613,7 +1619,8 @@ try {
 
 static void *CreateRTC(obs_data_t *settings, obs_output_t *output)
 try {
-	auto out = make_unique<RTCOutput>(output, obs_data_get_string(settings, "server"), !obs_data_has_user_value(settings, "keyint") ? boost::optional<int>() : obs_data_get_int(settings, "keyint"));
+	auto out = make_unique<RTCOutput>(output, obs_data_get_string(settings, "server"), !obs_data_has_user_value(settings, "keyint") ? boost::optional<int>() : obs_data_get_int(settings, "keyint"),
+		obs_data_get_string(settings, "stream_label"));
 
 	if (out)
 		AddSignalHandlers(out.get());
