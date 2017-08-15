@@ -14,6 +14,8 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/optional.hpp>
+#include <boost/random/random_device.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
 
 #include <obs.hpp>
 #include <obs-output.h>
@@ -1071,16 +1073,31 @@ namespace {
 
 			auto stream = peer_connection_factory->CreateLocalMediaStream(stream_label_str);
 
+			auto make_random_string = [&]
+			{
+				const char valid_chars[] =
+					"abcdefghijklmnopqrstuvwxyz"
+					"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+					"1234567890";
+				boost::random::random_device rng;
+				boost::random::uniform_int_distribution<> index_dist(0, sizeof(valid_chars) - 2);
+				string res;
+				res.reserve(25);
+				for (size_t i = 0; i < res.capacity() - 1; i++)
+					res += valid_chars[index_dist(rng)];
+				return res;
+			};
+
 			{
 				rtc::scoped_refptr<RTCAudioSource> source = new rtc::RefCountedObject<RTCAudioSource>(out);
 				audio_source = source->self;
-				stream->AddTrack(peer_connection_factory->CreateAudioTrack("audio", source));
+				stream->AddTrack(peer_connection_factory->CreateAudioTrack(make_random_string(), source));
 			}
 			{
 				rtc::scoped_refptr<RTCVideoSource> source = new rtc::RefCountedObject<RTCVideoSource>();
 				source->out = out;
 				video_source = source->self;
-				stream->AddTrack(peer_connection_factory->CreateVideoTrack("video", source));
+				stream->AddTrack(peer_connection_factory->CreateVideoTrack(make_random_string(), source));
 			}
 
 			if (!peer_connection->AddStream(stream))
