@@ -259,7 +259,7 @@ namespace {
 
 			param.vui.i_transfer = get_x264_cs_val(info->colorspace, x264_transfer_names);
 			param.vui.i_colmatrix = get_x264_cs_val(info->colorspace, x264_colmatrix_names);
-			param.vui.i_colmatrix = get_x264_cs_val(info->colorspace, x264_colorprim_names);
+			param.vui.i_colorprim = get_x264_cs_val(info->colorspace, x264_colorprim_names);
 			param.vui.b_fullrange = false;
 
 			//param.rc.i_qp_max = codec_settings->qpMax;
