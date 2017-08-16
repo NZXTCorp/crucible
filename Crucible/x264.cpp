@@ -263,6 +263,8 @@ namespace {
 			param.vui.b_fullrange = false;
 
 			//param.rc.i_qp_max = codec_settings->qpMax;
+			param.rc.i_lookahead = 10;
+			param.i_sync_lookahead = 10;
 
 			if (!convert_profile(param, h264_settings.profile))
 				return WEBRTC_VIDEO_CODEC_ERROR;
