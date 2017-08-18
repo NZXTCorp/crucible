@@ -3519,6 +3519,7 @@ struct CrucibleContext {
 
 			auto offer = OBSDataCreate();
 			calldata_set_ptr(&data, "description", offer);
+			calldata_set_bool(&data, "set_local_description", obs_data_get_bool(obj, "set_local_description"));
 
 			proc_handler_call(proc, "create_offer", &data);
 

@@ -1446,8 +1446,9 @@ static void CreateOffer(void *context, calldata_t *data)
 	shared_ptr<void> offer_complete_signal(CreateEvent(nullptr, true, false, nullptr), HandleDeleter());
 	auto err = make_shared<string>();
 	OBSData description = static_cast<obs_data_t*>(calldata_ptr(data, "description"));
+	auto set_local_description = calldata_bool(data, "set_local_description");
 
-	out->PostRTCMessage([out, offer_complete_signal, err, description]
+	out->PostRTCMessage([out, offer_complete_signal, err, description, set_local_description]
 	{
 		auto fail = [&](string str)
 		{
@@ -1478,7 +1479,8 @@ static void CreateOffer(void *context, calldata_t *data)
 				obs_data_set_string(description, "type", observer->desc->type().c_str());
 				obs_data_set_string(description, "sdp", sdp.c_str());
 
-				out->out->peer_connection->SetLocalDescription(DummySetSessionDescriptionObserver::Create(), observer->desc.release());
+				if (set_local_description)
+					out->out->peer_connection->SetLocalDescription(DummySetSessionDescriptionObserver::Create(), observer->desc.release());
 			} else
 				return fail("observer->desc->ToString(&sdp) failed");
 		};
@@ -1523,7 +1525,7 @@ static void AddSignalHandlers(RTCOutput *out)
 
 		proc_handler_add(handler, "void handle_remote_offer(string type, string sdp, in out ptr description, out string error)", HandleRemoteOffer, out);
 		proc_handler_add(handler, "void add_remote_ice_candidate(string sdp_mid, int sdp_mline_index, string sdp)", AddRemoteIceCandidate, out);
-		proc_handler_add(handler, "void create_offer(in out ptr description, out string error)", CreateOffer, out);
+		proc_handler_add(handler, "void create_offer(in out ptr description, bool set_local_description, out string error)", CreateOffer, out);
 		proc_handler_add(handler, "void get_stats(in out ptr data, out string error)", GetStats, out);
 	}
 }
