@@ -60,6 +60,7 @@ struct OutputResolution {
 OutputResolution ScaleResolution(const OutputResolution &target, const OutputResolution &source, OutputResolution max_dimensions = { numeric_limits<uint32_t>::max(), numeric_limits<uint32_t>::max() });
 
 unique_ptr<webrtc::VideoEncoder> CreateWebRTCX264Encoder(obs_output_t*, const cricket::VideoCodec&, boost::optional<int> keyframe_interval);
+unique_ptr<webrtc::VideoEncoder> CreateWebRTCNVENCEncoder(obs_output_t *out, const cricket::VideoCodec &codec, boost::optional<int> keyframe_interval);
 
 namespace {
 	struct DummySetSessionDescriptionObserver : webrtc::SetSessionDescriptionObserver {
@@ -940,8 +941,13 @@ namespace {
 			auto str = codec.ToString();
 			info("Requested codec: %s", str.c_str());
 
-			if (codec.name == codecs.front().name)
-				return CreateWebRTCX264Encoder(out->output, codec, out->keyframe_interval).release();
+			if (codec.name == codecs.front().name) {
+				auto enc = CreateWebRTCNVENCEncoder(out->output, codec, out->keyframe_interval);
+				if (!enc)
+					enc = CreateWebRTCX264Encoder(out->output, codec, out->keyframe_interval);
+
+				return enc.release();
+			}
 
 			return nullptr;
 		}

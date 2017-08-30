@@ -51,6 +51,9 @@
     <ClCompile Include="x264.cpp">
       <Filter>WebRTC</Filter>
     </ClCompile>
+    <ClCompile Include="NVENC.cpp">
+      <Filter>WebRTC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="TestWindow.h">
