@@ -889,6 +889,8 @@ namespace {
 				vui.chromaSampleLocationTop = 2;
 				vui.chromaSampleLocationFlag = 1;
 
+				h264.idrPeriod = encode_config.gopLength;
+
 				if (packetization_mode == webrtc::H264PacketizationMode::SingleNalUnit) {
 					h264.sliceMode = 3;
 					h264.sliceModeData = 1;
