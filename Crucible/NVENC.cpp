@@ -905,7 +905,7 @@ namespace {
 				h264.outputPictureTimingSEI = 0;
 
 				//h264.disableSPSPPS = 1;
-				h264.repeatSPSPPS = 0;
+				h264.repeatSPSPPS = 1;
 
 				/*if (encode_config.rcParams.rateControlMode == NV_ENC_PARAMS_RC_CBR_LOWDELAY_HQ) {
 					h264.outputBufferingPeriodSEI = 1;
