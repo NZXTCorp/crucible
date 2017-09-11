@@ -673,7 +673,7 @@ static bool InitHooks()
 				return false;
 
 			if (!InitHook(dll, s_HookSetPhysicalCursorPos))
-				return false;
+				hlog("SetPhysicalCursorPos not available");
 
 			if (!InitHook(dll, s_HookGetPhysicalCursorPos))
 				hlog("GetPhysicalCursorPos not available (probably the same as GetCursorPos, on windows 8.1+?)");
