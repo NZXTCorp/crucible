@@ -1384,6 +1384,8 @@ static void HandleRemoteOffer(void *context, calldata_t *data)
 			options.ice_restart = true;
 
 			out->out->peer_connection->CreateAnswer(observer, options);
+		} else {
+			DEFER{ SetEvent(answer_complete_signal.get()); };
 		}
 	});
 
