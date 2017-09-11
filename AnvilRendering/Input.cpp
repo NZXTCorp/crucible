@@ -325,7 +325,7 @@ void HandleInputHook(HWND window)
 	{
 		g_Proc.m_Stats.m_hWndCap = window;
 		win = window;
-		HookWndProc();
+		//HookWndProc();
 		hwnd_sent = false;
 	}
 

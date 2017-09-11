@@ -175,6 +175,25 @@ DECLARE_HOOK(PeekMessageW, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT w
 	return res;
 });
 
+static bool HandleGetMessage(LPMSG lpMsg);
+DECLARE_HOOK(GetMessageA, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) -> BOOL
+{
+	BOOL res = false;
+	while ((res = s_HookGetMessageA.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax)))
+		if (!HandleGetMessage(lpMsg))
+			break;
+	return res;
+});
+
+DECLARE_HOOK(GetMessageW, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax) -> BOOL
+{
+	BOOL res = false;
+	while ((res = s_HookGetMessageW.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax)))
+		if (!HandleGetMessage(lpMsg))
+			break;
+	return res;
+});
+
 void OverlayUnclipCursor()
 {
 	if (!s_HookGetClipCursor.hook.IsHookInstalled())
@@ -684,6 +703,9 @@ static bool InitHooks()
 			InitHook(dll, s_HookPeekMessageA);
 			InitHook(dll, s_HookPeekMessageW);
 
+			InitHook(dll, s_HookGetMessageA);
+			InitHook(dll, s_HookGetMessageW);
+
 			return true;
 		}()) {
 			hooks_ready = true;
@@ -840,6 +862,14 @@ static bool HandlePeekMessage(LPMSG lpMsg, UINT wRemoveMsg)
 	if (!(wRemoveMsg & PM_REMOVE) || !lpMsg) // The Witness seems to always use PM_REMOVE, not sure what to do about games that use PM_NOREMOVE and actually do stuff with the message
 		return false;
 
+	if (InputWndProc(lpMsg->hwnd, lpMsg->message, lpMsg->wParam, lpMsg->lParam, lpMsg))
+		return true;
+
+	return false;
+}
+
+static bool HandleGetMessage(LPMSG lpMsg)
+{
 	if (InputWndProc(lpMsg->hwnd, lpMsg->message, lpMsg->wParam, lpMsg->lParam, lpMsg))
 		return true;
 
