@@ -354,11 +354,7 @@ namespace {
 					RTPFragmentize(encoded_image, buffer, nal_count, nals, &frag_header);
 				}
 
-				{
-					ProfileScope("bitstream_parser");
-					bitstream_parser.ParseBitstream(buffer.data(), buffer.size());
-					bitstream_parser.GetLastSliceQp(&encoded_image.qp_);
-				}
+				encoded_image.qp_ = static_cast<int>(pic_out.prop.f_crf_avg);
 
 				encoded_image._frameType = convert_frame_type(pic_out.i_type, pic_out.b_keyframe);
 				encoded_image._completeFrame = true;
