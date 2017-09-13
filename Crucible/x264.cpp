@@ -233,7 +233,7 @@ namespace {
 
 			param.b_annexb = true;
 
-			param.i_slice_max_size = max_payload_size;
+			//param.i_slice_max_size = max_payload_size;
 
 			if (packetization_mode == webrtc::H264PacketizationMode::SingleNalUnit)
 				param.i_slice_count = 1;
