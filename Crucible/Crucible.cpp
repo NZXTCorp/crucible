@@ -63,6 +63,7 @@ extern void RegisterFramebufferSource();
 extern void RegisterNVENCEncoder();
 #ifdef WEBRTC_WIN
 extern void RegisterWebRTCOutput();
+extern bool WebRTCNVENCAvailable();
 #endif
 
 static IPCClient event_client, log_client;
@@ -1772,6 +1773,8 @@ struct CrucibleContext {
 		RegisterNVENCEncoder();
 #ifdef WEBRTC_WIN
 		RegisterWebRTCOutput();
+		
+		blog(LOG_INFO, "WebRTC NVENC %savailable", WebRTCNVENCAvailable() ? "" : "not ");
 #endif
 
 		if (standalone)

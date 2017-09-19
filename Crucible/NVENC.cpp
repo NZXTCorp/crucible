@@ -17,6 +17,7 @@
 #include <array>
 #include <deque>
 #include <memory>
+#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -1255,12 +1256,70 @@ namespace {
 	}
 }
 
+#undef do_log
+
+#undef error
+#undef warn
+#undef info
+#undef debug
+
+
+#define do_log(level, format, ...) \
+	blog(level, "[WebRTC(NVENC)] " format, ##__VA_ARGS__)
+
+#define error(format, ...) do_log(LOG_ERROR,   format, ##__VA_ARGS__)
+#define warn(format, ...)  do_log(LOG_WARNING, format, ##__VA_ARGS__)
+#define info(format, ...)  do_log(LOG_INFO,    format, ##__VA_ARGS__)
+#define debug(format, ...) do_log(LOG_DEBUG,   format, ##__VA_ARGS__)
+
+bool WebRTCNVENCAvailable()
+{
+	static once_flag once;
+	static bool available = false;
+
+	call_once(once, [&]
+	{
+		CUDAFunctions cuda;
+		if (!cuda.Load()) {
+			warn("Failed to load CUDA funcs");
+			return;
+		}
+
+		NVENCFunctions nvenc;
+		if (!nvenc.Load()) {
+			warn("Failed to load NVENC funcs");
+			return;
+		}
+
+		uint32_t max_version;
+		NVENCStatus sts;
+		if (sts = nvenc.NvEncodeAPIGetMaxSupportedVersion(&max_version)) {
+			warn("NvEncodeAPIGetMaxSupportedVersion returned %#x (%s)", sts.sts, sts.Name());
+			return;
+		}
+
+		if (MakeVersion(NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION) > max_version) {
+			warn("Driver does not support required version:\n\tRequired: %d.%d\n\tFound: %d.%d",
+				NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION, max_version >> 4, max_version & 0xf);
+			return;
+		}
+
+		NV_ENCODE_API_FUNCTION_LIST funcs = { 0 };
+		funcs.version = NV_ENCODE_API_FUNCTION_LIST_VER;
+		if (sts = nvenc.NvEncodeAPICreateInstance(&funcs)) {
+			warn("NvEncodeAPICreateInstance returned %#x (%s)", sts.sts, sts.Name());
+			return;
+		}
+
+		available = true;
+	});
+
+	return available;
+}
 
 unique_ptr<webrtc::VideoEncoder> CreateWebRTCNVENCEncoder(obs_output_t *out, const cricket::VideoCodec &codec, boost::optional<int> keyframe_interval)
 {
-	CUDAFunctions cuda;
-	NVENCFunctions nvenc;
-	if (!cuda.Load() || !nvenc.Load())
+	if (!WebRTCNVENCAvailable())
 		return{};
 
 	return make_unique<NVENCEncoder>(out, codec, keyframe_interval);
