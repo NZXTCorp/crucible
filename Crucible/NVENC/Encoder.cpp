@@ -718,7 +718,7 @@ static bool InitEncoder(Encoder *enc)
 	enc->encode_config.frameFieldMode = NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME;
 
 	enc->encode_config.frameIntervalP = enc->b_frames_actual + 1;
-	enc->encode_config.gopLength = enc->keyint_sec * enc->init_params.frameRateNum / enc->init_params.frameRateDen;
+	enc->encode_config.gopLength = static_cast<uint32_t>(enc->keyint_sec * enc->init_params.frameRateNum / enc->init_params.frameRateDen);
 
 	{
 		auto &rc = enc->encode_config.rcParams;
