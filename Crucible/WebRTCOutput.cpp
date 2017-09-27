@@ -1721,7 +1721,8 @@ try {
 
 static void *CreateRTC(obs_data_t *settings, obs_output_t *output)
 try {
-	auto out = make_unique<RTCOutput>(output, obs_data_get_string(settings, "server"), !obs_data_has_user_value(settings, "keyint") ? boost::optional<int>() : obs_data_get_int(settings, "keyint"),
+	auto out = make_unique<RTCOutput>(output, obs_data_get_string(settings, "server"),
+		!obs_data_has_user_value(settings, "keyint") ? boost::optional<int>() : static_cast<int>(obs_data_get_int(settings, "keyint")),
 		obs_data_get_string(settings, "stream_label"));
 
 	if (out)
