@@ -6,9 +6,11 @@
 #include <webrtc/media/base/audiosource.h>
 #include <webrtc/media/engine/webrtcvideoencoderfactory.h>
 #include <webrtc/modules/audio_device/include/audio_device.h>
+#include <webrtc/modules/video_coding/include/video_error_codes.h>
 #include <webrtc/pc/localaudiosource.h>
 #include <webrtc/video_encoder.h>
 
+#include <array>
 #include <memory>
 #include <vector>
 
@@ -867,57 +869,135 @@ namespace {
 		}
 	};
 
-	struct RTCEncoder : webrtc::VideoEncoder {
-		int32_t InitEncode(const webrtc::VideoCodec *codec_settings,
-			int32_t number_of_cores,
-			size_t max_payload_size) override
-		{
+	static array<decltype(CreateWebRTCX264Encoder)*, 2> encoder_create_funcs = {
+		CreateWebRTCNVENCEncoder,
+		CreateWebRTCX264Encoder,
+	};
 
+	struct RTCEncoder : webrtc::VideoEncoder {
+		RTCOutput *out;
+		cricket::VideoCodec codec;
+
+		unique_ptr<webrtc::VideoEncoder> actual_encoder;
+
+		webrtc::VideoCodec codec_settings;
+		int32_t number_of_cores;
+		size_t max_payload_size;
+
+		size_t current_encoder_create_func_idx = 0;
+		
+		webrtc::EncodedImageCallback *callback = nullptr;
+
+		RTCEncoder(RTCOutput *out, cricket::VideoCodec codec)
+			: out(out), codec(move(codec))
+		{ }
+
+		int32_t InitEncode(const webrtc::VideoCodec *codec_settings_,
+			int32_t number_of_cores_,
+			size_t max_payload_size_) override
+		{
+			codec_settings = *codec_settings_;
+			number_of_cores = number_of_cores_;
+			max_payload_size = max_payload_size_;
+
+			packet_loss = boost::none;
+			rtt = boost::none;
+
+			bitrate = boost::none;
+			framerate = boost::none;
+
+			return CreateEncoder() ? WEBRTC_VIDEO_CODEC_OK : WEBRTC_VIDEO_CODEC_ERROR;
 		}
 
-		int32_t RegisterEncodeCompleteCallback(webrtc::EncodedImageCallback *callback) override
+		bool CreateEncoder(bool next_encoder = false)
 		{
+			if (next_encoder)
+				current_encoder_create_func_idx = min(current_encoder_create_func_idx + 1, encoder_create_funcs.size());
 
+			for (; current_encoder_create_func_idx < encoder_create_funcs.size(); current_encoder_create_func_idx++) {
+				actual_encoder = encoder_create_funcs[current_encoder_create_func_idx](out->output, codec, out->keyframe_interval);
+				if (!actual_encoder)
+					continue;
+
+				if (actual_encoder->InitEncode(&codec_settings, number_of_cores, max_payload_size) == WEBRTC_VIDEO_CODEC_OK) {
+					if (callback)
+						actual_encoder->RegisterEncodeCompleteCallback(callback);
+					if (packet_loss && rtt)
+						actual_encoder->SetChannelParameters(*packet_loss, *rtt);
+					if (bitrate && framerate)
+						actual_encoder->SetRates(*bitrate, *framerate);
+					break;
+				}
+
+				info("Encoder initialization failed, trying next encoder");
+				actual_encoder.reset();
+			}
+
+			if (!actual_encoder) {
+				warn("Failed to create encoder");
+				return false;
+			}
+
+			return true;
+		}
+
+		int32_t RegisterEncodeCompleteCallback(webrtc::EncodedImageCallback *callback_) override
+		{
+			if (callback)
+				return WEBRTC_VIDEO_CODEC_ERROR;
+
+			callback = callback_;
+			if (actual_encoder)
+				actual_encoder->RegisterEncodeCompleteCallback(callback);
+
+			return WEBRTC_VIDEO_CODEC_OK;
 		}
 
 		int32_t Release() override
 		{
+			if (actual_encoder)
+				return actual_encoder->Release();
 
+			return WEBRTC_VIDEO_CODEC_OK;
 		}
 
 		int32_t Encode(const webrtc::VideoFrame &frame,
 			const webrtc::CodecSpecificInfo *codec_specific_info,
 			const vector<webrtc::FrameType> *frame_types) override
 		{
+			if (!actual_encoder)
+				return WEBRTC_VIDEO_CODEC_ERROR;
 
+			for (;;) {
+				auto res = actual_encoder->Encode(frame, codec_specific_info, frame_types);
+				if (res == WEBRTC_VIDEO_CODEC_OK)
+					return res;
+
+				warn("actual_encoder->Encode returned %d, using fallback encoder", res);
+				if (CreateEncoder(true))
+					continue;
+
+				warn("Failed to create next encoder");
+				return WEBRTC_VIDEO_CODEC_ERROR;
+			}
 		}
 
-		int32_t SetChannelParameters(uint32_t /*packet_loss*/, int64_t /*rtt*/) override
+		boost::optional<uint32_t> packet_loss;
+		boost::optional<int64_t> rtt;
+		int32_t SetChannelParameters(uint32_t packet_loss_, int64_t rtt_) override
 		{
-			return 0;
+			packet_loss = packet_loss_;
+			rtt = rtt_;
+			return actual_encoder ? actual_encoder->SetChannelParameters(packet_loss_, rtt_) : WEBRTC_VIDEO_CODEC_OK;
 		}
 
-		int32_t SetRateAllocation(const webrtc::BitrateAllocation &allocation, uint32_t framerate) override
+		boost::optional<uint32_t> bitrate;
+		boost::optional<uint32_t> framerate;
+		int32_t SetRates(uint32_t bitrate_, uint32_t framerate_) override
 		{
-			auto rate = allocation.GetBitrate(0, 0);
-			return 0;
-		}
-
-		// Any encoder implementation wishing to use the WebRTC provided
-		// quality scaler must implement this method.
-		ScalingSettings GetScalingSettings() const override
-		{
-			return ScalingSettings(false);
-		}
-
-		int32_t SetPeriodicKeyFrames(bool enable) override
-		{
-			return enable ? 0 : -1;
-		}
-
-		const char* ImplementationName() const override
-		{
-			return "Crucible video";
+			bitrate = bitrate_;
+			framerate = framerate_;
+			return actual_encoder ? actual_encoder->SetRates(bitrate_, framerate_) : WEBRTC_VIDEO_CODEC_OK;
 		}
 	};
 
@@ -941,13 +1021,8 @@ namespace {
 			auto str = codec.ToString();
 			info("Requested codec: %s", str.c_str());
 
-			if (codec.name == codecs.front().name) {
-				auto enc = CreateWebRTCNVENCEncoder(out->output, codec, out->keyframe_interval);
-				if (!enc)
-					enc = CreateWebRTCX264Encoder(out->output, codec, out->keyframe_interval);
-
-				return enc.release();
-			}
+			if (codec.name == codecs.front().name)
+				return new RTCEncoder(out, codec);
 
 			return nullptr;
 		}
