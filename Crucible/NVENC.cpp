@@ -556,15 +556,15 @@ namespace {
 			{
 				video_scale_info src;
 				src.format = VIDEO_FORMAT_I420;
-				src.width = info->width;
-				src.height = info->height;
+				src.width = codec_settings->width;
+				src.height = codec_settings->height;
 				src.range = info->range;
 				src.colorspace = info->colorspace;
 
 				video_scale_info dst;
 				dst.format = VIDEO_FORMAT_NV12;
-				dst.width = info->width;
-				dst.height = info->height;
+				dst.width = codec_settings->width;
+				dst.height = codec_settings->height;
 				dst.range = info->range;
 				dst.colorspace = info->colorspace;
 
