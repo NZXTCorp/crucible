@@ -1435,6 +1435,11 @@ struct OutputResolution {
 	uint32_t height;
 
 	uint32_t pixels() const { return width * height; }
+
+	OutputResolution MinByPixels(boost::optional<OutputResolution> &other)
+	{
+		return (!other || pixels() <= other->pixels()) ? *this : *other;
+	}
 };
 
 static uint32_t AlignX264Height(uint32_t height)
@@ -1678,7 +1683,7 @@ struct CrucibleContext {
 	OBSOutputSignal sentTrackedFrame, bufferSentTrackedFrame;
 	OBSOutputSignal bufferSaved, bufferSaveFailed;
 	OBSOutputSignal recordingStreamStart, recordingStreamStop;
-	OBSOutputSignal webrtcSessionDescription, webrtcICECandidate;
+	OBSOutputSignal webrtcSessionDescription, webrtcICECandidate, webrtcResolution;
 	bool record_audio_buffer_only = false;
 	bool check_audio_streams = false;
 	shared_ptr<void> check_audio_streams_timer;
@@ -3508,6 +3513,18 @@ struct CrucibleContext {
 		})
 			.Connect();
 
+		webrtcResolution.Disconnect()
+			.SetSignal("max_resolution")
+			.SetOwner(webrtc)
+			.SetFunc([&](calldata_t *data)
+		{
+			QueueOperation([=]
+			{
+				UpdateSize(game_res.width, game_res.height);
+			});
+		})
+			.Connect();
+
 		obs_output_set_mixer(webrtc, 1);
 
 		if (!obs_output_start(webrtc))
@@ -3648,6 +3665,22 @@ struct CrucibleContext {
 #else
 		blog(LOG_WARNING, "WebRTC not enabled");
 #endif
+	}
+
+	boost::optional<OutputResolution> GetWebRTCMaxResolution()
+	{
+		if (webrtc) {
+			calldata_t data{};
+			DEFER{ calldata_free(&data); };
+
+			proc_handler_call(obs_output_get_proc_handler(webrtc), "get_max_resolution", &data);
+
+			auto width = static_cast<uint32_t>(calldata_int(&data, "width"));
+			auto height = static_cast<uint32_t>(calldata_int(&data, "height"));
+			if (width && height)
+				return OutputResolution{ width, height };
+		}
+		return boost::none;
 	}
 
 	void StartRecordingStream(const char *server, const char *key, const char *version)
@@ -3996,7 +4029,7 @@ struct CrucibleContext {
 			if (streaming)
 				return false;
 
-			scaled = ScaleResolution(target, new_game_res, recording_resolution_limit);
+			scaled = ScaleResolution(target.MinByPixels(GetWebRTCMaxResolution()), new_game_res, recording_resolution_limit);
 
 			if (width == ovi.base_width && height == ovi.base_height && 
 				scaled.width == ovi.output_width && scaled.height == ovi.output_height) 
