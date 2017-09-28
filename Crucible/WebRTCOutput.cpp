@@ -592,6 +592,8 @@ namespace {
 		int width = 0;
 		int height = 0;
 
+		ProtectedObject<rtc::Optional<pair<int, int>>> max_res;
+
 		RTCVideoSource()
 		{
 			monitor.reset(reinterpret_cast<void*>(1), [](void *) {});
@@ -653,6 +655,19 @@ namespace {
 				info("Wants changed: {max: %d (%dx%d), target: %d (%dx%d)}",
 					max, max_res.first, max_res.second,
 					target, target_res.first, target_res.second);
+
+				if (wants.max_pixel_count) {
+					this->max_res.Lock()->emplace(max_res);
+
+					calldata_t data{};
+					DEFER{ calldata_free(&data); };
+
+					calldata_set_ptr(&data, "output", out->output);
+					calldata_set_int(&data, "width", max_res.first);
+					calldata_set_int(&data, "height", max_res.second);
+
+					signal_handler_signal(obs_output_get_signal_handler(out->output), "max_resolution", &data);
+				}
 			}
 		}
 
@@ -1591,11 +1606,30 @@ static void CreateOffer(void *context, calldata_t *data)
 		calldata_set_string(data, "error", err->c_str());
 }
 
+static void GetMaxResolution(void *context, calldata_t *data)
+{
+	auto out = cast(context);
+
+	if (!out->out)
+		return;
+
+	auto video = out->out->video_source.lock();
+	if (!video)
+		return;
+
+	auto max_res = video->max_res.Lock();
+	if (max_res && *max_res) {
+		calldata_set_int(data, "width", (*max_res)->first);
+		calldata_set_int(data, "height", (*max_res)->second);
+	}
+}
+
 static void GetStats(void *context, calldata_t *calldata);
 
 static const char *signal_prototypes[] = {
 	"void session_description(ptr output, string type, string sdp)",
 	"void ice_candidate(ptr output, string sdp_mid, int sdp_mline_index, string sdp)",
+	"void max_resolution(ptr output, out int width, out int height)",
 	nullptr
 };
 
@@ -1612,6 +1646,7 @@ static void AddSignalHandlers(RTCOutput *out)
 		proc_handler_add(handler, "void handle_remote_offer(string type, string sdp, in out ptr description, out string error)", HandleRemoteOffer, out);
 		proc_handler_add(handler, "void add_remote_ice_candidate(string sdp_mid, int sdp_mline_index, string sdp)", AddRemoteIceCandidate, out);
 		proc_handler_add(handler, "void create_offer(in out ptr description, bool set_local_description, out string error)", CreateOffer, out);
+		proc_handler_add(handler, "void get_max_resolution(out int width, out int height)", GetMaxResolution, out);
 		proc_handler_add(handler, "void get_stats(in out ptr data, out string error)", GetStats, out);
 	}
 }
