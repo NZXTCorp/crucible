@@ -3508,7 +3508,6 @@ struct CrucibleContext {
 		})
 			.Connect();
 
-		obs_output_set_media(webrtc, obs_get_video(), obs_get_audio());
 		obs_output_set_mixer(webrtc, 1);
 
 		if (!obs_output_start(webrtc))
