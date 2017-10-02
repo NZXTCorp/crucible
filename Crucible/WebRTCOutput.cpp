@@ -1017,6 +1017,11 @@ namespace {
 			framerate = framerate_;
 			return actual_encoder ? actual_encoder->SetRates(bitrate_, framerate_) : WEBRTC_VIDEO_CODEC_OK;
 		}
+
+		ScalingSettings GetScalingSettings() const override
+		{
+			return actual_encoder ? actual_encoder->GetScalingSettings() : ScalingSettings(false);
+		}
 	};
 
 	struct RTCEncoderFactory : cricket::WebRtcVideoEncoderFactory {
