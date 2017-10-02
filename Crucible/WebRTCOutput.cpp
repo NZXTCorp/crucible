@@ -771,6 +771,9 @@ namespace {
 				resampler.reset(audio_resampler_create(&dst, &src));
 			}
 
+			audio_buffer.clear();
+			audio_out_buffer.clear();
+
 			return true;
 		}
 
