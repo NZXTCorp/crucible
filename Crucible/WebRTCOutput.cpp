@@ -708,7 +708,7 @@ namespace {
 
 		bool is_screencast() const override
 		{
-			return true;
+			return false;
 		}
 
 		rtc::Optional<bool> needs_denoising() const override
