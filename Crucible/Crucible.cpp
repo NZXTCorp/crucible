@@ -4701,84 +4701,157 @@ static void HandleBeginQuickSelectTimeout(CrucibleContext &cc, OBSData &data)
 	AnvilCommands::BeginQuickSelectTimeout(obs_data_get_int(data, "timeout_ms"));
 }
 
+namespace {
+	struct SkippedMessageLog {
+		using clock = chrono::steady_clock;
+		using LogType = ProtectedObject<map<string, SkippedMessageLog>>;
+
+		bool first_skip = true;
+		size_t times_skipped = 0;
+		clock::time_point last_seen;
+
+		static bool SkipMessage(LogType &log, const string &message);
+		static void StartThread(LogType &log, JoiningThread &thread, string subsystem_name);
+	};
+	
+	bool SkippedMessageLog::SkipMessage(LogType &log_, const string &message)
+	{
+		auto log = log_.Lock();
+		auto &ml = (*log)[message];
+
+		ml.times_skipped += 1;
+		ml.last_seen = clock::now();
+
+		auto first_skip = ml.first_skip;
+		ml.first_skip = false;
+		return !first_skip;
+	}
+
+	static SkippedMessageLog::clock::time_point PrintLogSummary(SkippedMessageLog::LogType &log_, const string &subsystem_name, SkippedMessageLog::clock::time_point last_time)
+	{
+		ostringstream ss;
+		SkippedMessageLog::clock::time_point cur;
+
+		{
+			auto log = log_.Lock();
+			cur = SkippedMessageLog::clock::now();
+			for (auto &elem : *log) {
+				if (!elem.second.times_skipped)
+					continue;
+
+				auto dur = chrono::duration_cast<chrono::milliseconds>(cur - elem.second.last_seen).count() / 1000.;
+				ss << '\t' << elem.first << " skipped " << elem.second.times_skipped << " times (last " << dur << " seconds ago)\n";
+
+				elem.second.times_skipped = 0;
+			}
+		}
+
+		auto str = ss.str();
+		if (!str.empty()) {
+			auto dur = chrono::duration_cast<chrono::milliseconds>(cur - last_time).count() / 1000.;
+			blog(LOG_INFO, "SkippedMessageLog(%s) summary for the last %g seconds:\n%s", subsystem_name.c_str(), dur, str.c_str());
+		}
+
+		return cur;
+	}
+
+	void SkippedMessageLog::StartThread(LogType &log, JoiningThread &thread, string subsystem_name)
+	{
+		thread.Join();
+
+		shared_ptr<void> stop_event{ CreateEvent(nullptr, true, false, nullptr), HandleDeleter{} };
+		thread.make_joinable = [=] { SetEvent(stop_event.get()); };
+		thread.Run([=, &log]
+		{
+			auto current_time = clock::now();
+			for (; WaitForSingleObject(stop_event.get(), 5 * 60 * 1000) == WAIT_TIMEOUT;)
+				current_time = PrintLogSummary(log, subsystem_name, current_time);
+		});
+	}
+}
+
+static SkippedMessageLog::LogType skipped_message_log;
+static JoiningThread skipped_message_log_announcer;
+
 static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 {
-	static const map<string, void(*)(CrucibleContext&, OBSData&)> known_commands = {
-		{ "connect", HandleConnectCommand },
-		{ "capture_new_process", HandleCaptureCommand },
-		{ "query_mics", HandleQueryMicsCommand },
-		{ "update_settings", HandleUpdateSettingsCommand },
-		{ "save_recording_buffer", HandleSaveRecordingBuffer },
-		{ "create_bookmark", HandleCreateBookmark },
-		{ "stop_recording", HandleStopRecording },
-		{ "injector_result", HandleInjectorResult },
-		{ "monitored_process_exit", HandleMonitoredProcessExit },
-		{ "update_video_settings", HandleUpdateVideoSettingsCommand },
-		{ "set_cursor", HandleSetCursor },
-		{ "dismiss_overlay", [](CrucibleContext&, OBSData &data) { AnvilCommands::DismissOverlay(data); } },
-		{ "clip_accepted", [](CrucibleContext&, OBSData&) { AnvilCommands::ShowClipping(); } },
-		{ "clip_finished", HandleClipFinished },
-		{ "forge_will_close", HandleForgeWillClose },
-		{ "create_webrtc_output", HandleCreateWebRTCOutput },
-		{ "remote_webrtc_offer", HandleRemoteWebRTCOffer },
-		{ "get_webrtc_stats", HandleGetWebRTCStats },
-		{ "stop_webrtc_output", HandleStopWebRTCOutput },
-		{ "add_remote_ice_candidate", HandleAddRemoteICECandidate },
-		{ "start_recording_stream", HandleStartRecordingStream },
-		{ "stop_recording_stream", HandleStopRecordingStream },
-		{ "start_streaming", HandleStartStreaming },
-		{ "stop_streaming", HandleStopStreaming },
-		{ "save_game_screenshot", HandleGameScreenshot },
-		{ "query_webcams", HandleQueryWebcams },
-		{ "query_desktop_audio_devices", HandleQueryDesktopAudioDevices },
-		{ "query_windows", HandleQueryWindows },
-		{ "capture_window", HandleCaptureWindow },
-		{ "select_scene", HandleSelectScene },
-		{ "connect_display", HandleConnectDisplay },
-		{ "resize_display", HandleResizeDisplay },
-		{ "query_canvas_size", HandleQueryCanvasSize },
-		{ "query_scene_info", HandleQuerySceneInfo },
-		{ "update_scenes", HandleUpdateScenes },
-		{ "set_source_volume", HandleSetSourceVolume },
-		{ "enable_source_level_meters", HandleEnableSourceLevelMeters },
-		{ "save_screenshot", HandleSaveScreenshot },
-		{ "update_recording_buffer_settings", HandleUpdateRecordingBufferSettings },
-		{ "query_hardware_encoders", HandleQueryHardwareEncoders },
-		{ "update_disallowed_hardware_encoders", HandleUpdateDisallowedHardwareEncoders },
-		{ "screenshot_uploading", ShowScreenshotUploading },
-		{ "show_first_time_tutorial", ShowFirstTimeTutorial },
-		{ "screenshot_saved", ShowScreenshotSaved },
-		{ "start_forward_buffer", StartForwardBuffer },
-		{ "stop_forward_buffer", StopForwardBuffer },
-		{ "dismiss_quick_select", HandleDismissQuickSelect },
-		{ "begin_quick_select_timeout", HandleBeginQuickSelectTimeout },
+	static const map<string, pair<bool, void(*)(CrucibleContext&, OBSData&)>> known_commands = {
+		{ "connect", {false, HandleConnectCommand} },
+		{ "capture_new_process", {false, HandleCaptureCommand} },
+		{ "query_mics", {false, HandleQueryMicsCommand} },
+		{ "update_settings", {false, HandleUpdateSettingsCommand} },
+		{ "save_recording_buffer", {false, HandleSaveRecordingBuffer} },
+		{ "create_bookmark", {false, HandleCreateBookmark} },
+		{ "stop_recording", {false, HandleStopRecording} },
+		{ "injector_result", {false, HandleInjectorResult} },
+		{ "monitored_process_exit", {false, HandleMonitoredProcessExit} },
+		{ "update_video_settings", {false, HandleUpdateVideoSettingsCommand} },
+		{ "set_cursor", {false, HandleSetCursor} },
+		{ "dismiss_overlay", {false, [](CrucibleContext&, OBSData &data) { AnvilCommands::DismissOverlay(data); }} },
+		{ "clip_accepted", {false, [](CrucibleContext&, OBSData&) { AnvilCommands::ShowClipping(); }} },
+		{ "clip_finished", {false, HandleClipFinished} },
+		{ "forge_will_close", {false, HandleForgeWillClose} },
+		{ "create_webrtc_output", {false, HandleCreateWebRTCOutput} },
+		{ "remote_webrtc_offer", {false, HandleRemoteWebRTCOffer} },
+		{ "get_webrtc_stats", {true, HandleGetWebRTCStats} },
+		{ "stop_webrtc_output", {false, HandleStopWebRTCOutput} },
+		{ "add_remote_ice_candidate", {false, HandleAddRemoteICECandidate} },
+		{ "start_recording_stream", {false, HandleStartRecordingStream} },
+		{ "stop_recording_stream", {false, HandleStopRecordingStream} },
+		{ "start_streaming", {false, HandleStartStreaming} },
+		{ "stop_streaming", {false, HandleStopStreaming} },
+		{ "save_game_screenshot", {false, HandleGameScreenshot} },
+		{ "query_webcams", {false, HandleQueryWebcams} },
+		{ "query_desktop_audio_devices", {false, HandleQueryDesktopAudioDevices} },
+		{ "query_windows", {false, HandleQueryWindows} },
+		{ "capture_window", {false, HandleCaptureWindow} },
+		{ "select_scene", {false, HandleSelectScene} },
+		{ "connect_display", {false, HandleConnectDisplay} },
+		{ "resize_display", {false, HandleResizeDisplay} },
+		{ "query_canvas_size", {false, HandleQueryCanvasSize} },
+		{ "query_scene_info", {false, HandleQuerySceneInfo} },
+		{ "update_scenes", {false, HandleUpdateScenes} },
+		{ "set_source_volume", {false, HandleSetSourceVolume} },
+		{ "enable_source_level_meters", {false, HandleEnableSourceLevelMeters} },
+		{ "save_screenshot", {false, HandleSaveScreenshot} },
+		{ "update_recording_buffer_settings", {false, HandleUpdateRecordingBufferSettings} },
+		{ "query_hardware_encoders", {false, HandleQueryHardwareEncoders} },
+		{ "update_disallowed_hardware_encoders", {false, HandleUpdateDisallowedHardwareEncoders} },
+		{ "screenshot_uploading", {false, ShowScreenshotUploading} },
+		{ "show_first_time_tutorial", {false, ShowFirstTimeTutorial} },
+		{ "screenshot_saved", {false, ShowScreenshotSaved} },
+		{ "start_forward_buffer", {false, StartForwardBuffer} },
+		{ "stop_forward_buffer", {false, StopForwardBuffer} },
+		{ "dismiss_quick_select", {false, HandleDismissQuickSelect} },
+		{ "begin_quick_select_timeout", {false, HandleBeginQuickSelectTimeout} },
 	};
 	if (!data)
 		return;
 
 	auto obj = OBSDataCreate({data, data+size});
 
-	blog(LOG_INFO, "got: %s", data);
-
 	unique_ptr<obs_data_item_t> item{obs_data_item_byname(obj, "command")};
 	if (!item) {
-		blog(LOG_WARNING, "Missing command element on command channel");
+		blog(LOG_WARNING, "Missing command element on command channel in message: %s", data);
 		return;
 	}
 
 	const char *str = obs_data_item_get_string(item.get());
 	if (!str) {
-		blog(LOG_WARNING, "Invalid command element");
+		blog(LOG_WARNING, "Invalid command element in message: %s", data);
 		return;
 	}
 
 	auto elem = known_commands.find(str);
 	if (elem == cend(known_commands))
-		return blog(LOG_WARNING, "Unknown command: %s", str);
+		return blog(LOG_WARNING, "Unknown command: %s in message: %s", str, data);
+
+	if (!elem->second.first || !SkippedMessageLog::SkipMessage(skipped_message_log, str))
+		blog(LOG_INFO, "got: %s", data);
 
 	QueueOperation([=, &cc]() mutable
 	{
-		elem->second(cc, obj);
+		elem->second.second(cc, obj);
 	});
 
 	// TODO: Handle changes to frame rate, target resolution, encoder type,
@@ -4927,6 +5000,8 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 {
 	try
 	{
+		SkippedMessageLog::StartThread(skipped_message_log, skipped_message_log_announcer, "command");
+
 		Display::SetEnabled("preview", false);
 
 		CrucibleContext crucibleContext;
