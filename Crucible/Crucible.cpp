@@ -3518,9 +3518,11 @@ struct CrucibleContext {
 			.SetOwner(webrtc)
 			.SetFunc([&](calldata_t *data)
 		{
+			OBSOutput out = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
 			QueueOperation([=]
 			{
-				UpdateSize(game_res.width, game_res.height);
+				if (ovi.output_format == VIDEO_FORMAT_I420)
+					UpdateSize(game_res.width, game_res.height);
 			});
 		})
 			.Connect();
@@ -3669,7 +3671,7 @@ struct CrucibleContext {
 
 	boost::optional<OutputResolution> GetWebRTCMaxResolution()
 	{
-		if (webrtc) {
+		if (webrtc && ovi.output_format == VIDEO_FORMAT_I420) {
 			calldata_t data{};
 			DEFER{ calldata_free(&data); };
 

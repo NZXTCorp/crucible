@@ -57,12 +57,19 @@ struct OutputResolution {
 	uint32_t height;
 
 	uint32_t pixels() const { return width * height; }
+
+	OutputResolution MinByPixels(boost::optional<OutputResolution> &other)
+	{
+		return (!other || pixels() <= other->pixels()) ? *this : *other;
+	}
 };
 
 OutputResolution ScaleResolution(const OutputResolution &target, const OutputResolution &source, OutputResolution max_dimensions = { numeric_limits<uint32_t>::max(), numeric_limits<uint32_t>::max() });
 
 unique_ptr<webrtc::VideoEncoder> CreateWebRTCX264Encoder(obs_output_t*, const cricket::VideoCodec&, boost::optional<int> keyframe_interval);
 unique_ptr<webrtc::VideoEncoder> CreateWebRTCNVENCEncoder(obs_output_t *out, const cricket::VideoCodec &codec, boost::optional<int> keyframe_interval);
+
+static boost::optional<OutputResolution> SetScaledResolution(obs_output_t *out, boost::optional<OutputResolution> resolution_limit);
 
 namespace {
 	struct DummySetSessionDescriptionObserver : webrtc::SetSessionDescriptionObserver {
@@ -1788,6 +1795,30 @@ static void StopRTC(void *data)
 	obs_output_end_data_capture(out->output);
 }
 
+static boost::optional<OutputResolution> SetScaledResolution(obs_output_t *out, boost::optional<OutputResolution> resolution_limit)
+{
+	obs_video_info ovi{};
+	if (!obs_get_video_info(&ovi))
+		return boost::none;
+
+	if (ovi.output_format == VIDEO_FORMAT_I420)
+		return boost::none; // not using video conversion
+
+	OutputResolution webrtc_target_res = { 1280, 720 };
+	auto scaled = ScaleResolution(webrtc_target_res.MinByPixels(resolution_limit), { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
+
+	video_scale_info vsi{};
+	vsi.colorspace = ovi.colorspace;
+	vsi.format = VIDEO_FORMAT_I420;
+	vsi.width = scaled.width;
+	vsi.height = scaled.height;
+	vsi.range = ovi.range;
+
+	obs_output_set_video_conversion(out, &vsi);
+
+	return scaled;
+}
+
 static bool StartRTC(void *data)
 {
 	auto out = cast(data);
@@ -1812,17 +1843,11 @@ static bool StartRTC(void *data)
 		else {
 			info("using video conversion due to output format mismatch (%d <> %d)", ovi.output_format, VIDEO_FORMAT_I420);
 
-			OutputResolution webrtc_target_res = { 1280, 720 };
-			scaled = ScaleResolution(webrtc_target_res, { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
+			auto res = SetScaledResolution(out->output, boost::none);
+			if (!res)
+				return false;
 
-			video_scale_info vsi{};
-			vsi.colorspace = ovi.colorspace;
-			vsi.format = VIDEO_FORMAT_I420;
-			vsi.width = scaled.width;
-			vsi.height = scaled.height;
-			vsi.range = ovi.range;
-
-			obs_output_set_video_conversion(out->output, &vsi);
+			scaled = *res;
 		}
 	}
 
