@@ -592,7 +592,7 @@ namespace {
 		int width = 0;
 		int height = 0;
 
-		ProtectedObject<rtc::Optional<pair<int, int>>> max_res;
+		ProtectedObject<rtc::Optional<OutputResolution>> max_res;
 
 		RTCVideoSource()
 		{
@@ -637,12 +637,12 @@ namespace {
 
 		void OnSinkWantsChanged(const rtc::VideoSinkWants &wants)
 		{
-			auto compute_res = [](const rtc::Optional<int> &pixel_count)->rtc::Optional<pair<int, int>>
+			auto compute_res = [](const rtc::Optional<int> &pixel_count)->rtc::Optional<OutputResolution>
 			{
 				if (pixel_count) {
 					auto base = 1280. * 720;
 					auto ratio = sqrt(base / *pixel_count);
-					return rtc::Optional<pair<int, int>>(make_pair(static_cast<int>(1280 / ratio), static_cast<int>(720 / ratio)));
+					return rtc::Optional<OutputResolution>(OutputResolution{ static_cast<uint32_t>(1280 / ratio), static_cast<uint32_t>(720 / ratio) });
 				}
 				return{};
 			};
@@ -650,21 +650,23 @@ namespace {
 			if (wants.max_pixel_count || wants.target_pixel_count) {
 				auto max = wants.max_pixel_count.value_or(-1);
 				auto target = wants.target_pixel_count.value_or(-1);
-				auto max_res = compute_res(wants.max_pixel_count).value_or(make_pair(-1, -1));
-				auto target_res = compute_res(wants.target_pixel_count).value_or(make_pair(-1, -1));
+				auto max_res = compute_res(wants.max_pixel_count).value_or(OutputResolution{ 0, 0 });
+				auto target_res = compute_res(wants.target_pixel_count).value_or(OutputResolution{ 0, 0 });
 				info("Wants changed: {max: %d (%dx%d), target: %d (%dx%d)}",
-					max, max_res.first, max_res.second,
-					target, target_res.first, target_res.second);
+					max, max_res.width, max_res.height,
+					target, target_res.width, target_res.height);
 
 				if (wants.max_pixel_count) {
 					this->max_res.Lock()->emplace(max_res);
+
+					SetScaledResolution(out->output, max_res);
 
 					calldata_t data{};
 					DEFER{ calldata_free(&data); };
 
 					calldata_set_ptr(&data, "output", out->output);
-					calldata_set_int(&data, "width", max_res.first);
-					calldata_set_int(&data, "height", max_res.second);
+					calldata_set_int(&data, "width", max_res.width);
+					calldata_set_int(&data, "height", max_res.height);
 
 					signal_handler_signal(obs_output_get_signal_handler(out->output), "max_resolution", &data);
 				}
@@ -1624,8 +1626,8 @@ static void GetMaxResolution(void *context, calldata_t *data)
 
 	auto max_res = video->max_res.Lock();
 	if (max_res && *max_res) {
-		calldata_set_int(data, "width", (*max_res)->first);
-		calldata_set_int(data, "height", (*max_res)->second);
+		calldata_set_int(data, "width", (*max_res)->width);
+		calldata_set_int(data, "height", (*max_res)->height);
 	}
 }
 
