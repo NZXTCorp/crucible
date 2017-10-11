@@ -3460,7 +3460,9 @@ struct CrucibleContext {
 
 		webrtc = nullptr;
 
-		{
+		if (!video_output_active(obs_get_video())) {
+			UpdateSize(game_res.width, game_res.height);
+
 			auto ovi_ = ovi;
 			ovi.output_format = VIDEO_FORMAT_I420;
 			if (!ResetVideo())
