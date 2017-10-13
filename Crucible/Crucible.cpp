@@ -958,6 +958,9 @@ namespace AnvilCommands {
 
 		obs_data_set_bool(cmd, "show_notifications", show_notifications);
 
+		if (disable_native_indicators)
+			goto skip_additional_indicators;
+
 		const char *indicator = recording ? "capturing" : "idle";
 		if (recording && using_mic) {
 			if (!mic_acquired)
@@ -1010,6 +1013,7 @@ namespace AnvilCommands {
 
 		obs_data_set_string(cmd, "indicator", indicator);
 
+	skip_additional_indicators:;
 		SendCommand(cmd);
 	}
 
