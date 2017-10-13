@@ -4204,7 +4204,7 @@ struct CrucibleContext {
 	}
 	
 	bool stopping = false;
-	void StopVideo(bool force=false, bool restart=false)
+	void StopVideo(bool force=false, bool restart=false, bool stop_recording_only=false)
 	{
 		if (!force && (stopping || streaming || recording_game))
 			return;
@@ -4228,15 +4228,19 @@ struct CrucibleContext {
 		};
 
 		stop_(output);
-		stop_(buffer);
-		if (recordingStream)
-			stop_(recordingStream);
-		if (webrtc)
-			stop_(webrtc);
+		if (!stop_recording_only) {
+			stop_(buffer);
+			if (recordingStream)
+				stop_(recordingStream);
+			if (webrtc)
+				stop_(webrtc);
+		}
 
 		output = nullptr;
-		buffer = nullptr;
-		recordingStream = nullptr;
+		if (!stop_recording_only) {
+			buffer = nullptr;
+			recordingStream = nullptr;
+		}
 
 		forward_buffer_id = boost::none;
 
@@ -4406,7 +4410,7 @@ static void HandleStopRecording(CrucibleContext &cc, OBSData &obj)
 	if (obs_data_get_bool(obj, "cache_limit_exceeded"))
 		AnvilCommands::ShowCacheLimitExceeded();
 
-	cc.StopVideo(true);
+	cc.StopVideo(true, false, true);
 }
 
 static void HandleInjectorResult(CrucibleContext &cc, OBSData &data)
