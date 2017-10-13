@@ -666,7 +666,9 @@ namespace {
 				if (wants.max_pixel_count) {
 					this->max_res.Lock()->emplace(max_res);
 
-					SetScaledResolution(out->output, max_res);
+					auto scaled = SetScaledResolution(out->output, max_res);
+					if (scaled)
+						info("Updating scaled resolution: %dx%d", scaled->width, scaled->height);
 
 					calldata_t data{};
 					DEFER{ calldata_free(&data); };
@@ -1846,6 +1848,8 @@ static bool StartRTC(void *data)
 			auto res = SetScaledResolution(out->output, boost::none);
 			if (!res)
 				return false;
+
+			info("Updating scaled resolution: %dx%d", res->width, res->height);
 
 			scaled = *res;
 		}
