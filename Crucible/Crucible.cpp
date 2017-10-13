@@ -2754,10 +2754,9 @@ struct CrucibleContext {
 				else
 					blog(LOG_WARNING, "startCapture: not sending AnvilCommands::Connect because game_pid is missing");
 
-				bool can_record = OBSGetStrongRef(weakOutput);
 				DEFER
 				{
-					if (game_start_bookmark_id || !can_record)
+					if (game_start_bookmark_id)
 						return;
 
 					auto data = OBSDataCreate();
@@ -2768,7 +2767,7 @@ struct CrucibleContext {
 						ForgeEvents::SendGameSessionStarted();
 				};
 
-				if (!can_record && !game_capture_start_time) {
+				if (!game_capture_start_time) {
 					game_capture_start_time = chrono::steady_clock::now();
 					AnvilCommands::ShowNotifications(true);
 					ForgeEvents::SendGameCaptureStarted();
