@@ -2299,7 +2299,7 @@ struct CrucibleContext {
 
 				last_session = move(snap);
 
-				if (!restarting_recording)
+				if (!restarting_recording && (!webrtc || !obs_output_active(webrtc)))
 					ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, game_pid ? *game_pid : 0);
 			});
 		});
