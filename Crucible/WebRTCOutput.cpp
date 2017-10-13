@@ -666,10 +666,6 @@ namespace {
 				if (wants.max_pixel_count) {
 					this->max_res.Lock()->emplace(max_res);
 
-					auto scaled = SetScaledResolution(out->output, max_res);
-					if (scaled)
-						info("Updating scaled resolution: %dx%d", scaled->width, scaled->height);
-
 					calldata_t data{};
 					DEFER{ calldata_free(&data); };
 
@@ -1834,33 +1830,12 @@ static bool StartRTC(void *data)
 			return false;
 	}
 
-	OutputResolution scaled;
-	{
-		obs_video_info ovi{};
-		if (!obs_get_video_info(&ovi))
-			return false;
-
-		if (ovi.output_format == VIDEO_FORMAT_I420)
-			scaled = { ovi.output_width, ovi.output_height };
-		else {
-			info("using video conversion due to output format mismatch (%d <> %d)", ovi.output_format, VIDEO_FORMAT_I420);
-
-			auto res = SetScaledResolution(out->output, boost::none);
-			if (!res)
-				return false;
-
-			info("Updating scaled resolution: %dx%d", res->width, res->height);
-
-			scaled = *res;
-		}
-	}
-
 	{
 		auto video = out->out->video_source.lock();
 		if (!video)
 			return false;
 
-		if (!video->Start(scaled.width, scaled.height))
+		if (!video->Start(obs_output_get_width(out->output), obs_output_get_height(out->output)))
 			return false;
 	}
 

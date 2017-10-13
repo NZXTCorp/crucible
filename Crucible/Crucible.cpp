@@ -3463,6 +3463,8 @@ struct CrucibleContext {
 
 		webrtc = nullptr;
 
+		boost::optional<OutputResolution> scaled;
+
 		if (!video_output_active(obs_get_video())) {
 			UpdateSize(game_res.width, game_res.height);
 
@@ -3470,10 +3472,27 @@ struct CrucibleContext {
 			ovi.output_format = VIDEO_FORMAT_I420;
 			if (!ResetVideo())
 				ovi = ovi_;
+
+		} else {
+			OutputResolution webrtc_target_res = { 1280, 720 };
+			scaled = ScaleResolution(webrtc_target_res.MinByPixels(GetWebRTCMaxResolution()), { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
 		}
 
 		InitRef(webrtc, "Couldn't create webrtc output", obs_output_release,
 			obs_output_create("webrtc_output", "webrtc", settings, nullptr));
+
+		if (scaled) {
+			video_scale_info vsi{};
+			vsi.colorspace = ovi.colorspace;
+			vsi.format = VIDEO_FORMAT_I420;
+			vsi.width = scaled->width;
+			vsi.height = scaled->height;
+			vsi.range = ovi.range;
+
+			obs_output_set_video_conversion(webrtc, &vsi);
+
+			blog(LOG_INFO, "webrtcResolution(%s): Updating scaled resolution: %dx%d", obs_output_get_name(webrtc), scaled->width, scaled->height);
+		}
 
 		webrtcSessionDescription.Disconnect()
 			.SetSignal("session_description")
@@ -3526,8 +3545,27 @@ struct CrucibleContext {
 			OBSOutput out = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
 			QueueOperation([=]
 			{
-				if (ovi.output_format == VIDEO_FORMAT_I420)
+				if (ovi.output_format == VIDEO_FORMAT_I420 && (!output || !obs_output_active(output)))
 					UpdateSize(game_res.width, game_res.height);
+				else {
+					obs_video_info ovi{};
+					if (!obs_get_video_info(&ovi))
+						return;
+
+					OutputResolution webrtc_target_res = { 1280, 720 };
+					auto scaled = ScaleResolution(webrtc_target_res.MinByPixels(GetWebRTCMaxResolution()), { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
+
+					video_scale_info vsi{};
+					vsi.colorspace = ovi.colorspace;
+					vsi.format = VIDEO_FORMAT_I420;
+					vsi.width = scaled.width;
+					vsi.height = scaled.height;
+					vsi.range = ovi.range;
+
+					obs_output_set_video_conversion(out, &vsi);
+					
+					blog(LOG_INFO, "webrtcResolution(%s): Updating scaled resolution: %dx%d", obs_output_get_name(out), scaled.width, scaled.height);
+				}
 			});
 		})
 			.Connect();
@@ -3676,7 +3714,7 @@ struct CrucibleContext {
 
 	boost::optional<OutputResolution> GetWebRTCMaxResolution()
 	{
-		if (webrtc && ovi.output_format == VIDEO_FORMAT_I420) {
+		if (webrtc) {
 			calldata_t data{};
 			DEFER{ calldata_free(&data); };
 
@@ -4036,7 +4074,11 @@ struct CrucibleContext {
 			if (streaming)
 				return false;
 
-			scaled = ScaleResolution(target.MinByPixels(GetWebRTCMaxResolution()), new_game_res, recording_resolution_limit);
+			boost::optional<OutputResolution> webrtc_res;
+			if (!output || !obs_output_active(output))
+				webrtc_res = GetWebRTCMaxResolution();
+
+			scaled = ScaleResolution(target.MinByPixels(webrtc_res), new_game_res, recording_resolution_limit);
 
 			if (width == ovi.base_width && height == ovi.base_height && 
 				scaled.width == ovi.output_width && scaled.height == ovi.output_height) 
