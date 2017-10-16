@@ -57,12 +57,19 @@ struct OutputResolution {
 	uint32_t height;
 
 	uint32_t pixels() const { return width * height; }
+
+	OutputResolution MinByPixels(boost::optional<OutputResolution> &other)
+	{
+		return (!other || pixels() <= other->pixels()) ? *this : *other;
+	}
 };
 
 OutputResolution ScaleResolution(const OutputResolution &target, const OutputResolution &source, OutputResolution max_dimensions = { numeric_limits<uint32_t>::max(), numeric_limits<uint32_t>::max() });
 
 unique_ptr<webrtc::VideoEncoder> CreateWebRTCX264Encoder(obs_output_t*, const cricket::VideoCodec&, boost::optional<int> keyframe_interval);
 unique_ptr<webrtc::VideoEncoder> CreateWebRTCNVENCEncoder(obs_output_t *out, const cricket::VideoCodec &codec, boost::optional<int> keyframe_interval);
+
+static boost::optional<OutputResolution> SetScaledResolution(obs_output_t *out, boost::optional<OutputResolution> resolution_limit);
 
 namespace {
 	struct DummySetSessionDescriptionObserver : webrtc::SetSessionDescriptionObserver {
@@ -592,6 +599,8 @@ namespace {
 		int width = 0;
 		int height = 0;
 
+		ProtectedObject<rtc::Optional<OutputResolution>> max_res;
+
 		RTCVideoSource()
 		{
 			monitor.reset(reinterpret_cast<void*>(1), [](void *) {});
@@ -635,12 +644,12 @@ namespace {
 
 		void OnSinkWantsChanged(const rtc::VideoSinkWants &wants)
 		{
-			auto compute_res = [](const rtc::Optional<int> &pixel_count)->rtc::Optional<pair<int, int>>
+			auto compute_res = [](const rtc::Optional<int> &pixel_count)->rtc::Optional<OutputResolution>
 			{
 				if (pixel_count) {
 					auto base = 1280. * 720;
 					auto ratio = sqrt(base / *pixel_count);
-					return rtc::Optional<pair<int, int>>(make_pair(static_cast<int>(1280 / ratio), static_cast<int>(720 / ratio)));
+					return rtc::Optional<OutputResolution>(OutputResolution{ static_cast<uint32_t>(1280 / ratio), static_cast<uint32_t>(720 / ratio) });
 				}
 				return{};
 			};
@@ -648,11 +657,24 @@ namespace {
 			if (wants.max_pixel_count || wants.target_pixel_count) {
 				auto max = wants.max_pixel_count.value_or(-1);
 				auto target = wants.target_pixel_count.value_or(-1);
-				auto max_res = compute_res(wants.max_pixel_count).value_or(make_pair(-1, -1));
-				auto target_res = compute_res(wants.target_pixel_count).value_or(make_pair(-1, -1));
+				auto max_res = compute_res(wants.max_pixel_count).value_or(OutputResolution{ 0, 0 });
+				auto target_res = compute_res(wants.target_pixel_count).value_or(OutputResolution{ 0, 0 });
 				info("Wants changed: {max: %d (%dx%d), target: %d (%dx%d)}",
-					max, max_res.first, max_res.second,
-					target, target_res.first, target_res.second);
+					max, max_res.width, max_res.height,
+					target, target_res.width, target_res.height);
+
+				if (wants.max_pixel_count) {
+					this->max_res.Lock()->emplace(max_res);
+
+					calldata_t data{};
+					DEFER{ calldata_free(&data); };
+
+					calldata_set_ptr(&data, "output", out->output);
+					calldata_set_int(&data, "width", max_res.width);
+					calldata_set_int(&data, "height", max_res.height);
+
+					signal_handler_signal(obs_output_get_signal_handler(out->output), "max_resolution", &data);
+				}
 			}
 		}
 
@@ -693,7 +715,7 @@ namespace {
 
 		bool is_screencast() const override
 		{
-			return true;
+			return false;
 		}
 
 		rtc::Optional<bool> needs_denoising() const override
@@ -1001,6 +1023,11 @@ namespace {
 			bitrate = bitrate_;
 			framerate = framerate_;
 			return actual_encoder ? actual_encoder->SetRates(bitrate_, framerate_) : WEBRTC_VIDEO_CODEC_OK;
+		}
+
+		ScalingSettings GetScalingSettings() const override
+		{
+			return actual_encoder ? actual_encoder->GetScalingSettings() : ScalingSettings(false);
 		}
 	};
 
@@ -1591,11 +1618,30 @@ static void CreateOffer(void *context, calldata_t *data)
 		calldata_set_string(data, "error", err->c_str());
 }
 
+static void GetMaxResolution(void *context, calldata_t *data)
+{
+	auto out = cast(context);
+
+	if (!out->out)
+		return;
+
+	auto video = out->out->video_source.lock();
+	if (!video)
+		return;
+
+	auto max_res = video->max_res.Lock();
+	if (max_res && *max_res) {
+		calldata_set_int(data, "width", (*max_res)->width);
+		calldata_set_int(data, "height", (*max_res)->height);
+	}
+}
+
 static void GetStats(void *context, calldata_t *calldata);
 
 static const char *signal_prototypes[] = {
 	"void session_description(ptr output, string type, string sdp)",
 	"void ice_candidate(ptr output, string sdp_mid, int sdp_mline_index, string sdp)",
+	"void max_resolution(ptr output, out int width, out int height)",
 	nullptr
 };
 
@@ -1612,6 +1658,7 @@ static void AddSignalHandlers(RTCOutput *out)
 		proc_handler_add(handler, "void handle_remote_offer(string type, string sdp, in out ptr description, out string error)", HandleRemoteOffer, out);
 		proc_handler_add(handler, "void add_remote_ice_candidate(string sdp_mid, int sdp_mline_index, string sdp)", AddRemoteIceCandidate, out);
 		proc_handler_add(handler, "void create_offer(in out ptr description, bool set_local_description, out string error)", CreateOffer, out);
+		proc_handler_add(handler, "void get_max_resolution(out int width, out int height)", GetMaxResolution, out);
 		proc_handler_add(handler, "void get_stats(in out ptr data, out string error)", GetStats, out);
 	}
 }
@@ -1746,6 +1793,30 @@ static void StopRTC(void *data)
 	obs_output_end_data_capture(out->output);
 }
 
+static boost::optional<OutputResolution> SetScaledResolution(obs_output_t *out, boost::optional<OutputResolution> resolution_limit)
+{
+	obs_video_info ovi{};
+	if (!obs_get_video_info(&ovi))
+		return boost::none;
+
+	if (ovi.output_format == VIDEO_FORMAT_I420)
+		return boost::none; // not using video conversion
+
+	OutputResolution webrtc_target_res = { 1280, 720 };
+	auto scaled = ScaleResolution(webrtc_target_res.MinByPixels(resolution_limit), { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
+
+	video_scale_info vsi{};
+	vsi.colorspace = ovi.colorspace;
+	vsi.format = VIDEO_FORMAT_I420;
+	vsi.width = scaled.width;
+	vsi.height = scaled.height;
+	vsi.range = ovi.range;
+
+	obs_output_set_video_conversion(out, &vsi);
+
+	return scaled;
+}
+
 static bool StartRTC(void *data)
 {
 	auto out = cast(data);
@@ -1759,37 +1830,12 @@ static bool StartRTC(void *data)
 			return false;
 	}
 
-	OutputResolution scaled;
-	{
-		obs_video_info ovi{};
-		if (!obs_get_video_info(&ovi))
-			return false;
-
-		if (ovi.output_format == VIDEO_FORMAT_I420)
-			scaled = { ovi.output_width, ovi.output_height };
-		else {
-			info("using video conversion due to output format mismatch (%d <> %d)", ovi.output_format, VIDEO_FORMAT_I420);
-
-			OutputResolution webrtc_target_res = { 1280, 720 };
-			scaled = ScaleResolution(webrtc_target_res, { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
-
-			video_scale_info vsi{};
-			vsi.colorspace = ovi.colorspace;
-			vsi.format = VIDEO_FORMAT_I420;
-			vsi.width = scaled.width;
-			vsi.height = scaled.height;
-			vsi.range = ovi.range;
-
-			obs_output_set_video_conversion(out->output, &vsi);
-		}
-	}
-
 	{
 		auto video = out->out->video_source.lock();
 		if (!video)
 			return false;
 
-		if (!video->Start(scaled.width, scaled.height))
+		if (!video->Start(obs_output_get_width(out->output), obs_output_get_height(out->output)))
 			return false;
 	}
 

@@ -390,6 +390,11 @@ namespace {
 
 			return WEBRTC_VIDEO_CODEC_OK;
 		}
+
+		ScalingSettings GetScalingSettings() const override
+		{
+			return ScalingSettings(true);
+		}
 	};
 }
 

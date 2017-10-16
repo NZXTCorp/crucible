@@ -958,6 +958,9 @@ namespace AnvilCommands {
 
 		obs_data_set_bool(cmd, "show_notifications", show_notifications);
 
+		if (disable_native_indicators)
+			goto skip_additional_indicators;
+
 		const char *indicator = recording ? "capturing" : "idle";
 		if (recording && using_mic) {
 			if (!mic_acquired)
@@ -1010,6 +1013,7 @@ namespace AnvilCommands {
 
 		obs_data_set_string(cmd, "indicator", indicator);
 
+	skip_additional_indicators:;
 		SendCommand(cmd);
 	}
 
@@ -1435,6 +1439,11 @@ struct OutputResolution {
 	uint32_t height;
 
 	uint32_t pixels() const { return width * height; }
+
+	OutputResolution MinByPixels(boost::optional<OutputResolution> &other)
+	{
+		return (!other || pixels() <= other->pixels()) ? *this : *other;
+	}
 };
 
 static uint32_t AlignX264Height(uint32_t height)
@@ -1678,7 +1687,7 @@ struct CrucibleContext {
 	OBSOutputSignal sentTrackedFrame, bufferSentTrackedFrame;
 	OBSOutputSignal bufferSaved, bufferSaveFailed;
 	OBSOutputSignal recordingStreamStart, recordingStreamStop;
-	OBSOutputSignal webrtcSessionDescription, webrtcICECandidate;
+	OBSOutputSignal webrtcSessionDescription, webrtcICECandidate, webrtcResolution;
 	bool record_audio_buffer_only = false;
 	bool check_audio_streams = false;
 	shared_ptr<void> check_audio_streams_timer;
@@ -2294,7 +2303,7 @@ struct CrucibleContext {
 
 				last_session = move(snap);
 
-				if (!restarting_recording)
+				if (!restarting_recording && (!webrtc || !obs_output_active(webrtc)))
 					ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, game_pid ? *game_pid : 0);
 			});
 		});
@@ -2749,10 +2758,9 @@ struct CrucibleContext {
 				else
 					blog(LOG_WARNING, "startCapture: not sending AnvilCommands::Connect because game_pid is missing");
 
-				bool can_record = OBSGetStrongRef(weakOutput);
 				DEFER
 				{
-					if (game_start_bookmark_id || !can_record)
+					if (game_start_bookmark_id)
 						return;
 
 					auto data = OBSDataCreate();
@@ -2763,7 +2771,7 @@ struct CrucibleContext {
 						ForgeEvents::SendGameSessionStarted();
 				};
 
-				if (!can_record && !game_capture_start_time) {
+				if (!game_capture_start_time) {
 					game_capture_start_time = chrono::steady_clock::now();
 					AnvilCommands::ShowNotifications(true);
 					ForgeEvents::SendGameCaptureStarted();
@@ -3455,15 +3463,36 @@ struct CrucibleContext {
 
 		webrtc = nullptr;
 
-		{
+		boost::optional<OutputResolution> scaled;
+
+		if (!video_output_active(obs_get_video())) {
+			UpdateSize(game_res.width, game_res.height);
+
 			auto ovi_ = ovi;
 			ovi.output_format = VIDEO_FORMAT_I420;
 			if (!ResetVideo())
 				ovi = ovi_;
+
+		} else {
+			OutputResolution webrtc_target_res = { 1280, 720 };
+			scaled = ScaleResolution(webrtc_target_res.MinByPixels(GetWebRTCMaxResolution()), { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
 		}
 
 		InitRef(webrtc, "Couldn't create webrtc output", obs_output_release,
 			obs_output_create("webrtc_output", "webrtc", settings, nullptr));
+
+		if (scaled) {
+			video_scale_info vsi{};
+			vsi.colorspace = ovi.colorspace;
+			vsi.format = VIDEO_FORMAT_I420;
+			vsi.width = scaled->width;
+			vsi.height = scaled->height;
+			vsi.range = ovi.range;
+
+			obs_output_set_video_conversion(webrtc, &vsi);
+
+			blog(LOG_INFO, "webrtcResolution(%s): Updating scaled resolution: %dx%d", obs_output_get_name(webrtc), scaled->width, scaled->height);
+		}
 
 		webrtcSessionDescription.Disconnect()
 			.SetSignal("session_description")
@@ -3504,6 +3533,39 @@ struct CrucibleContext {
 			QueueOperation([=, sdp_mid = move(sdp_mid_), sdp = move(sdp_)]
 			{
 				ForgeEvents::SendWebRTCIceCandidate(sdp_mid, sdp_mline_index, sdp);
+			});
+		})
+			.Connect();
+
+		webrtcResolution.Disconnect()
+			.SetSignal("max_resolution")
+			.SetOwner(webrtc)
+			.SetFunc([&](calldata_t *data)
+		{
+			OBSOutput out = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
+			QueueOperation([=]
+			{
+				if (ovi.output_format == VIDEO_FORMAT_I420 && (!output || !obs_output_active(output)))
+					UpdateSize(game_res.width, game_res.height);
+				else {
+					obs_video_info ovi{};
+					if (!obs_get_video_info(&ovi))
+						return;
+
+					OutputResolution webrtc_target_res = { 1280, 720 };
+					auto scaled = ScaleResolution(webrtc_target_res.MinByPixels(GetWebRTCMaxResolution()), { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
+
+					video_scale_info vsi{};
+					vsi.colorspace = ovi.colorspace;
+					vsi.format = VIDEO_FORMAT_I420;
+					vsi.width = scaled.width;
+					vsi.height = scaled.height;
+					vsi.range = ovi.range;
+
+					obs_output_set_video_conversion(out, &vsi);
+					
+					blog(LOG_INFO, "webrtcResolution(%s): Updating scaled resolution: %dx%d", obs_output_get_name(out), scaled.width, scaled.height);
+				}
 			});
 		})
 			.Connect();
@@ -3648,6 +3710,22 @@ struct CrucibleContext {
 #else
 		blog(LOG_WARNING, "WebRTC not enabled");
 #endif
+	}
+
+	boost::optional<OutputResolution> GetWebRTCMaxResolution()
+	{
+		if (webrtc) {
+			calldata_t data{};
+			DEFER{ calldata_free(&data); };
+
+			proc_handler_call(obs_output_get_proc_handler(webrtc), "get_max_resolution", &data);
+
+			auto width = static_cast<uint32_t>(calldata_int(&data, "width"));
+			auto height = static_cast<uint32_t>(calldata_int(&data, "height"));
+			if (width && height)
+				return OutputResolution{ width, height };
+		}
+		return boost::none;
 	}
 
 	void StartRecordingStream(const char *server, const char *key, const char *version)
@@ -3996,7 +4074,11 @@ struct CrucibleContext {
 			if (streaming)
 				return false;
 
-			scaled = ScaleResolution(target, new_game_res, recording_resolution_limit);
+			boost::optional<OutputResolution> webrtc_res;
+			if (!output || !obs_output_active(output))
+				webrtc_res = GetWebRTCMaxResolution();
+
+			scaled = ScaleResolution(target.MinByPixels(webrtc_res), new_game_res, recording_resolution_limit);
 
 			if (width == ovi.base_width && height == ovi.base_height && 
 				scaled.width == ovi.output_width && scaled.height == ovi.output_height) 
@@ -4168,7 +4250,7 @@ struct CrucibleContext {
 	}
 	
 	bool stopping = false;
-	void StopVideo(bool force=false, bool restart=false)
+	void StopVideo(bool force=false, bool restart=false, bool stop_recording_only=false)
 	{
 		if (!force && (stopping || streaming || recording_game))
 			return;
@@ -4192,15 +4274,19 @@ struct CrucibleContext {
 		};
 
 		stop_(output);
-		stop_(buffer);
-		if (recordingStream)
-			stop_(recordingStream);
-		if (webrtc)
-			stop_(webrtc);
+		if (!stop_recording_only) {
+			stop_(buffer);
+			if (recordingStream)
+				stop_(recordingStream);
+			if (webrtc)
+				stop_(webrtc);
+		}
 
 		output = nullptr;
-		buffer = nullptr;
-		recordingStream = nullptr;
+		if (!stop_recording_only) {
+			buffer = nullptr;
+			recordingStream = nullptr;
+		}
 
 		forward_buffer_id = boost::none;
 
@@ -4370,7 +4456,7 @@ static void HandleStopRecording(CrucibleContext &cc, OBSData &obj)
 	if (obs_data_get_bool(obj, "cache_limit_exceeded"))
 		AnvilCommands::ShowCacheLimitExceeded();
 
-	cc.StopVideo(true);
+	cc.StopVideo(true, false, true);
 }
 
 static void HandleInjectorResult(CrucibleContext &cc, OBSData &data)
