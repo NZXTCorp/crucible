@@ -3552,6 +3552,8 @@ struct CrucibleContext {
 					if (!obs_get_video_info(&ovi))
 						return;
 
+					obs_output_force_stop(out);
+
 					OutputResolution webrtc_target_res = { 1280, 720 };
 					auto scaled = ScaleResolution(webrtc_target_res.MinByPixels(GetWebRTCMaxResolution()), { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
 
@@ -3563,8 +3565,11 @@ struct CrucibleContext {
 					vsi.range = ovi.range;
 
 					obs_output_set_video_conversion(out, &vsi);
+					obs_output_set_preferred_size(out, scaled.width, scaled.height);
 					
 					blog(LOG_INFO, "webrtcResolution(%s): Updating scaled resolution: %dx%d", obs_output_get_name(out), scaled.width, scaled.height);
+
+					obs_output_start(out);
 				}
 			});
 		})
