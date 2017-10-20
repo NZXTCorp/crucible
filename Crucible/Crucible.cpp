@@ -1440,7 +1440,7 @@ struct OutputResolution {
 
 	uint32_t pixels() const { return width * height; }
 
-	OutputResolution MinByPixels(boost::optional<OutputResolution> &other)
+	OutputResolution MinByPixels(const boost::optional<OutputResolution> &other)
 	{
 		return (!other || pixels() <= other->pixels()) ? *this : *other;
 	}
