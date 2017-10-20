@@ -1027,7 +1027,14 @@ namespace {
 
 		ScalingSettings GetScalingSettings() const override
 		{
-			return actual_encoder ? actual_encoder->GetScalingSettings() : ScalingSettings(false);
+			if (!actual_encoder)
+				return ScalingSettings(false);
+			
+			auto res = actual_encoder->GetScalingSettings();
+			if (res.enabled && !res.thresholds)
+				return ScalingSettings(true, 24, 46);
+
+			return res;
 		}
 	};
 
