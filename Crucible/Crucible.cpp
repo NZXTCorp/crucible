@@ -3490,6 +3490,7 @@ struct CrucibleContext {
 			vsi.range = ovi.range;
 
 			obs_output_set_video_conversion(webrtc, &vsi);
+			obs_output_set_preferred_size(webrtc, scaled->width, scaled->height);
 
 			blog(LOG_INFO, "webrtcResolution(%s): Updating scaled resolution: %dx%d", obs_output_get_name(webrtc), scaled->width, scaled->height);
 		}
