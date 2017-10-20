@@ -4115,7 +4115,7 @@ struct CrucibleContext {
 			
 			StartVideo(split_recording);
 
-			if (webrtc_active && output) {
+			if (webrtc_active && split_recording) {
 				OutputResolution webrtc_target_res = { 1280, 720 };
 				auto scaled = ScaleResolution(webrtc_target_res.MinByPixels(GetWebRTCMaxResolution()), { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
 
