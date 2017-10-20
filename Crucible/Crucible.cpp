@@ -91,6 +91,23 @@ static const vector<pair<string, string>> allowed_hardware_encoder_names = {
 template <typename Fun>
 static void QueueOperation(Fun &&f);
 
+struct OutputResolution {
+	uint32_t width;
+	uint32_t height;
+
+	uint32_t pixels() const { return width * height; }
+
+	OutputResolution MinByPixels(const boost::optional<OutputResolution> &other)
+	{
+		return (!other || pixels() <= other->pixels()) ? *this : *other;
+	}
+
+	bool operator!=(const OutputResolution &other)
+	{
+		return width != other.width || height != other.height;
+	}
+};
+
 // logging lifted straight out of the test app
 void do_log(int log_level, const char *msg, va_list args, void *param)
 {
@@ -777,6 +794,19 @@ namespace ForgeEvents {
 
 		SendEvent(event);
 	}
+
+	void SendWebRTCResolutionScaled(OutputResolution target, OutputResolution actual)
+	{
+		auto event = EventCreate("webrtc_resolution_scaled");
+
+		obs_data_set_bool(event, "scaled", target.MinByPixels(actual) != target);
+		obs_data_set_int(event, "target_width", target.width);
+		obs_data_set_int(event, "target_height", target.height);
+		obs_data_set_int(event, "actual_width", actual.width);
+		obs_data_set_int(event, "actual_height", actual.height);
+
+		SendEvent(event);
+	}
 }
 
 namespace AnvilCommands {
@@ -1433,18 +1463,6 @@ static void OBSDataSetBoundsType(obs_data_t *data, const char *name_, obs_bounds
 
 	obs_data_set_string(data, name_, "none");
 }
-
-struct OutputResolution {
-	uint32_t width;
-	uint32_t height;
-
-	uint32_t pixels() const { return width * height; }
-
-	OutputResolution MinByPixels(const boost::optional<OutputResolution> &other)
-	{
-		return (!other || pixels() <= other->pixels()) ? *this : *other;
-	}
-};
 
 static uint32_t AlignX264Height(uint32_t height)
 {
@@ -3464,6 +3482,7 @@ struct CrucibleContext {
 		webrtc = nullptr;
 
 		boost::optional<OutputResolution> scaled;
+		OutputResolution webrtc_target;
 
 		if (!video_output_active(obs_get_video())) {
 			UpdateSize(game_res.width, game_res.height);
@@ -3476,6 +3495,7 @@ struct CrucibleContext {
 		} else {
 			OutputResolution webrtc_target_res = { 1280, 720 };
 			scaled = ScaleResolution(webrtc_target_res.MinByPixels(GetWebRTCMaxResolution()), { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
+			webrtc_target = webrtc_target_res.MinByPixels(OutputResolution{ ovi.base_width, ovi.base_height }).MinByPixels(OutputResolution{ ovi.output_width, ovi.output_height });
 		}
 
 		InitRef(webrtc, "Couldn't create webrtc output", obs_output_release,
@@ -3493,6 +3513,8 @@ struct CrucibleContext {
 			obs_output_set_preferred_size(webrtc, scaled->width, scaled->height);
 
 			blog(LOG_INFO, "webrtcResolution(%s): Updating scaled resolution: %dx%d", obs_output_get_name(webrtc), scaled->width, scaled->height);
+
+			ForgeEvents::SendWebRTCResolutionScaled(webrtc_target, *scaled);
 		}
 
 		webrtcSessionDescription.Disconnect()
@@ -3569,6 +3591,8 @@ struct CrucibleContext {
 					obs_output_set_preferred_size(out, scaled.width, scaled.height);
 					
 					blog(LOG_INFO, "webrtcResolution(%s): Updating scaled resolution: %dx%d", obs_output_get_name(out), scaled.width, scaled.height);
+
+					ForgeEvents::SendWebRTCResolutionScaled(webrtc_target_res.MinByPixels(OutputResolution{ ovi.base_width, ovi.base_height }).MinByPixels(OutputResolution{ ovi.output_width, ovi.output_height }), scaled);
 
 					obs_output_start(out);
 				}
@@ -4122,6 +4146,11 @@ struct CrucibleContext {
 				obs_output_set_preferred_size(webrtc, scaled.width, scaled.height);
 
 				blog(LOG_INFO, "webrtcResolution(%s): Updating scaled resolution: %dx%d", obs_output_get_name(webrtc), scaled.width, scaled.height);
+
+				ForgeEvents::SendWebRTCResolutionScaled(webrtc_target_res.MinByPixels(OutputResolution{ ovi.base_width, ovi.base_height }).MinByPixels(OutputResolution{ ovi.output_width, ovi.output_height }), scaled);
+			} else if (webrtc_active) {
+				OutputResolution webrtc_target_res = { 1280, 720 };
+				ForgeEvents::SendWebRTCResolutionScaled(webrtc_target_res.MinByPixels(OutputResolution{ ovi.base_width, ovi.base_height }).MinByPixels(target), scaled);
 			}
 
 			if (output)
