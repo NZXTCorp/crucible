@@ -4424,6 +4424,8 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 	if (!recording_active) {
 		cc.StopVideo();
 
+		cc.ovi.output_format = VIDEO_FORMAT_NV12;
+
 		last_session = ProfileSnapshotCreate();
 
 		cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
