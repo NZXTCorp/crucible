@@ -1693,7 +1693,7 @@ struct CrucibleContext {
 	obs_video_info ovi;
 	uint32_t fps_den;
 	std::string webcam_device;
-	OBSSource tunes, mic, gameCapture, webcam, theme, window, wallpaper, audioBuffer;
+	OBSSource tunes, mic, gameCapture, webcam, theme, window, wallpaper, audioBuffer, gameWindow;
 	OBSSourceSignal micMuted, pttActive, micAcquired;
 	OBSSourceSignal stopCapture, startCapture, injectFailed, injectRequest, monitorProcess, screenshotSaved, processInaccessible;
 	OBSEncoder h264, aac, stream_h264, recordingStream_h264, recordingStream_aac;
@@ -2624,7 +2624,8 @@ struct CrucibleContext {
 
 	void ResetCaptureSignals()
 	{
-		auto weakGameCapture = OBSGetWeakRef(gameCapture);
+		auto capture_source = gameCapture ? gameCapture : gameWindow;
+		auto weakGameCapture = OBSGetWeakRef(gameCapture ? gameCapture : gameWindow);
 		auto weakOutput = OBSGetWeakRef(output);
 		auto weakBuffer = OBSGetWeakRef(buffer);
 
@@ -2657,7 +2658,7 @@ struct CrucibleContext {
 				if (OBSGetOutputSource(0) == ref)
 					obs_set_output_source(0, nullptr);
 
-				if (ref == gameCapture)
+				if (ref == gameCapture || ref == gameWindow)
 					DeleteGameCapture();
 			}
 
@@ -2751,7 +2752,7 @@ struct CrucibleContext {
 
 		stopCapture
 			.Disconnect()
-			.SetOwner(gameCapture)
+			.SetOwner(capture_source)
 			.SetFunc([=](calldata_t*)
 		{
 			QueueOperation([=]
@@ -2764,7 +2765,7 @@ struct CrucibleContext {
 
 		startCapture
 			.Disconnect()
-			.SetOwner(gameCapture)
+			.SetOwner(capture_source)
 			.SetFunc([=](calldata_t *data)
 		{
 			auto width = static_cast<uint32_t>(calldata_int(data, "width"));
@@ -3136,12 +3137,13 @@ struct CrucibleContext {
 	void DeleteGameCapture()
 	{
 		auto source = OBSGetOutputSource(0);
-		if (source == gameCapture)
+		if (source == gameCapture || source == gameWindow)
 			obs_set_output_source(0, nullptr);
 
 		obs_set_output_source(3, nullptr);
 
 		gameCapture = nullptr;
+		gameWindow = nullptr;
 		audioBuffer = nullptr;
 
 		check_audio_streams_timer.reset();
@@ -3164,12 +3166,55 @@ struct CrucibleContext {
 		UpdateSourceAudioSettings();
 	}
 
+	void CreateGameWindow(obs_data_t *settings)
+	{
+		if (!settings)
+			return;
+
+		game_pid = static_cast<DWORD>(obs_data_get_int(settings, "process_id"));
+		if (!game_pid || !*game_pid) {
+			blog(LOG_WARNING, "CrucibleContext::CreateGameWindow: invalid game pid supplied");
+			return;
+		}
+
+		gameCapture = nullptr;
+		gameWindow = nullptr;
+
+		InitRef(gameWindow, "Couldn't create game window source", obs_source_release,
+			obs_source_create(OBS_SOURCE_TYPE_INPUT, "window_capture", "game window", settings, nullptr));
+
+		CreateH264Encoder();
+
+		CreateH264Encoder(&recordingStream_h264, nullptr, true);
+
+		recording_game = true;
+
+		injectFailed.Disconnect();
+		injectRequest.Disconnect();
+		monitorProcess.Disconnect();
+		screenshotSaved.Disconnect();
+		processInaccessible.Disconnect();
+
+		ResetCaptureSignals();
+
+		if (game_and_webcam.game)
+			obs_sceneitem_remove(game_and_webcam.game);
+		game_and_webcam.game = obs_scene_add(game_and_webcam.scene, gameWindow);
+		game_and_webcam.MakePresentable();
+
+		if (!OBSGetOutputSource(0) || !streaming)
+			obs_set_output_source(0, gameWindow);
+	}
+
 	void CreateGameCapture(obs_data_t *settings)
 	{
 		if (!settings)
 			return;
 
 		game_pid = static_cast<DWORD>(obs_data_get_int(settings, "process_id"));
+
+		gameCapture = nullptr;
+		gameWindow = nullptr;
 
 		auto path = GetModulePath(nullptr);
 		DStr path64;
@@ -3288,7 +3333,7 @@ struct CrucibleContext {
 		auto current_scene_name = [&]()
 		{
 			auto cur = OBSGetOutputSource(0);
-			if (!cur || cur == gameCapture)
+			if (!cur || cur == gameCapture || cur == gameWindow)
 				return "game_only";
 			if (cur == source_from_scene(game_and_webcam))
 				return "game";
@@ -3303,7 +3348,7 @@ struct CrucibleContext {
 		};
 
 		if (scene_name == "game_only") {
-			source = gameCapture;
+			source = gameCapture ? gameCapture : gameWindow;
 		} else if (scene_name == "game") {
 			source = source_from_scene(game_and_webcam);
 		} else if (scene_name == "window") {
@@ -3471,7 +3516,7 @@ struct CrucibleContext {
 
 #ifdef WEBRTC_WIN
 		bool poke_firewall = obs_data_get_bool(obj, "poke_firewall");
-		if (!gameCapture && !poke_firewall)
+		if (!(gameCapture || gameWindow) && !poke_firewall)
 			return fail("Tried to create webrtc output while no game capture is active");
 
 		if (webrtc && obs_output_active(webrtc)) {
@@ -4437,7 +4482,10 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 	}
 
 	cc.CreateAudioBufferSource(OBSDataGetObj(obj, "audio_buffer"));
-	cc.CreateGameCapture(OBSDataGetObj(obj, "game_capture"));
+	if (!obs_data_get_bool(obj, "use_window_capture"))
+		cc.CreateGameCapture(OBSDataGetObj(obj, "game_capture"));
+	else
+		cc.CreateGameWindow(OBSDataGetObj(obj, "game_capture"));
 
 	blog(LOG_INFO, "Starting new capture");
 
