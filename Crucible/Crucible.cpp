@@ -730,6 +730,11 @@ namespace ForgeEvents {
 		SendEvent(cmd);
 	}
 
+	void SendBookmarkRequest()
+	{
+		SendEvent(EventCreate("bookmark_request"));
+	}
+
 	void SendCreateWebRTCOutputResult(OBSData &original, boost::optional<string> err)
 	{
 		auto event = original;
@@ -3959,12 +3964,11 @@ struct CrucibleContext {
 			OBSDataGetObj(settings, "select_key"),
 			OBSDataGetObj(settings, "accept_key"),
 			OBSDataGetObj(settings, "decline_key"));
-#else
+#endif
+
 		obs_key_combination_to_str(bookmark_combo, str);
 		blog(LOG_INFO, "bookmark hotkey uses '%s'", str->array);
-
 		obs_hotkey_load_bindings(bookmark_hotkey_id, &bookmark_combo, 1);
-#endif
 
 		auto ptt_key = OBSDataGetObj(settings, "ptt_key");
 		auto microphone = OBSDataGetObj(settings, "microphone");
@@ -5230,8 +5234,14 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 		crucibleContext.bookmark_hotkey_id = obs_hotkey_register_frontend("bookmark hotkey", "bookmark hotkey",
 			[](void *data, obs_hotkey_id id, obs_hotkey_t *hotkey, bool pressed)
 		{
-			if (pressed)
-				static_cast<CrucibleContext*>(data)->CreateBookmark(OBSDataCreate());
+			if (!pressed)
+				return;
+
+			QueueOperation([=]
+			{
+				if (static_cast<CrucibleContext*>(data)->gameWindow)
+					ForgeEvents::SendBookmarkRequest();
+			});
 		}, &crucibleContext);
 
 		crucibleContext.custom_ptt_hotkey_id = obs_hotkey_register_frontend("custom PTT key", "custom PTT key",
