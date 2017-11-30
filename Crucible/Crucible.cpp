@@ -1516,6 +1516,10 @@ static boost::optional<OutputResolution> ScaleResolutionInteger(const OutputReso
 
 		if (res.width > source.width || res.height > source.height)
 			continue;
+
+		auto ratio = static_cast<float>(res.pixels()) / target.pixels();
+		if (ratio < 0.9 || ratio > 1.1)
+			continue;
 		
 		if (res.width % 4 == 0 && res.height % 2 == 0) //libobs enforces multiple of 4 width and multiple of 2 height
 			return res;
