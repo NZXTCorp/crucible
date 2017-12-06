@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <functional>
 #include <vector>
+#include "../Crucible/ProtectedObject.hpp"
 
 #define ANVIL_HOTKEYS
 
@@ -115,6 +116,8 @@ enum ActiveOverlay
 extern ActiveOverlay active_overlay;
 void ToggleOverlay(const ActiveOverlay overlay);
 
+ActiveOverlay GetOverlayFromName(const std::string &name);
+
 extern HINSTANCE g_hInst;
 extern bool g_bUseDirectInput;
 extern bool g_bUseKeyboard;
@@ -122,9 +125,22 @@ extern bool g_bBrowserShowing;
 
 namespace ForgeEvent
 {
+	struct LUID {
+		uint32_t low = 0;
+		int32_t high = 0;
+
+		bool operator==(const LUID &other)
+		{
+			return low == other.low && high == other.high;
+		}
+	};
+
 	struct BrowserConnectionDescription {
 		std::string server;
 		const char *name;
+		void *shared_handle = nullptr;
+
+		LUID luid;
 	};
 
 	bool KeyEvent(UINT msg, WPARAM wParam, LPARAM lParam);
@@ -149,4 +165,11 @@ namespace ForgeEvent
 }
 
 std::vector<uint8_t> *ReadNewFramebuffer(ActiveOverlay ov);
-void StartFramebufferServer();
+void StartFramebufferServer(std::array<void *, OVERLAY_COUNT> *shared_handles = nullptr, ForgeEvent::LUID *luid = nullptr);
+
+struct SharedTextureDesc {
+	void *shared_handle = nullptr;
+	ForgeEvent::LUID luid;
+};
+
+extern ProtectedObject<std::array<SharedTextureDesc, OVERLAY_COUNT>> incompatible_shared_textures;

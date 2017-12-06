@@ -1376,6 +1376,18 @@ namespace AnvilCommands {
 		show_notifications = show;
 		SendIndicator();
 	}
+
+	void SendSharedTextureIncompatible(obs_data_t *data)
+	{
+		auto cmd = CommandCreate("shared_texture_incompatible");
+
+		obs_data_set_string(cmd, "name", obs_data_get_string(data, "name"));
+		obs_data_set_int(cmd, "shared_handle", obs_data_get_int(data, "shared_handle"));
+		obs_data_set_int(cmd, "luid_low", obs_data_get_int(data, "luid_low"));
+		obs_data_set_int(cmd, "luid_high", obs_data_get_int(data, "luid_high"));
+
+		SendCommand(cmd);
+	}
 }
 
 static const struct {
@@ -4897,6 +4909,11 @@ static void HandleBeginQuickSelectTimeout(CrucibleContext &cc, OBSData &data)
 	AnvilCommands::BeginQuickSelectTimeout(obs_data_get_int(data, "timeout_ms"));
 }
 
+static void HandleSharedTextureIncompatible(CrucibleContext&, OBSData &data)
+{
+	AnvilCommands::SendSharedTextureIncompatible(data);
+}
+
 namespace {
 	struct SkippedMessageLog {
 		using clock = chrono::steady_clock;
@@ -5020,6 +5037,7 @@ static void HandleCommand(CrucibleContext &cc, const uint8_t *data, size_t size)
 		{ "stop_forward_buffer", {false, StopForwardBuffer} },
 		{ "dismiss_quick_select", {false, HandleDismissQuickSelect} },
 		{ "begin_quick_select_timeout", {false, HandleBeginQuickSelectTimeout} },
+		{ "shared_texture_incompatible", {false, HandleSharedTextureIncompatible} },
 	};
 	if (!data)
 		return;

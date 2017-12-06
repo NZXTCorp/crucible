@@ -84,10 +84,13 @@ namespace ForgeEvent
 		for (const auto &browser : browsers)
 			servers.Append(Object()
 				.Set("server", browser.server)
-				.Set("name", browser.name));
+				.Set("name", browser.name)
+				.Set("shared_handle", reinterpret_cast<uint32_t>(browser.shared_handle)));
 
 		return SendEvent(EventCreate("init_browser")
 			.Set("servers", servers)
+			.Set("luid_low", browsers[0].luid.low)
+			.Set("luid_high", browsers[0].luid.high)
 			.Set("width", Number(width))
 			.Set("height", Number(height)));
 	}
@@ -98,7 +101,10 @@ namespace ForgeEvent
 			.Set("framebuffer_server", String(server.server))
 			.Set("width", Number(width))
 			.Set("height", Number(height))
-			.Set("name", String(server.name)));
+			.Set("name", String(server.name))
+			.Set("luid_low", server.luid.low)
+			.Set("luid_high", server.luid.high)
+			.Set("shared_handle", reinterpret_cast<uint32_t>(server.shared_handle)));
 	}
 
 	bool SetGameHWND(HWND hwnd)
@@ -194,6 +200,8 @@ ULONGLONG m_ulIndicatorLastUpdate; // time we last updated current indicator eve
 
 IndicatorEvent currentIndicator = INDICATE_NONE;
 bool show_notifications = false;
+
+ProtectedObject<std::array<SharedTextureDesc, OVERLAY_COUNT>> incompatible_shared_textures;
 
 void ShowCurrentIndicator(const std::function<void(IndicatorEvent, BYTE /*alpha*/)> &func)
 {
@@ -392,6 +400,26 @@ static void HandleBeginQuickSelectTimeout(Object &obj)
 		StartQuickSelectTimeout(static_cast<uint32_t>(timeout->Value()), true);
 }
 
+static void HandleSharedTextureIncompatible(Object &obj)
+{
+	auto name = String(obj["name"]).Value();
+	auto handle = static_cast<uint32_t>(Number(obj["shared_handle"]));
+	auto luid_low = static_cast<uint32_t>(Number(obj["luid_low"]));
+	auto luid_high = static_cast<int32_t>(Number(obj["luid_high"]));
+
+	auto overlay = GetOverlayFromName(name);
+	if (overlay == OVERLAY_COUNT) {
+		hlog("HandleSharedTextureIncompatible: got invalid overlay name '%s'", name.c_str());
+		return;
+	}
+
+	auto ist = incompatible_shared_textures.Lock();
+	(*ist)[overlay].shared_handle = reinterpret_cast<void*>(handle);
+	auto &luid = (*ist)[overlay].luid;
+	luid.low = luid_low;
+	luid.high = luid_high;
+}
+
 static void HandleCommands(uint8_t *data, size_t size)
 {
 	static const map<string, void(*)(Object&)> handlers = {
@@ -405,6 +433,7 @@ static void HandleCommands(uint8_t *data, size_t size)
 		{ "update_forward_buffer_indicator", HandleForwardBufferIndicatorUpdate },
 		{ "dismiss_quick_select", HandleDismissQuickSelect },
 		{ "begin_quick_select_timeout", HandleBeginQuickSelectTimeout },
+		{ "shared_texture_incompatible", HandleSharedTextureIncompatible },
 	};
 
 	if (!data) {

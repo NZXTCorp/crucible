@@ -149,9 +149,10 @@ static const char *name_for_overlay[OVERLAY_COUNT] = {
 	"notifications",
 };
 
-void StartFramebufferServer()
+static array<ForgeEvent::BrowserConnectionDescription, OVERLAY_COUNT> browsers;
+
+void StartFramebufferServer(array<void *, OVERLAY_COUNT> *shared_handles, ForgeEvent::LUID *luid)
 {
-	array<ForgeEvent::BrowserConnectionDescription, OVERLAY_COUNT> browsers;
 	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++) {
 		browsers[i].name = name_for_overlay[i];
 
@@ -163,6 +164,10 @@ void StartFramebufferServer()
 			fbs->Start();
 
 		browsers[i].server = fbs->name;
+		if (shared_handles && luid) {
+			browsers[i].shared_handle = (*shared_handles)[i];
+			browsers[i].luid = *luid;
+		}
 	}
 
 	ForgeEvent::InitBrowser(browsers, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
@@ -212,6 +217,16 @@ void DismissOverlay(bool from_remote)
 			SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER);
 }
 
+ActiveOverlay GetOverlayFromName(const string &name)
+{
+	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++) {
+		if (name_for_overlay[i] == name)
+			return static_cast<ActiveOverlay>(i);
+	}
+
+	return OVERLAY_COUNT;
+}
+
 void DismissNamedOverlay(const string &name)
 {
 	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++)
@@ -248,8 +263,11 @@ void ToggleOverlay(ActiveOverlay overlay)
 		if (overlay != active_overlay)
 			ForgeEvent::HideBrowser();
 
+		browsers[overlay].name = name_for_overlay[overlay];
+		browsers[overlay].server = fbs->name;
+
 		active_overlay = overlay;
-		ForgeEvent::ShowBrowser({ fbs->name, name_for_overlay[overlay] }, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
+		ForgeEvent::ShowBrowser(browsers[overlay], g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
 		hlog("Requesting browser");
 
 		bool browser_was_active = g_bBrowserShowing;

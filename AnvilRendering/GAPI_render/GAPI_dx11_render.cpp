@@ -356,6 +356,23 @@ bool DX11Renderer::InitRenderer( IndicatorManager &manager )
 	#define CHEK(hr, a) if ( FAILED(hr) ) { LOG_MSG( "InitRenderer: %s failed with result 0x%08x" LOG_CR, a, hr ); return false; }
 	HRESULT hRes;
 
+	[&]
+	{
+		IRefPtr<IDXGIDevice> dev;
+		CHEK(m_pDevice->QueryInterface(dev.get_PPtr()), "m_pDevice->QueryInterface");
+
+		IRefPtr<IDXGIAdapter> adapter;
+		CHEK(dev->GetAdapter(adapter.get_PPtr()), "dev->GetAdapter");
+
+		DXGI_ADAPTER_DESC desc;
+		CHEK(adapter->GetDesc(&desc), "adapter->GetDesc");
+
+		luid_storage.low = desc.AdapterLuid.LowPart;
+		luid_storage.high = desc.AdapterLuid.HighPart;
+		luid = &luid_storage;
+		return true;
+	}();
+
 	int w = g_Proc.m_Stats.m_SizeWnd.cx, h = g_Proc.m_Stats.m_SizeWnd.cy;
 
 	// set up a rasterizer state we'll use
@@ -407,6 +424,16 @@ bool DX11Renderer::InitRenderer( IndicatorManager &manager )
 	desc.Usage = D3D11_USAGE_DYNAMIC;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
+	D3D11_TEXTURE2D_DESC shared_desc{};
+	shared_desc.Width = g_Proc.m_Stats.m_SizeWnd.cx;
+	shared_desc.Height = g_Proc.m_Stats.m_SizeWnd.cy;
+	shared_desc.ArraySize = 1;
+	shared_desc.MipLevels = 1;
+	shared_desc.SampleDesc.Count = 1;
+	shared_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+	shared_desc.Format = textureFormat;
+	shared_desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
+
 	for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
 		overlay_textures[a].Apply([&](D3D11Texture &tex)
 		{
@@ -422,6 +449,28 @@ bool DX11Renderer::InitRenderer( IndicatorManager &manager )
 			if (FAILED(hRes))
 				LOG_WARN("InitIndicatorTextures: couldn't create overlay shader resource view! 0x%08x" LOG_CR, hRes);
 		});
+
+		auto &shared_tex = shared_overlay_textures[a];
+
+		HRESULT res;
+		if (FAILED(res = m_pDevice->CreateTexture2D(&shared_desc, nullptr, IREF_GETPPTR(shared_tex.tex, ID3D11Texture2D)))) {
+			hlog("InitRenderer: couldn't create shared overlay texture %#x", res);
+			continue;
+		}
+
+		if (FAILED(res = m_pDevice->CreateShaderResourceView(shared_tex.tex, nullptr, IREF_GETPPTR(shared_tex.res, ID3D11ShaderResourceView)))) {
+			hlog("InitRenderer: couldn't create shared overlay resource view %#x", res);
+			continue;
+		}
+
+		IRefPtr<IDXGIResource> dxgi_res;
+		if (FAILED(res = shared_tex.tex->QueryInterface(dxgi_res.get_PPtr()))) {
+			hlog("InitRenderer: failed to query IDXGIResource %#x", res);
+			continue;
+		}
+
+		if (FAILED(res = dxgi_res->GetSharedHandle(&shared_handles[a])))
+			hlog("InitRenderer: failed to get shared handle %#x", res);
 	}
 
 	// vertex buffers should go elsewhere?
@@ -790,7 +839,7 @@ void DX11Renderer::DrawIndicator( IDXGISwapChain *pSwapChain, TAKSI_INDICATE_TYP
 
 bool DX11Renderer::DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_overlay)
 {
-	return overlay_textures[active_overlay].Draw([&](D3D11Texture &tex)
+	auto draw_tex = [&](D3D11Texture &tex)
 	{
 		IRefPtr<ID3D11DeviceContext> pContext;
 		m_pDevice->GetImmediateContext(IREF_GETPPTR(pContext, ID3D11DeviceContext));
@@ -852,6 +901,14 @@ bool DX11Renderer::DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_
 		pContext->Draw(4, 0);
 
 		return true;
+	};
+
+	if (shared_handles[active_overlay])
+		return draw_tex(shared_overlay_textures[active_overlay]);
+
+	return overlay_textures[active_overlay].Draw([&](D3D11Texture &tex)
+	{
+		return draw_tex(tex);
 	});
 }
 
@@ -871,6 +928,12 @@ void DX11Renderer::UpdateOverlay()
 					g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;
 			else
 				return false;
+
+			if (shared_handles[i] && luid) {
+				auto ist = incompatible_shared_textures.Lock();
+				if ((*ist)[i].shared_handle == shared_handles[i] && (*ist)[i].luid == *luid)
+					shared_handles[i] = nullptr;
+			}
 
 			IRefPtr<ID3D11DeviceContext> pContext;
 			m_pDevice->GetImmediateContext(IREF_GETPPTR(pContext, ID3D11DeviceContext));
@@ -927,7 +990,7 @@ static DX11Renderer *get_renderer(IDXGISwapChain *swap)
 		renderer = new DX11Renderer{dev}; //release dev?
 		renderer->InitRenderer(indicatorManager);
 
-		StartFramebufferServer();
+		StartFramebufferServer(&renderer->shared_handles, renderer->luid);
 	}
 
 	return renderer;

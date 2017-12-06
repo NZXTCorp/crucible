@@ -78,6 +78,7 @@ private:
 	IRefPtr<ID3D11Texture2D> m_pIndicatorTexture[INDICATE_NONE]; // textures for new indicators
 
 	TextureBufferingHelper<D3D11Texture> overlay_textures[OVERLAY_COUNT];
+	std::array<D3D11Texture, OVERLAY_COUNT> shared_overlay_textures;
 
 	IRefPtr<ID3D11Buffer> m_pVBSquareIndicator;
 	IRefPtr<ID3D11Buffer> m_pVBSquareBorder;
@@ -115,6 +116,9 @@ public:
 	// draw overlay
 	bool DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_overlay);
 	void UpdateOverlay();
+
+	std::array<void*, OVERLAY_COUNT> shared_handles = {};
+	ForgeEvent::LUID luid_storage, *luid = nullptr;
 };
 
 #endif // GAPI_DX11_RENDER_NASTY
