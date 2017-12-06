@@ -897,7 +897,7 @@ void DX11Renderer::UpdateOverlay()
 }
 
 using namespace std;
-static unique_ptr<DX11Renderer> renderer;
+static DX11Renderer *renderer = nullptr;
 static HWND window = nullptr;
 
 static DX11Renderer *get_renderer(IDXGISwapChain *swap)
@@ -924,18 +924,19 @@ static DX11Renderer *get_renderer(IDXGISwapChain *swap)
 
 		window = desc.OutputWindow;
 
-		renderer.reset(new DX11Renderer{dev}); //release dev?
+		renderer = new DX11Renderer{dev}; //release dev?
 		renderer->InitRenderer(indicatorManager);
 
 		StartFramebufferServer();
 	}
 
-	return renderer.get();
+	return renderer;
 }
 
 void overlay_d3d11_free()
 {
-	renderer.reset();
+	delete renderer;
+	renderer = nullptr;
 }
 
 static bool show_browser_tex(IDXGISwapChain *swap, const ActiveOverlay &active_overlay = ::active_overlay)
