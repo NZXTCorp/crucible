@@ -4196,6 +4196,14 @@ struct CrucibleContext {
 				OutputResolution webrtc_target_res = { 1280, 720 };
 				auto scaled = ScaleResolution(webrtc_target_res.MinByPixels(GetWebRTCMaxResolution()), { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
 
+				video_scale_info vsi{};
+				vsi.colorspace = ovi.colorspace;
+				vsi.format = VIDEO_FORMAT_I420;
+				vsi.width = scaled.width;
+				vsi.height = scaled.height;
+				vsi.range = ovi.range;
+
+				obs_output_set_video_conversion(webrtc, &vsi);
 				obs_output_set_preferred_size(webrtc, scaled.width, scaled.height);
 
 				blog(LOG_INFO, "webrtcResolution(%s): Updating scaled resolution: %dx%d", obs_output_get_name(webrtc), scaled.width, scaled.height);
