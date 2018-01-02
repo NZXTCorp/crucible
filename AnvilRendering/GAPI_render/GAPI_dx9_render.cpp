@@ -79,12 +79,26 @@ bool DX9Renderer::InitRenderer( IDirect3DDevice9 *pDevice, IndicatorManager &man
 	SetupRenderState( IREF_GETPPTR(m_pSolidRenderState, IDirect3DStateBlock9), INDICATOR_X * 2 + INDICATOR_Width, INDICATOR_Y * 2 + INDICATOR_Height, false );
 	SetupRenderState( IREF_GETPPTR(m_pTexturedRenderState, IDirect3DStateBlock9), width, height, true );
 
+	LUID actual_luid;
+	if (d3d9_luid && d3d9_create_shared_tex && d3d9_luid(reinterpret_cast<void*>(&actual_luid))) {
+		luid_storage.low = actual_luid.LowPart;
+		luid_storage.high = actual_luid.HighPart;
+		luid = &luid_storage;
+	}
+
 	// create textures
 	for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
 		overlay_textures[a].Apply([&](OverlayTexture_t &tex)
 		{
 			m_pDevice->CreateTexture(g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, IREF_GETPPTR(tex, IDirect3DTexture9), NULL);
 		});
+
+		shared_handles[a] = nullptr;
+		if (!luid)
+			continue;
+
+		if (!d3d9_create_shared_tex(g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy, static_cast<DWORD>(D3DFMT_A8R8G8B8), shared_overlay_textures[a].get_PPtrV(), &shared_handles[a]))
+			hlog("d3d9_create_shared_tex failed for overlay %d", a);
 	}
 	InitIndicatorTextures(manager);
 
@@ -114,6 +128,8 @@ void DX9Renderer::FreeRenderer( void )
 		{
 			REK(tex);
 		});
+		REK(shared_overlay_textures[a]);
+		shared_handles[a] = nullptr;
 	}
 
 	for ( int i = 0; i < INDICATE_NONE; i++ )
@@ -542,6 +558,20 @@ void DX9Renderer::DrawNewIndicator( IndicatorEvent eIndicatorEvent, DWORD color 
 
 bool DX9Renderer::DrawOverlay(ActiveOverlay active_overlay)
 {
+	auto &shared_tex = shared_overlay_textures[active_overlay];
+	if (shared_handles[active_overlay]) {
+		if (RenderTex([&]
+		{
+			m_pDevice->SetStreamSource(0, m_pVBOverlay, 0, sizeof(NEWVERTEX));
+			m_pDevice->SetFVF(D3DFVF_NEWVERTEX);
+			m_pDevice->SetTexture(0, shared_tex.get_RefObj());
+			m_pDevice->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
+
+			m_pDevice->EndScene();
+		}))
+			return true;
+	}
+
 	return overlay_textures[active_overlay].Draw([&](OverlayTexture_t &tex)
 	{
 		if (!RenderTex([&]
@@ -575,6 +605,12 @@ void DX9Renderer::UpdateOverlay()
 					g_Proc.m_Stats.m_SizeWnd.cx * g_Proc.m_Stats.m_SizeWnd.cy * 4)*/;
 			else
 				return false;
+
+			if (shared_handles[i] && luid) {
+				auto ist = incompatible_shared_textures.Lock();
+				if ((*ist)[i].shared_handle == shared_handles[i] && (*ist)[i].luid == *luid)
+					shared_handles[i] = nullptr;
+			}
 
 			D3DLOCKED_RECT lr;
 			HRESULT hr = tex->LockRect(0, &lr, NULL, D3DLOCK_DISCARD);
@@ -725,7 +761,7 @@ C_EXPORT void overlay_draw_d3d9(IDirect3DDevice9 *dev, IDirect3DSurface9 *backbu
 
 		initialized = true;
 
-		StartFramebufferServer();
+		StartFramebufferServer(&renderer->shared_handles, renderer->luid);
 	}
 
 	HandleInputHook(window);

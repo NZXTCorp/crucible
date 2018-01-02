@@ -26,6 +26,7 @@ private:
 	IRefPtr<IDirect3DTexture9> m_pIndicatorTexture[INDICATE_NONE]; // indicator images
 	using OverlayTexture_t = IRefPtr<IDirect3DTexture9>;
 	TextureBufferingHelper<OverlayTexture_t> overlay_textures[OVERLAY_COUNT];
+	OverlayTexture_t shared_overlay_textures[OVERLAY_COUNT];
 
 	void UpdateSquareBorderVB( IDirect3DVertexBuffer9 *pVB, int x, int y, int w, int h, DWORD color ); // update the square indicator border vertex buffer (it's bigger than the solid/textured quad ones)
 	void UpdateVB( IDirect3DVertexBuffer9 *pVB, int x, int y, int w, int h, DWORD color ); // update given vertex buffer position/size/color
@@ -53,6 +54,9 @@ public:
 	bool DrawOverlay(ActiveOverlay active_overlay);
 	void UpdateOverlay();
 	void UseSwapChain(IDirect3DSwapChain9 *swap_);
+
+	std::array<void*, OVERLAY_COUNT> shared_handles;
+	ForgeEvent::LUID luid_storage, *luid = nullptr;
 };
 
 #endif
