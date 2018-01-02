@@ -554,7 +554,12 @@ static void CreateRestartThread()
 	});
 }
 
-C_EXPORT bool overlay_init(void (*hlog_)(const char *fmt, ...))
+
+bool (*d3d9_create_shared_tex)(UINT, UINT, DWORD, void**, void**) = nullptr;
+bool (*d3d9_luid)(void*) = nullptr;
+
+C_EXPORT bool overlay_init(void (*hlog_)(const char *fmt, ...),
+	decltype(d3d9_create_shared_tex) d3d9_create_shared_tex_, decltype(d3d9_luid) d3d9_luid_)
 {
 	hlog = hlog_;
 	hlog("Started overlay");
@@ -576,6 +581,9 @@ C_EXPORT bool overlay_init(void (*hlog_)(const char *fmt, ...))
 	CreateRestartThread();
 
 	StartCrucibleServer();
+
+	d3d9_create_shared_tex = d3d9_create_shared_tex_;
+	d3d9_luid = d3d9_luid_;
 
 	return true;
 }

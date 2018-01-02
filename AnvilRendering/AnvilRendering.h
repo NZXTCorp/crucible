@@ -174,3 +174,7 @@ struct SharedTextureDesc {
 };
 
 extern ProtectedObject<std::array<SharedTextureDesc, OVERLAY_COUNT>> incompatible_shared_textures;
+
+
+extern bool (*d3d9_create_shared_tex)(UINT, UINT, DWORD, void**, void**);
+extern bool (*d3d9_luid)(void*);
