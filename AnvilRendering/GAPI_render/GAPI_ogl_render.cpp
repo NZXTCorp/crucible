@@ -10,6 +10,10 @@
 //#include "TaksiDll.h"
 //#include "GAPI_Base.h"
 
+#include <d3d11.h>
+
+#include "IRefPtr.h"
+
 #include "../../Crucible/scopeguard.hpp"
 
 #include <array>
@@ -27,7 +31,19 @@
 	typedef WINGDIAPI b (APIENTRY * PFN##a) c;\
 	PFN##a s_##a = nullptr;
 #include "GAPI_OGL.TBL"
+
+GAPIOGLFUNC(wglDXSetResourceShareHandleNV, BOOL,   (void*, HANDLE))
+GAPIOGLFUNC(wglDXOpenDeviceNV,             HANDLE, (void*))
+GAPIOGLFUNC(wglDXCloseDeviceNV,            BOOL,   (HANDLE))
+GAPIOGLFUNC(wglDXRegisterObjectNV,         HANDLE, (HANDLE, void *, GLuint, GLenum, GLenum))
+GAPIOGLFUNC(wglDXUnregisterObjectNV,       BOOL,   (HANDLE, HANDLE))
+GAPIOGLFUNC(wglDXObjectAccessNV,           BOOL,   (HANDLE, GLenum))
+GAPIOGLFUNC(wglDXLockObjectsNV,            BOOL,   (HANDLE, GLint, HANDLE *))
+GAPIOGLFUNC(wglDXUnlockObjectsNV,          BOOL,   (HANDLE, GLint, HANDLE *))
 #undef GAPIOGLFUNC
+
+
+#define WGL_ACCESS_READ_ONLY_NV 0x0000
 
 PFNGLACTIVETEXTUREARBPROC s_glActiveTextureARB;
 PFNGLBINDBUFFERPROC s_glBindBuffer;
@@ -72,6 +88,16 @@ bool LoadOpenGLFunctions()
 		return false; \
 	}
 #include "GAPI_ogl.tbl"
+#undef GAPIOGLFUNC
+
+#define GAPIOGLFUNC(a,b,c) s_##a = (PFN##a) s_wglGetProcAddress(#a);
+	GAPIOGLFUNC(wglDXSetResourceShareHandleNV, BOOL,   (void*, HANDLE))
+	GAPIOGLFUNC(wglDXOpenDeviceNV,             HANDLE, (void*))
+	GAPIOGLFUNC(wglDXCloseDeviceNV,            BOOL,   (HANDLE))
+	GAPIOGLFUNC(wglDXRegisterObjectNV,         HANDLE, (HANDLE, void *, GLuint, GLenum, GLenum))
+	GAPIOGLFUNC(wglDXUnregisterObjectNV,       BOOL,   (HANDLE, HANDLE))
+	GAPIOGLFUNC(wglDXLockObjectsNV,            BOOL,   (HANDLE, GLint, HANDLE *))
+	GAPIOGLFUNC(wglDXUnlockObjectsNV,          BOOL,   (HANDLE, GLint, HANDLE *))
 #undef GAPIOGLFUNC
 
 	s_glActiveTextureARB = (PFNGLACTIVETEXTUREARBPROC)s_wglGetProcAddress("glActiveTextureARB");
@@ -631,6 +657,33 @@ static HGLRC render_context = nullptr;
 static TextureBufferingHelper<GLuint> overlay_textures[OVERLAY_COUNT];
 static bool overlay_tex_initialized = false;
 
+static struct SharedTexturesHelper {
+	IRefPtr<ID3D11Device> device;
+	IRefPtr<ID3D11DeviceContext> context;
+	HANDLE gl_device = nullptr;
+
+	struct {
+		IRefPtr<ID3D11Texture2D> d3d11_tex;
+		HANDLE gl_dxobj = nullptr;
+		GLuint tex = 0;
+	} shared_textures[OVERLAY_COUNT];
+
+	std::array<void*, OVERLAY_COUNT> shared_handles = {};
+	ForgeEvent::LUID luid_storage, *luid = nullptr;
+
+	~SharedTexturesHelper()
+	{
+		for (int i = 0; i < OVERLAY_COUNT; i++) {
+			if (s_wglDXUnregisterObjectNV && gl_device && shared_textures[i].gl_dxobj)
+				s_wglDXUnregisterObjectNV(gl_device, shared_textures[i].gl_dxobj);
+			s_glDeleteTextures(1, &shared_textures[i].tex);
+		}
+
+		if (s_wglDXCloseDeviceNV && gl_device)
+			s_wglDXCloseDeviceNV(gl_device);
+	}
+} *shared_tex_helper = nullptr;
+
 static bool in_free = false;
 void overlay_gl_free()
 {
@@ -671,6 +724,9 @@ void overlay_gl_free()
 		render.FreeRenderer();
 	}
 
+	delete shared_tex_helper;
+	shared_tex_helper = nullptr;
+
 	if (render_context && dc_valid)
 		s_wglDeleteContext(render_context);
 
@@ -694,6 +750,111 @@ void overlay_gl_free()
 
 	if (dc_valid && cur_context)
 		s_wglMakeCurrent(app_HDC, cur_context); // And then switch back the game's context.
+}
+
+static void init_shared_textures()
+{
+	if (!(s_wglDXSetResourceShareHandleNV &&
+		s_wglDXOpenDeviceNV &&
+		s_wglDXCloseDeviceNV &&
+		s_wglDXRegisterObjectNV &&
+		s_wglDXUnregisterObjectNV &&
+		s_wglDXLockObjectsNV &&
+		s_wglDXUnlockObjectsNV))
+		return;
+
+	auto helper = std::make_unique<SharedTexturesHelper>();
+
+	const static D3D_FEATURE_LEVEL feature_levels[] =
+	{
+		D3D_FEATURE_LEVEL_11_0,
+		D3D_FEATURE_LEVEL_10_1,
+		D3D_FEATURE_LEVEL_10_0,
+		D3D_FEATURE_LEVEL_9_3,
+	};
+
+	HRESULT res = S_OK;
+
+#define CHECK_HR(x) \
+	res = x; \
+	if (res != S_OK) \
+	{ \
+		hlog("init_shared_textures: " #x " failed (%#x)\n", res); \
+		return; \
+	}
+
+	{
+		auto dxgi = LoadLibraryA("dxgi.dll");
+		if (!dxgi)
+			return hlog("init_shared_textures: Failed to load dxgi.dll");
+
+		auto create_factory = reinterpret_cast<decltype(&CreateDXGIFactory1)>(GetProcAddress(dxgi, "CreateDXGIFactory1"));
+		if (!create_factory)
+			return hlog("init_shared_textures: Failed to load CreateDXGIFactory1");
+
+		auto d3d11 = LoadLibraryA("d3d11.dll");
+		if (!d3d11)
+			return hlog("init_shared_textures: Failed to load d3d11.dll");
+
+		auto create_device = reinterpret_cast<decltype(&D3D11CreateDevice)>(GetProcAddress(d3d11, "D3D11CreateDevice"));
+		if (!create_device)
+			return hlog("init_shared_textures: Failed to load D3D11CreateDevice");
+
+		IRefPtr<IDXGIFactory> factory;
+		CHECK_HR(create_factory(__uuidof(IDXGIFactory1), factory.get_PPtrV()));
+
+		IRefPtr<IDXGIAdapter> adapter;
+		CHECK_HR(factory->EnumAdapters(0, adapter.get_PPtr()));
+
+		DXGI_ADAPTER_DESC desc = { 0 };
+		CHECK_HR(adapter->GetDesc(&desc));
+
+		D3D_FEATURE_LEVEL level_used;
+		CHECK_HR(create_device(adapter, D3D_DRIVER_TYPE_UNKNOWN, nullptr, 0,
+			feature_levels, sizeof(feature_levels) / sizeof(feature_levels[0]), D3D11_SDK_VERSION, helper->device.get_PPtr(), &level_used, helper->context.get_PPtr()));
+
+		helper->luid_storage.low = desc.AdapterLuid.LowPart;
+		helper->luid_storage.high = desc.AdapterLuid.HighPart;
+
+		helper->luid = &helper->luid_storage;
+
+		helper->gl_device = s_wglDXOpenDeviceNV(helper->device.get_RefObj());
+		if (!helper->gl_device)
+			return hlog("init_shared_textures: wglDXOpenDeviceNV failed");
+	}
+
+	{
+		D3D11_TEXTURE2D_DESC desc = { 0 };
+		desc.Width = g_Proc.m_Stats.m_SizeWnd.cx;
+		desc.Height = g_Proc.m_Stats.m_SizeWnd.cy;
+		desc.MipLevels = 1;
+		desc.ArraySize = 1;
+		desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+		desc.SampleDesc.Count = 1;
+		desc.Usage = D3D11_USAGE_DEFAULT;
+		desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
+		desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+
+		for (int i = 0; i < OVERLAY_COUNT; i++) {
+			auto &shared_tex = helper->shared_textures[i];
+			CHECK_HR(helper->device->CreateTexture2D(&desc, nullptr, shared_tex.d3d11_tex.get_PPtr()));
+
+			IRefPtr<IDXGIResource> resource;
+			CHECK_HR(shared_tex.d3d11_tex->QueryInterface(resource.get_PPtr()));
+
+			CHECK_HR(resource->GetSharedHandle(&helper->shared_handles[i]));
+
+			s_glGenTextures(1, &shared_tex.tex);
+
+			shared_tex.gl_dxobj = s_wglDXRegisterObjectNV(helper->gl_device, shared_tex.d3d11_tex.get_RefObj(), shared_tex.tex, GL_TEXTURE_2D, WGL_ACCESS_READ_ONLY_NV);
+			if (!shared_tex.gl_dxobj)
+				return hlog("init_shared_textures: wglDXRegisterObjectNV failed");
+		}
+	}
+
+#undef CHECK_HR
+
+	shared_tex_helper = helper.release();
 }
 
 static void update_overlay()
@@ -729,7 +890,13 @@ static void update_overlay()
 		overlay_tex_initialized = true;
 	}
 
-	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++)
+	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++) {
+		if (shared_tex_helper && shared_tex_helper->shared_handles[i]) {
+			auto ist = incompatible_shared_textures.Lock();
+			if ((*ist)[i].shared_handle == shared_tex_helper->shared_handles[i] && (*ist)[i].luid == *shared_tex_helper->luid)
+				shared_tex_helper->shared_handles[i] = nullptr;
+		}
+
 		overlay_textures[i].Buffer([&](GLuint &tex)
 		{
 			auto vec = ReadNewFramebuffer(static_cast<ActiveOverlay>(i));
@@ -751,12 +918,13 @@ static void update_overlay()
 
 			return true;
 		});
+	}
 	s_glPopAttrib();
 }
 
 static bool show_browser_tex_(const ActiveOverlay &active_overlay)
 {
-	return overlay_textures[active_overlay].Draw([&](GLuint &tex)
+	auto draw_tex = [&](GLuint &tex)
 	{
 		int err = 0;
 		// opengl positioning is still a fucking nightmare, these might not even work properly with all indicators yet
@@ -838,7 +1006,17 @@ static bool show_browser_tex_(const ActiveOverlay &active_overlay)
 		s_glPopAttrib();
 
 		return true;
-	});
+	};
+
+	if (shared_tex_helper && shared_tex_helper->shared_handles[active_overlay]) {
+		auto &shared_tex = shared_tex_helper->shared_textures[active_overlay];
+		s_wglDXLockObjectsNV(shared_tex_helper->gl_device, 1, &shared_tex.gl_dxobj);
+		auto res = draw_tex(shared_tex.tex);
+		s_wglDXUnlockObjectsNV(shared_tex_helper->gl_device, 1, &shared_tex.gl_dxobj);
+		return res;
+	}
+
+	return overlay_textures[active_overlay].Draw(draw_tex);
 }
 
 static bool show_browser_tex(const ActiveOverlay &active_overlay = ::active_overlay)
@@ -870,13 +1048,15 @@ C_EXPORT void overlay_draw_gl(HDC hdc)
 		s_wglMakeCurrent(hdc, cur_context);
 	};
 
-	if (!initialized)
-		initialized = render.InitRenderer(indicatorManager);
-
 	get_window_size(hdc, &g_Proc.m_Stats.m_SizeWnd.cx, &g_Proc.m_Stats.m_SizeWnd.cy);
 
+	if (!initialized) {
+		initialized = render.InitRenderer(indicatorManager);
+		init_shared_textures();
+	}
+
 	if (!framebuffer_server_started) {
-		StartFramebufferServer();
+		StartFramebufferServer(shared_tex_helper ? &shared_tex_helper->shared_handles : nullptr, shared_tex_helper ? shared_tex_helper->luid : nullptr);
 		framebuffer_server_started = true;
 	}
 
