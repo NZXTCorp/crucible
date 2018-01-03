@@ -157,13 +157,21 @@ DECLARE_HOOK(GetClipCursor, [](LPRECT lpRect) -> BOOL
 });
 
 static void UpdateMessagePoint(MSG *msg);
+static bool ShouldFilterMessage(UINT msg);
 static bool HandlePeekMessage(LPMSG lpMsg, UINT wRemoveMsg);
 DECLARE_HOOK(PeekMessageA, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) -> BOOL
 {
 	BOOL res = false;
-	while ((res = s_HookPeekMessageA.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg)))
-		if (!HandlePeekMessage(lpMsg, wRemoveMsg))
+	while ((res = s_HookPeekMessageA.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg))) {
+		auto actual_remove_msg = wRemoveMsg;
+		if (lpMsg && !(wRemoveMsg & PM_REMOVE) && ShouldFilterMessage(lpMsg->message)) {
+			actual_remove_msg |= PM_REMOVE;
+			if (!(res = s_HookPeekMessageA.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, actual_remove_msg)))
+				break;
+		}
+		if (!HandlePeekMessage(lpMsg, actual_remove_msg))
 			break;
+	}
 
 	UpdateMessagePoint(lpMsg);
 	return res;
@@ -172,9 +180,16 @@ DECLARE_HOOK(PeekMessageA, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT w
 DECLARE_HOOK(PeekMessageW, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) -> BOOL
 {
 	BOOL res = false;
-	while ((res = s_HookPeekMessageW.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg)))
-		if (!HandlePeekMessage(lpMsg, wRemoveMsg))
+	while ((res = s_HookPeekMessageW.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg))) {
+		auto actual_remove_msg = wRemoveMsg;
+		if (lpMsg && !(wRemoveMsg & PM_REMOVE) && ShouldFilterMessage(lpMsg->message)) {
+			actual_remove_msg |= PM_REMOVE;
+			if (!(res = s_HookPeekMessageW.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, actual_remove_msg)))
+				break;
+		}
+		if (!HandlePeekMessage(lpMsg, actual_remove_msg))
 			break;
+	}
 
 	UpdateMessagePoint(lpMsg);
 	return res;
@@ -789,6 +804,41 @@ bool SendBeginQuickSelectTimeout(uint32_t timeout_ms)
 
 	SendMessage(g_Proc.m_Stats.m_hWndCap, BEGIN_QUICK_SELECT_TIMEOUT, timeout_ms, 0);
 	return true;
+}
+
+static bool ShouldFilterMessage(UINT msg)
+{
+	switch (msg) {
+	case WM_MOUSEMOVE:
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONUP:
+	case WM_LBUTTONDBLCLK:
+	case WM_RBUTTONDOWN:
+	case WM_RBUTTONUP:
+	case WM_RBUTTONDBLCLK:
+	case WM_MBUTTONDOWN:
+	case WM_MBUTTONUP:
+	case WM_MBUTTONDBLCLK:
+	case WM_MOUSEWHEEL:
+	case WM_XBUTTONDOWN:
+	case WM_XBUTTONUP:
+	case WM_XBUTTONDBLCLK:
+	case WM_KEYDOWN:
+	case WM_SYSKEYDOWN:
+	case WM_KEYUP:
+	case WM_SYSKEYUP:
+	case WM_CHAR:
+	case WM_SETCURSOR:
+	case DISMISS_OVERLAY:
+	case STOP_QUICK_SELECT:
+	case BEGIN_QUICK_SELECT_TIMEOUT:
+#ifdef HOOK_REGISTER_RAW_DEVICES
+	case WM_INPUT:
+#endif
+		return g_bBrowserShowing;
+	}
+
+	return false;
 }
 
 extern bool quick_selecting;
