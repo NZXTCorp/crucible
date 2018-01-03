@@ -822,7 +822,7 @@ void DX10Renderer::UpdateOverlay()
 
 
 using namespace std;
-static unique_ptr<DX10Renderer> renderer;
+static DX10Renderer *renderer = nullptr;
 static HWND window = nullptr;
 
 static DX10Renderer *get_renderer(IDXGISwapChain *swap)
@@ -845,19 +845,20 @@ static DX10Renderer *get_renderer(IDXGISwapChain *swap)
 
 		D3D10_LoadFunctions();
 
-		renderer.reset(new DX10Renderer{ dev }); //release dev?
+		renderer = new DX10Renderer{ dev }; //release dev?
 		renderer->InitRenderer(swap, indicatorManager);
 
 		StartFramebufferServer();
 	}
 
-	return renderer.get();
+	return renderer;
 }
 
 
 void overlay_d3d10_free()
 {
-	renderer.reset();
+	delete renderer;
+	renderer = nullptr;
 }
 
 static bool show_browser_tex(IDXGISwapChain *swap, const ActiveOverlay &active_overlay = ::active_overlay)
