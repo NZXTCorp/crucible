@@ -156,6 +156,7 @@ DECLARE_HOOK(GetClipCursor, [](LPRECT lpRect) -> BOOL
 	return true;
 });
 
+static void UpdateMessagePoint(MSG *msg);
 static bool HandlePeekMessage(LPMSG lpMsg, UINT wRemoveMsg);
 DECLARE_HOOK(PeekMessageA, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg) -> BOOL
 {
@@ -163,6 +164,8 @@ DECLARE_HOOK(PeekMessageA, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT w
 	while ((res = s_HookPeekMessageA.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg)))
 		if (!HandlePeekMessage(lpMsg, wRemoveMsg))
 			break;
+
+	UpdateMessagePoint(lpMsg);
 	return res;
 });
 
@@ -172,6 +175,8 @@ DECLARE_HOOK(PeekMessageW, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT w
 	while ((res = s_HookPeekMessageW.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg)))
 		if (!HandlePeekMessage(lpMsg, wRemoveMsg))
 			break;
+
+	UpdateMessagePoint(lpMsg);
 	return res;
 });
 
@@ -182,6 +187,8 @@ DECLARE_HOOK(GetMessageA, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wM
 	while ((res = s_HookGetMessageA.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax)))
 		if (!HandleGetMessage(lpMsg))
 			break;
+
+	UpdateMessagePoint(lpMsg);
 	return res;
 });
 
@@ -191,6 +198,8 @@ DECLARE_HOOK(GetMessageW, [](LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wM
 	while ((res = s_HookGetMessageW.Call(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax)))
 		if (!HandleGetMessage(lpMsg))
 			break;
+
+	UpdateMessagePoint(lpMsg);
 	return res;
 });
 
@@ -353,6 +362,14 @@ SHORT WINAPI Hook_GetAsyncKeyState( int vKey )
 
 static POINT saved_mouse_pos;
 static bool mouse_pos_saved = false;
+
+static void UpdateMessagePoint(MSG *msg)
+{
+	if (!msg || !g_bBrowserShowing || !mouse_pos_saved)
+		return;
+
+	msg->pt = saved_mouse_pos;
+}
 
 BOOL WINAPI Hook_GetCursorPos( LPPOINT lpPoint )
 {
