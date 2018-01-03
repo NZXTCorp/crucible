@@ -337,6 +337,23 @@ bool DX10Renderer::InitRenderer( IDXGISwapChain *pSwapChain, IndicatorManager &m
 	#define CHEK(hr, a) if ( FAILED(hr) ) { LOG_MSG( "InitRenderer: %s failed with result 0x%08x" LOG_CR, a, hr ); return false; }
 	HRESULT hRes;
 
+	[&]
+	{
+		IRefPtr<IDXGIDevice> dev;
+		CHEK(m_pDevice->QueryInterface(dev.get_PPtr()), "m_pDevice->QueryInterface");
+
+		IRefPtr<IDXGIAdapter> adapter;
+		CHEK(dev->GetAdapter(adapter.get_PPtr()), "dev->GetAdapter");
+
+		DXGI_ADAPTER_DESC desc;
+		CHEK(adapter->GetDesc(&desc), "adapter->GetDesc");
+
+		luid_storage.low = desc.AdapterLuid.LowPart;
+		luid_storage.high = desc.AdapterLuid.HighPart;
+		luid = &luid_storage;
+		return true;
+	}();
+
 	int w = g_Proc.m_Stats.m_SizeWnd.cx, h = g_Proc.m_Stats.m_SizeWnd.cy;
 
 	// set up a rasterizer state we'll use
@@ -388,6 +405,16 @@ bool DX10Renderer::InitRenderer( IDXGISwapChain *pSwapChain, IndicatorManager &m
 	desc.Usage = D3D10_USAGE_DYNAMIC;
 	desc.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
 
+	D3D10_TEXTURE2D_DESC shared_desc{};
+	shared_desc.Width = g_Proc.m_Stats.m_SizeWnd.cx;
+	shared_desc.Height = g_Proc.m_Stats.m_SizeWnd.cy;
+	shared_desc.ArraySize = 1;
+	shared_desc.MipLevels = 1;
+	shared_desc.SampleDesc.Count = 1;
+	shared_desc.BindFlags = D3D10_BIND_SHADER_RESOURCE | D3D10_BIND_RENDER_TARGET;
+	shared_desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	shared_desc.MiscFlags = D3D10_RESOURCE_MISC_SHARED;
+
 	for (uint32_t a = OVERLAY_HIGHLIGHTER; a < OVERLAY_COUNT; a++) {
 		overlay_textures[a].Apply([&](D3D10Texture &tex)
 		{
@@ -403,6 +430,28 @@ bool DX10Renderer::InitRenderer( IDXGISwapChain *pSwapChain, IndicatorManager &m
 			if (FAILED(hRes))
 				LOG_WARN("InitIndicatorTextures: couldn't create overlay shader resource view! 0x%08x" LOG_CR, hRes);
 		});
+
+		auto &shared_tex = shared_overlay_textures[a];
+
+		HRESULT res;
+		if (FAILED(res = m_pDevice->CreateTexture2D(&shared_desc, nullptr, IREF_GETPPTR(shared_tex.tex, ID3D10Texture2D)))) {
+			hlog("InitRenderer: couldn't create shared overlay texture %#x", res);
+			continue;
+		}
+
+		if (FAILED(res = m_pDevice->CreateShaderResourceView(shared_tex.tex, nullptr, IREF_GETPPTR(shared_tex.res, ID3D10ShaderResourceView)))) {
+			hlog("InitRenderer: couldn't create shared overlay resource view %#x", res);
+			continue;
+		}
+
+		IRefPtr<IDXGIResource> dxgi_res;
+		if (FAILED(res = shared_tex.tex->QueryInterface(dxgi_res.get_PPtr()))) {
+			hlog("InitRenderer: failed to query IDXGIResource %#x", res);
+			continue;
+		}
+
+		if (FAILED(res = dxgi_res->GetSharedHandle(&shared_handles[a])))
+			hlog("InitRenderer: failed to get shared handle %#x", res);
 	}
 
 	// vertex buffers should go elsewhere?
@@ -697,7 +746,7 @@ void DX10Renderer::DrawIndicator( TAKSI_INDICATE_TYPE eIndicate )
 
 bool DX10Renderer::DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_overlay)
 {
-	return overlay_textures[active_overlay].Draw([&](D3D10Texture &tex)
+	auto draw_tex = [&](D3D10Texture &tex)
 	{
 		D3D10_VIEWPORT vp;
 		vp.TopLeftX = 0;
@@ -781,7 +830,12 @@ bool DX10Renderer::DrawOverlay(IDXGISwapChain *pSwapChain, ActiveOverlay active_
 		pOldRenderTargetView.ReleaseRefObj();
 		pOldInputLayout.ReleaseRefObj();
 		return true;
-	});
+	};
+
+	if (shared_handles[active_overlay])
+		return draw_tex(shared_overlay_textures[active_overlay]);
+
+	return overlay_textures[active_overlay].Draw(draw_tex);
 }
 
 void DX10Renderer::UpdateOverlay()
@@ -791,7 +845,13 @@ void DX10Renderer::UpdateOverlay()
 		indicatorManager.updateTextures = false;
 	}
 
-	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++)
+	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++) {
+		if (shared_handles[i] && luid) {
+			auto ist = incompatible_shared_textures.Lock();
+			if ((*ist)[i].shared_handle == shared_handles[i] && (*ist)[i].luid == *luid)
+				shared_handles[i] = nullptr;
+		}
+
 		overlay_textures[i].Buffer([&](D3D10Texture &tex)
 		{
 			auto vec = ReadNewFramebuffer(static_cast<ActiveOverlay>(i));
@@ -818,6 +878,7 @@ void DX10Renderer::UpdateOverlay()
 
 			return true;
 		});
+	}
 }
 
 
@@ -848,7 +909,7 @@ static DX10Renderer *get_renderer(IDXGISwapChain *swap)
 		renderer = new DX10Renderer{ dev }; //release dev?
 		renderer->InitRenderer(swap, indicatorManager);
 
-		StartFramebufferServer();
+		StartFramebufferServer(&renderer->shared_handles, renderer->luid);
 	}
 
 	return renderer;
