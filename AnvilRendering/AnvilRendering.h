@@ -165,7 +165,8 @@ namespace ForgeEvent
 }
 
 std::vector<uint8_t> *ReadNewFramebuffer(ActiveOverlay ov);
-void StartFramebufferServer(std::array<void *, OVERLAY_COUNT> *shared_handles = nullptr, ForgeEvent::LUID *luid = nullptr);
+void StartFramebufferServer(std::array<void *, OVERLAY_COUNT> *shared_handles, ForgeEvent::LUID *luid);
+void StartFramebufferServer();
 
 struct SharedTextureDesc {
 	void *shared_handle = nullptr;

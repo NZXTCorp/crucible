@@ -154,6 +154,17 @@ static array<ForgeEvent::BrowserConnectionDescription, OVERLAY_COUNT> browsers;
 void StartFramebufferServer(array<void *, OVERLAY_COUNT> *shared_handles, ForgeEvent::LUID *luid)
 {
 	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++) {
+		browsers[i].shared_handle = shared_handles ? (*shared_handles)[i] : nullptr;
+		ForgeEvent::LUID empty{};
+		browsers[i].luid = luid ? *luid : empty;
+	}
+
+	StartFramebufferServer();
+}
+
+void StartFramebufferServer()
+{
+	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++) {
 		browsers[i].name = name_for_overlay[i];
 
 		auto fbs = forgeFramebufferServer[i].Lock();
@@ -164,10 +175,6 @@ void StartFramebufferServer(array<void *, OVERLAY_COUNT> *shared_handles, ForgeE
 			fbs->Start();
 
 		browsers[i].server = fbs->name;
-		if (shared_handles && luid) {
-			browsers[i].shared_handle = (*shared_handles)[i];
-			browsers[i].luid = *luid;
-		}
 	}
 
 	ForgeEvent::InitBrowser(browsers, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
