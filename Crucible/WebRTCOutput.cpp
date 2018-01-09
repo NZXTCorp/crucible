@@ -8,7 +8,7 @@
 #include <webrtc/modules/audio_device/include/audio_device.h>
 #include <webrtc/modules/video_coding/include/video_error_codes.h>
 #include <webrtc/pc/localaudiosource.h>
-#include <webrtc/video_encoder.h>
+#include <webrtc/api/video_codecs/video_encoder.h>
 
 #include <array>
 #include <memory>
@@ -655,9 +655,9 @@ namespace {
 			};
 
 			if (wants.max_pixel_count || wants.target_pixel_count) {
-				auto max = wants.max_pixel_count.value_or(-1);
+				auto max = wants.max_pixel_count;
 				auto target = wants.target_pixel_count.value_or(-1);
-				auto max_res = compute_res(wants.max_pixel_count).value_or(OutputResolution{ 0, 0 });
+				auto max_res = compute_res(rtc::Optional<int>{wants.max_pixel_count}).value_or(OutputResolution{ 0, 0 });
 				auto target_res = compute_res(wants.target_pixel_count).value_or(OutputResolution{ 0, 0 });
 				info("Wants changed: {max: %d (%dx%d), target: %d (%dx%d)}",
 					max, max_res.width, max_res.height,
@@ -1345,7 +1345,8 @@ namespace {
 
 		signal_thread.Run([&, init_signal, ready_signal, stream_label]
 		{
-			rtc::Win32Thread rtc_thread;
+			rtc::Win32SocketServer ss;
+			rtc::Win32Thread rtc_thread(&ss);
 			rtc::ThreadManager::Instance()->SetCurrentThread(&rtc_thread);
 
 			{

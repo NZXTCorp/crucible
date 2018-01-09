@@ -72,8 +72,8 @@
     <LocalDebuggerCommandArguments>-standalone</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug+WebRTC|Win32'">
-    <IncludePath>$(OBSLib);$(Boost);$(ForgeLib)\libwebrtc\include;$(DepsPath32)\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(DepsPath32)\bin;$(ForgeLib)\libwebrtc\lib\Debug;$(OBSBuild)\Debug;$(Boost)\stage\lib;$(OBSBuild)\..\deps\ipc-util\Debug;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(OBSLib);$(Boost);$(ForgeLib)\libwebrtc-60\include;$(DepsPath32)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(DepsPath32)\bin;$(ForgeLib)\libwebrtc-60\lib\Debug;$(OBSBuild)\Debug;$(Boost)\stage\lib;$(OBSBuild)\..\deps\ipc-util\Debug;$(LibraryPath)</LibraryPath>
     <LocalDebuggerEnvironment>PATH=$(PATH);$(OBSBuild)\..\rundir\Debug\bin\32bit\</LocalDebuggerEnvironment>
     <LocalDebuggerCommandArguments>-standalone</LocalDebuggerCommandArguments>
     <OutDir>$(SolutionDir)\Debug\</OutDir>
@@ -85,8 +85,8 @@
     <LocalDebuggerCommandArguments>-standalone</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release+WebRTC|Win32'">
-    <IncludePath>$(OBSLib);$(Boost);$(ForgeLib)\libwebrtc\include;$(DepsPath32)\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(DepsPath32)\bin;$(ForgeLib)\libwebrtc\lib\RelWithDebInfo;$(OBSBuild)\RelWithDebInfo;$(Boost)\stage\lib;$(OBSBuild)\..\deps\ipc-util\RelWithDebInfo;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(OBSLib);$(Boost);$(ForgeLib)\libwebrtc-60\include;$(DepsPath32)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(DepsPath32)\bin;$(ForgeLib)\libwebrtc-60\lib\RelWithDebInfo;$(OBSBuild)\RelWithDebInfo;$(Boost)\stage\lib;$(OBSBuild)\..\deps\ipc-util\RelWithDebInfo;$(LibraryPath)</LibraryPath>
     <LocalDebuggerEnvironment>PATH=$(PATH);$(OBSBuild)\..\rundir\RelWithDebInfo\bin\32bit\</LocalDebuggerEnvironment>
     <LocalDebuggerCommandArguments>-standalone</LocalDebuggerCommandArguments>
     <OutDir>$(SolutionDir)\Release\</OutDir>

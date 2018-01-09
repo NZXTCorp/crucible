@@ -7,7 +7,7 @@
 #include <webrtc/modules/include/module_common_types.h>
 #include <webrtc/modules/video_coding/include/video_codec_interface.h>
 #include <webrtc/modules/video_coding/include/video_error_codes.h>
-#include <webrtc/video_encoder.h>
+#include <webrtc/api/video_codecs/video_encoder.h>>
 
 #include "NVENC/dynlink_cuda.h"
 #include "NVENC/nvEncodeAPI.h"
