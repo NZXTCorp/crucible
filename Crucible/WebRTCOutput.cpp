@@ -601,10 +601,16 @@ namespace {
 
 		ProtectedObject<rtc::Optional<OutputResolution>> max_res;
 
+		std::array<rtc::scoped_refptr<rtc::RefCountedObject<RTCFrameBuffer>>, 16> buffers; // same buffer size as libobs cached frames
+		rtc::scoped_refptr<rtc::RefCountedObject<RTCFrameBuffer>> *last_buffer = nullptr;
+
 		RTCVideoSource()
 		{
 			monitor.reset(reinterpret_cast<void*>(1), [](void *) {});
 			self = shared_ptr<RTCVideoSource>(monitor, this);
+
+			for (auto &buffer : buffers)
+				buffer = new rtc::RefCountedObject<RTCFrameBuffer>();
 		}
 
 		RTCVideoSource &operator=(const RTCVideoSource &) = delete;
@@ -618,27 +624,51 @@ namespace {
 			return true;
 		}
 
+		unsigned frames_duplicated = 0;
 		void ReceiveVideo(video_data *data)
 		{
 			if (!have_video_info || !sink)
 				return;
 
-			rtc::scoped_refptr<RTCFrameBuffer> buffer = new rtc::RefCountedObject<RTCFrameBuffer>();
 			if (!data->data[0] || !data->data[1] || !data->data[2])
 				return;
 
-			buffer->data_y.assign(data->data[0], data->data[0] + data->linesize[0] * height);
-			buffer->data_u.assign(data->data[1], data->data[1] + data->linesize[1] * height / 2);
-			buffer->data_v.assign(data->data[2], data->data[2] + data->linesize[2] * height / 2);
+			bool found_buffer = false;
+			for (auto &buffer : buffers)
+				if (buffer->HasOneRef()) {
+					buffer->data_y.assign(data->data[0], data->data[0] + data->linesize[0] * height);
+					buffer->data_u.assign(data->data[1], data->data[1] + data->linesize[1] * height / 2);
+					buffer->data_v.assign(data->data[2], data->data[2] + data->linesize[2] * height / 2);
 
-			buffer->width_ = width;
-			buffer->height_ = height;
+					buffer->width_ = width;
+					buffer->height_ = height;
 
-			buffer->stride_y = data->linesize[0];
-			buffer->stride_u = data->linesize[1];
-			buffer->stride_v = data->linesize[2];
+					buffer->stride_y = data->linesize[0];
+					buffer->stride_u = data->linesize[1];
+					buffer->stride_v = data->linesize[2];
 
-			webrtc::VideoFrame frame(buffer, webrtc::kVideoRotation_0, data->timestamp / 1000);
+					last_buffer = &buffer;
+					found_buffer = true;
+					break;
+				}
+
+			if (!found_buffer && !frames_duplicated)
+				warn("Could not find free framebuffer, duplicating last frame");
+
+			if (!found_buffer)
+				frames_duplicated += 1;
+
+			if (found_buffer && frames_duplicated > 1) {
+				info("Last frame was duplicated %u times", frames_duplicated);
+				frames_duplicated = 0;
+			}
+
+			if (!last_buffer) {
+				error("Could not find free framebuffer with last_buffer unset");
+				return;
+			}
+
+			webrtc::VideoFrame frame(*last_buffer, webrtc::kVideoRotation_0, data->timestamp / 1000);
 			sink->OnFrame(frame);
 		}
 
