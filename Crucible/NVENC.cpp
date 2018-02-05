@@ -21,6 +21,8 @@
 #include <utility>
 #include <vector>
 
+#include "ThreadTools.hpp"
+
 #include <boost/optional.hpp>
 
 #include <boost/algorithm/string/case_conv.hpp>
@@ -383,6 +385,8 @@ namespace {
 
 		NV_ENC_OUTPUT_PTR output = nullptr;
 		NV_ENC_BUFFER_FORMAT format = NV_ENC_BUFFER_FORMAT_NV12_PL;
+
+		unique_ptr<void, HandleDeleter> event;
 	};
 
 	struct NVENCEncoder : webrtc::VideoEncoder {
@@ -503,25 +507,49 @@ namespace {
 				rc_mode = NV_ENC_PARAMS_RC_CBR_LOWDELAY_HQ;
 				init_params.presetGUID = NV_ENC_PRESET_LOW_LATENCY_DEFAULT_GUID;
 
+				bool allow_async = true;
 
-				bool have_device = false;
-				int device = 0;
-				for (; device < device_count; device++)
-					if (OpenDevice(device)) {
-						have_device = true;
-						break;
+				auto maybe_retry_without_async = [&]
+				{
+					if (!init_params.enableEncodeAsync)
+						return false;
+					init_params.enableEncodeAsync = false;
+					allow_async = false;
+					warn("Initialization failed with ASYNC_ENCODE enabled, retrying");
+					Release();
+					return true;
+				};
+
+				do {
+					bool have_device = false;
+					int device = 0;
+					for (; device < device_count; device++)
+						if (OpenDevice(device, allow_async)) {
+							have_device = true;
+							break;
+						}
+
+					if (!have_device) {
+						warn("No valid device found");
+						return WEBRTC_VIDEO_CODEC_ERROR;
 					}
 
-				if (!have_device) {
-					warn("No valid device found");
-					return WEBRTC_VIDEO_CODEC_ERROR;
-				}
+					if (!InitEncoder(max_payload_size)) {
+						if (maybe_retry_without_async())
+							continue;
 
-				if (!InitEncoder(max_payload_size))
-					return WEBRTC_VIDEO_CODEC_ERROR;
+						return WEBRTC_VIDEO_CODEC_ERROR;
+					}
 
-				if (!InitSurfaces())
-					return WEBRTC_VIDEO_CODEC_ERROR;
+					if (!InitSurfaces()) {
+						if (maybe_retry_without_async())
+							continue;
+
+						return WEBRTC_VIDEO_CODEC_ERROR;
+					}
+
+					break;
+				} while (true);
 
 
 				{
@@ -619,6 +647,13 @@ namespace {
 				funcs.nvEncEncodePicture(nv_encoder, &pic);
 
 				for (auto &surface : surfaces) {
+					if (funcs.nvEncUnregisterAsyncEvent && surface.event) {
+						NV_ENC_EVENT_PARAMS evt_params{};
+						evt_params.version = NV_ENC_EVENT_PARAMS_VER;
+						evt_params.completionEvent = surface.event.get();
+						funcs.nvEncUnregisterAsyncEvent(nv_encoder, &evt_params);
+					}
+
 					if (funcs.nvEncDestroyInputBuffer && surface.input)
 						funcs.nvEncDestroyInputBuffer(nv_encoder, surface.input);
 
@@ -684,7 +719,7 @@ namespace {
 			return true;
 		}
 
-		bool OpenDevice(int idx)
+		bool OpenDevice(int idx, bool allow_async)
 		{
 			CUDAResult res(cuda);
 
@@ -729,7 +764,7 @@ namespace {
 			if (res = cuda->cuCtxPopCurrent(&current))
 				return cuda_error("cuCtxPopCurrent");
 
-			auto nvenc_supported = OpenSession() && CheckCodec() && CheckCapabilities();
+			auto nvenc_supported = OpenSession() && CheckCodec() && CheckCapabilities(allow_async);
 
 			if (!log_gpu_info(nvenc_supported))
 				return false;
@@ -785,7 +820,7 @@ namespace {
 			return true;
 		}
 
-		bool CheckCapabilities()
+		bool CheckCapabilities(bool allow_async)
 		{
 			NV_ENC_CAPS_PARAM params = { 0 };
 			params.version = NV_ENC_CAPS_PARAM_VER;
@@ -835,6 +870,15 @@ namespace {
 				return false;
 			}))
 				return false;
+
+			if (allow_async) {
+				check_cap(NV_ENC_CAPS_ASYNC_ENCODE_SUPPORT, [&]
+				{
+					info("ASYNC_ENCODE %ssupported", val ? "" : "not ");
+					init_params.enableEncodeAsync = val;
+					return true;
+				});
+			}
 
 			return true;
 		}
@@ -948,6 +992,8 @@ namespace {
 			auto width = init_params.encodeWidth;
 			auto height = init_params.encodeHeight;
 
+			NV_ENC_EVENT_PARAMS evt_params{};
+			evt_params.version = NV_ENC_EVENT_PARAMS_VER;
 
 			for (auto &surface : surfaces) {
 				{
@@ -957,6 +1003,16 @@ namespace {
 					alloc_in.width = (width + 31) & ~31;
 					alloc_in.height = (height + 31) & ~31;
 					alloc_in.bufferFmt = surface.format;
+
+					if (init_params.enableEncodeAsync) {
+						surface.event.reset(CreateEvent(nullptr, false, false, nullptr));
+
+						evt_params.completionEvent = surface.event.get();
+						if (NVENCStatus sts = funcs.nvEncRegisterAsyncEvent(nv_encoder, &evt_params)) {
+							sts.Warn(this, "nvEncRegisterAsyncEvent");
+							return false;
+						}
+					}
 
 					if (NVENCStatus sts = funcs.nvEncCreateInputBuffer(nv_encoder, &alloc_in)) {
 						sts.Warn(this, "nvEncCreateInputBuffer");
@@ -1041,10 +1097,20 @@ namespace {
 
 		void ProcessOutput()
 		{
-			while (!ready.empty()) {
-				auto out = ready.front();
-				ready.pop_front();
-				idle.push_back(out);
+			while ((init_params.enableEncodeAsync && !processing.empty()) || !ready.empty()) {
+				Surface *out;
+				
+				if (init_params.enableEncodeAsync) {
+					out = processing.front();
+					if (WaitForSingleObject(out->event.get(), idle.empty() ? INFINITE : 0) != WAIT_OBJECT_0)
+						return;
+					processing.pop_front();
+					idle.push_back(out);
+				} else {
+					out = ready.front();
+					ready.pop_front();
+					idle.push_back(out);
+				}
 
 				auto encoded_image = encoded_images.front();
 				encoded_images.pop_front();
@@ -1109,6 +1175,9 @@ namespace {
 
 				bool encode_success = false; // as opposed to NEED_MORE_INPUT
 
+				if (idle.empty() && init_params.enableEncodeAsync)
+					ProcessOutput();
+
 				if (idle.empty()) {
 					error("Encode: no idle surfaces while trying to encode frame");
 					return false;
@@ -1159,6 +1228,9 @@ namespace {
 				pic.codecPicParams.h264PicParams.sliceMode = encode_config.encodeCodecConfig.h264Config.sliceMode;
 				pic.codecPicParams.h264PicParams.sliceModeData = encode_config.encodeCodecConfig.h264Config.sliceModeData;
 
+				if (init_params.enableEncodeAsync)
+					pic.completionEvent = input->event.get();
+
 				if (NVENCStatus sts = funcs.nvEncEncodePicture(nv_encoder, &pic)) {
 					if (sts.sts != NV_ENC_ERR_NEED_MORE_INPUT) {
 						sts.Error(this, "nvEncEncodePicture");
@@ -1185,7 +1257,7 @@ namespace {
 				if (!pop_context())
 					return WEBRTC_VIDEO_CODEC_ERROR;
 
-				if (encode_success) {
+				if (encode_success && !init_params.enableEncodeAsync) {
 					ready.insert(end(ready), begin(processing), end(processing));
 					processing.clear();
 				}
