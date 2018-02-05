@@ -91,6 +91,11 @@
     <LocalDebuggerCommandArguments>-standalone</LocalDebuggerCommandArguments>
     <OutDir>$(SolutionDir)\Release\</OutDir>
   </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(CONFIG_DIRECTORY_NAME)'!=''">
+      <ClCompile>
+          <PreprocessorDefinitions>CONFIG_DIRECTORY_NAME=$(CONFIG_DIRECTORY_NAME);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      </ClCompile>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>

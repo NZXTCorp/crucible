@@ -5394,6 +5394,10 @@ static ProcessHandle HandleCLIArgs(HANDLE &start_event)
 	return ProcessHandle{ OpenProcess(SYNCHRONIZE, false, pid) };
 }
 
+#ifndef CONFIG_DIRECTORY_NAME
+#define CONFIG_DIRECTORY_NAME "Forge"
+#endif
+
 static DStr GetConfigDirectory(const char *subdir)
 {
 	wchar_t *fpath;
@@ -5404,7 +5408,7 @@ static DStr GetConfigDirectory(const char *subdir)
 
 	CoTaskMemFree(fpath);
 
-	dstr_catf(path, "/Forge/%s", subdir);
+	dstr_catf(path, "/" CONFIG_DIRECTORY_NAME "/%s", subdir);
 
 	return path;
 }
