@@ -13,6 +13,8 @@
 #include <utility>
 #include <vector>
 
+#include "../ThreadTools.hpp"
+
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -182,6 +184,8 @@ namespace {
 
 		NV_ENC_OUTPUT_PTR output = nullptr;
 		NV_ENC_BUFFER_FORMAT format = NV_ENC_BUFFER_FORMAT_NV12_PL;
+
+		unique_ptr<void, HandleDeleter> event;
 	};
 
 	struct Encoder {
@@ -258,6 +262,11 @@ namespace {
 
 		~Encoder()
 		{
+			Release();
+		}
+
+		void Release()
+		{
 			if (!nvenc)
 				return;
 
@@ -287,6 +296,13 @@ namespace {
 				funcs.nvEncEncodePicture(nv_encoder, &pic);
 
 				for (auto &surface : surfaces) {
+					if (funcs.nvEncUnregisterAsyncEvent && surface.event) {
+						NV_ENC_EVENT_PARAMS evt_params{};
+						evt_params.version = NV_ENC_EVENT_PARAMS_VER;
+						evt_params.completionEvent = surface.event.get();
+						funcs.nvEncUnregisterAsyncEvent(nv_encoder, &evt_params);
+					}
+
 					if (funcs.nvEncDestroyInputBuffer && surface.input)
 						funcs.nvEncDestroyInputBuffer(nv_encoder, surface.input);
 
@@ -575,7 +591,7 @@ static bool CheckCodec(Encoder *enc)
 	return true;
 }
 
-static bool CheckCapabilities(Encoder *enc)
+static bool CheckCapabilities(Encoder *enc, bool allow_async)
 {
 	NV_ENC_CAPS_PARAM params = { 0 };
 	params.version = NV_ENC_CAPS_PARAM_VER;
@@ -642,10 +658,19 @@ static bool CheckCapabilities(Encoder *enc)
 	}))
 		return false;
 
+	if (allow_async) {
+		check_cap(NV_ENC_CAPS_ASYNC_ENCODE_SUPPORT, [&]
+		{
+			info("ASYNC_ENCODE %ssupported", val ? "" : "not ");
+			enc->init_params.enableEncodeAsync = val;
+			return true;
+		});
+	}
+
 	return true;
 }
 
-static bool OpenDevice(Encoder *enc, int idx)
+static bool OpenDevice(Encoder *enc, int idx, bool allow_async)
 {
 	CUDAResult res(enc->cuda);
 
@@ -690,7 +715,7 @@ static bool OpenDevice(Encoder *enc, int idx)
 	if (res = enc->cuda->cuCtxPopCurrent(&current))
 		return cuda_error("cuCtxPopCurrent");
 
-	auto nvenc_supported = OpenSession(enc) && CheckCodec(enc) && CheckCapabilities(enc);
+	auto nvenc_supported = OpenSession(enc) && CheckCodec(enc) && CheckCapabilities(enc, allow_async);
 
 	if (!log_gpu_info(nvenc_supported))
 		return false;
@@ -789,6 +814,9 @@ static bool InitSurfaces(Encoder *enc)
 	auto width = obs_encoder_get_width(enc->encoder);
 	auto height = obs_encoder_get_height(enc->encoder);
 
+	NV_ENC_EVENT_PARAMS evt_params{};
+	evt_params.version = NV_ENC_EVENT_PARAMS_VER;
+
 
 	for (auto &surface : enc->surfaces) {
 		{
@@ -798,6 +826,16 @@ static bool InitSurfaces(Encoder *enc)
 			alloc_in.width = (width + 31) & ~31;
 			alloc_in.height = (height + 31) & ~31;
 			alloc_in.bufferFmt = surface.format;
+
+			if (enc->init_params.enableEncodeAsync) {
+				surface.event.reset(CreateEvent(nullptr, false, false, nullptr));
+
+				evt_params.completionEvent = surface.event.get();
+				if (NVENCStatus sts = enc->funcs.nvEncRegisterAsyncEvent(enc->nv_encoder, &evt_params)) {
+					sts.Warn(enc, "nvEncRegisterAsyncEvent");
+					return false;
+				}
+			}
 
 			if (NVENCStatus sts = enc->funcs.nvEncCreateInputBuffer(enc->nv_encoder, &alloc_in)) {
 				sts.Warn(enc, "nvEncCreateInputBuffer");
@@ -918,24 +956,50 @@ try {
 
 	LoadConfig(enc.get(), settings);
 
-	bool have_device = false;
-	int device = 0;
-	for (; device < device_count; device++)
-		if (OpenDevice(enc.get(), device)) {
-			have_device = true;
-			break;
+	bool allow_async = true;
+
+	auto maybe_retry_without_async = [&]
+	{
+		if (!enc->init_params.enableEncodeAsync)
+			return false;
+		enc->init_params.enableEncodeAsync = false;
+		allow_async = false;
+		warn("Initialization failed with ASYNC_ENCODE enabled, retrying");
+		enc->Release();
+		return true;
+	};
+
+	int device;
+	do {
+		bool have_device = false;
+		device = 0;
+		for (; device < device_count; device++)
+			if (OpenDevice(enc.get(), device, allow_async)) {
+				have_device = true;
+				break;
+			}
+
+		if (!have_device) {
+			warn("No valid device found");
+			return nullptr;
 		}
 
-	if (!have_device) {
-		warn("No valid device found");
-		return nullptr;
-	}
+		if (!InitEncoder(enc.get())) {
+			if (maybe_retry_without_async())
+				continue;
 
-	if (!InitEncoder(enc.get()))
-		return nullptr;
+			return nullptr;
+		}
 
-	if (!InitSurfaces(enc.get()))
-		return nullptr;
+		if (!InitSurfaces(enc.get())) {
+			if (maybe_retry_without_async())
+				continue;
+
+			return nullptr;
+		}
+
+		break;
+	} while (true);
 
 	if (!InitSPSPPS(enc.get()))
 		return nullptr;
@@ -1027,12 +1091,22 @@ static bool ProcessOutput(Encoder *enc, encoder_packet *packet)
 	if (!enc->b_frame_pts_calculated && enc->b_frames_actual && enc->timestamps.size() < 2)
 		return false;
 
-	if (enc->ready.empty())
+	if ((enc->init_params.enableEncodeAsync && enc->processing.empty()) || (!enc->init_params.enableEncodeAsync && enc->ready.empty()))
 		return false;
 
-	auto output = enc->ready.front();
-	enc->ready.pop_front();
-	enc->idle.push_back(output);
+	Surface *output;
+
+	if (enc->init_params.enableEncodeAsync) {
+		output = enc->processing.front();
+		if (WaitForSingleObject(output->event.get(), enc->idle.empty() ? INFINITE : 0) != WAIT_OBJECT_0)
+			return false;
+		enc->processing.pop_front();
+		enc->idle.push_back(output);
+	} else {
+		output = enc->ready.front();
+		enc->ready.pop_front();
+		enc->idle.push_back(output);
+	}
 
 	// always handle dts, even if this particular bitstream errors in some way?
 	DEFER{
@@ -1096,6 +1170,10 @@ static bool Encode(void *context, encoder_frame *frame, encoder_packet *packet, 
 try {
 	auto enc = cast(context);
 
+	bool have_output = false;
+	if (enc->init_params.enableEncodeAsync && enc->idle.empty())
+		have_output = *received_packet = ProcessOutput(enc, packet);
+
 	bool encode_success = false; // as opposed to NEED_MORE_INPUT
 
 	if (frame) {
@@ -1149,6 +1227,9 @@ try {
 		pic.codecPicParams.h264PicParams.sliceMode = enc->encode_config.encodeCodecConfig.h264Config.sliceMode;
 		pic.codecPicParams.h264PicParams.sliceModeData = enc->encode_config.encodeCodecConfig.h264Config.sliceModeData;
 
+		if (enc->init_params.enableEncodeAsync)
+			pic.completionEvent = input->event.get();
+
 		if (NVENCStatus sts = enc->funcs.nvEncEncodePicture(enc->nv_encoder, &pic)) {
 			if (sts.sts != NV_ENC_ERR_NEED_MORE_INPUT) {
 				sts.Error(enc, "nvEncEncodePicture");
@@ -1167,12 +1248,13 @@ try {
 			return false;
 	}
 
-	if (encode_success) {
+	if (encode_success && !enc->init_params.enableEncodeAsync) {
 		enc->ready.insert(end(enc->ready), begin(enc->processing), end(enc->processing));
 		enc->processing.clear();
 	}
 
-	*received_packet = ProcessOutput(enc, packet);
+	if (!have_output)
+		*received_packet = ProcessOutput(enc, packet);
 
 	return true;
 
