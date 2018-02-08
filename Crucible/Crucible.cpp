@@ -1633,8 +1633,6 @@ static OBSData ExtractTransforms(obs_sceneitem_t *item, obs_data_t *prior)
 	return properties;
 }
 
-static decltype(ProfileSnapshotCreate()) last_session;
-
 struct CrucibleContext {
 	mutex bookmarkMutex;
 	vector<Bookmark> estimatedBookmarks;
@@ -1770,6 +1768,8 @@ struct CrucibleContext {
 	obs_source_t *streaming_source = nullptr;
 
 	vector<pair<string, long long>> requested_screenshots;
+
+	decltype(ProfileSnapshotCreate()) game_session_snapshot;
 
 	bool ResetVideo()
 	{
@@ -2305,6 +2305,7 @@ struct CrucibleContext {
 				string profiler_path;
 				{
 					profiler_path = profiler_filename;
+					profiler_filename.clear();
 					decltype(bookmarks) full_bookmarks;
 					{
 						LOCK(bookmarkMutex);
@@ -2325,7 +2326,7 @@ struct CrucibleContext {
 				ClearBookmarks();
 
 				auto snap = ProfileSnapshotCreate();
-				auto diff = unique_ptr<profiler_snapshot_t>{ profile_snapshot_diff(last_session.get(), snap.get()) };
+				auto diff = unique_ptr<profiler_snapshot_t>{ profile_snapshot_diff(game_session_snapshot.get(), snap.get()) };
 
 				profiler_print(diff.get());
 				profiler_print_time_between_calls(diff.get());
@@ -2339,8 +2340,6 @@ struct CrucibleContext {
 						blog(LOG_INFO, "Profiler data dumped to '%s'", profiler_path.c_str());
 					}
 				}
-
-				last_session = move(snap);
 
 				if (!restarting_recording && (!webrtc || !obs_output_active(webrtc)))
 					ForgeEvents::SendCleanupComplete(profiler_path.empty() ? nullptr : &profiler_path, game_pid ? *game_pid : 0);
@@ -2708,8 +2707,23 @@ struct CrucibleContext {
 
 			auto send_cleanup_complete = [&]
 			{
-				if (should_send_cleanup_complete)
-					ForgeEvents::SendCleanupComplete(nullptr, game_pid ? *game_pid : 0);
+				if (should_send_cleanup_complete) {
+					if (!profiler_filename.empty()) {
+						auto snap = ProfileSnapshotCreate();
+						auto diff = unique_ptr<profiler_snapshot_t>{ profile_snapshot_diff(game_session_snapshot.get(), snap.get()) };
+
+						profiler_print(diff.get());
+						profiler_print_time_between_calls(diff.get());
+						if (!profiler_snapshot_dump_csv_gz(diff.get(), profiler_filename.c_str())) {
+							blog(LOG_INFO, "Failed to dump profiler data to '%s'", profiler_filename.c_str());
+							profiler_filename.clear();
+						} else
+							blog(LOG_INFO, "Profiler data dumped to '%s'", profiler_filename.c_str());
+					}
+
+					ForgeEvents::SendCleanupComplete(profiler_filename.empty() ? nullptr : &profiler_filename, game_pid ? *game_pid : 0);
+					profiler_filename.clear();
+				}
 			};
 			DEFER{ send_cleanup_complete(); };
 
@@ -4499,7 +4513,7 @@ static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 
 		cc.ovi.output_format = VIDEO_FORMAT_NV12;
 
-		last_session = ProfileSnapshotCreate();
+		cc.game_session_snapshot = ProfileSnapshotCreate();
 
 		cc.UpdateEncoder(OBSDataGetObj(obj, "encoder"));
 		cc.UpdateStreamSettings();
@@ -5294,8 +5308,10 @@ void TestVideoRecording(TestWindow &window, ProcessHandle &forge, HANDLE start_e
 
 		IPCServer remote{"ForgeCrucible", handleCommand};
 
-		last_session = ProfileSnapshotCreate();
-		profiler_print(last_session.get()); // print startup stats
+		{
+			auto snap = ProfileSnapshotCreate();
+			profiler_print(snap.get()); // print startup stats
+		}
 
 		if (start_event)
 			SetEvent(start_event);
