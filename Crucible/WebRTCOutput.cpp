@@ -601,7 +601,7 @@ namespace {
 
 		ProtectedObject<rtc::Optional<OutputResolution>> max_res;
 
-		std::array<rtc::scoped_refptr<rtc::RefCountedObject<RTCFrameBuffer>>, 16> buffers; // same buffer size as libobs cached frames
+		std::array<rtc::scoped_refptr<rtc::RefCountedObject<RTCFrameBuffer>>, 6> buffers; // same buffer size as libobs cached frames
 		rtc::scoped_refptr<rtc::RefCountedObject<RTCFrameBuffer>> *last_buffer = nullptr;
 
 		RTCVideoSource()
