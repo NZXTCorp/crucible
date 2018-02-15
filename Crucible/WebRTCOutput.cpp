@@ -636,12 +636,12 @@ namespace {
 			bool found_buffer = false;
 			for (auto &buffer : buffers)
 				if (buffer->HasOneRef()) {
-					buffer->data_y.assign(data->data[0], data->data[0] + data->linesize[0] * height);
-					buffer->data_u.assign(data->data[1], data->data[1] + data->linesize[1] * height / 2);
-					buffer->data_v.assign(data->data[2], data->data[2] + data->linesize[2] * height / 2);
+					buffer->data_y.assign(data->data[0], data->data[0] + data->linesize[0] * data->info.height);
+					buffer->data_u.assign(data->data[1], data->data[1] + data->linesize[1] * data->info.height / 2);
+					buffer->data_v.assign(data->data[2], data->data[2] + data->linesize[2] * data->info.height / 2);
 
-					buffer->width_ = width;
-					buffer->height_ = height;
+					width = buffer->width_ = data->info.width;
+					height = buffer->height_ = data->info.height;
 
 					buffer->stride_y = data->linesize[0];
 					buffer->stride_u = data->linesize[1];
@@ -1831,30 +1831,6 @@ static void StopRTC(void *data)
 	obs_output_end_data_capture(out->output);
 }
 
-static boost::optional<OutputResolution> SetScaledResolution(obs_output_t *out, boost::optional<OutputResolution> resolution_limit)
-{
-	obs_video_info ovi{};
-	if (!obs_get_video_info(&ovi))
-		return boost::none;
-
-	if (ovi.output_format == VIDEO_FORMAT_I420)
-		return boost::none; // not using video conversion
-
-	OutputResolution webrtc_target_res = { 1280, 720 };
-	auto scaled = ScaleResolution(webrtc_target_res.MinByPixels(resolution_limit), { ovi.base_width, ovi.base_height }, { ovi.output_width, ovi.output_height });
-
-	video_scale_info vsi{};
-	vsi.colorspace = ovi.colorspace;
-	vsi.format = VIDEO_FORMAT_I420;
-	vsi.width = scaled.width;
-	vsi.height = scaled.height;
-	vsi.range = ovi.range;
-
-	obs_output_set_video_conversion(out, &vsi);
-
-	return scaled;
-}
-
 static bool StartRTC(void *data)
 {
 	auto out = cast(data);
@@ -1899,9 +1875,10 @@ static void ReceivePacketRTC(void *data, encoder_packet *packet)
 {
 }
 
-static void ReceiveVideoRTC(void *data, video_data *frame)
+static void ReceiveVideoRTC(void *data, video_data_container *container)
 {
 	auto out = cast(data);
+	auto frame = video_data_from_container(container);
 
 	{
 		auto timestamps = out->next_timestamps.Lock();
@@ -1942,7 +1919,7 @@ void RegisterWebRTCOutput()
 {
 	obs_output_info ooi{};
 	ooi.id = "webrtc_output";
-	ooi.flags = OBS_OUTPUT_AV;// | OBS_OUTPUT_ENCODED;
+	ooi.flags = OBS_OUTPUT_AV | OBS_OUTPUT_RESIZABLE;// | OBS_OUTPUT_ENCODED;
 	ooi.get_name = [](auto) { return "WebRTC Output"; };
 	ooi.create = CreateRTC;
 	ooi.destroy = DestroyRTC;

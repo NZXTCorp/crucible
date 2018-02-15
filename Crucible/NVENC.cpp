@@ -476,6 +476,12 @@ namespace {
 			init_params.frameRateNum = info->fps_num;
 			init_params.frameRateDen = info->fps_den;
 
+			video_scale_info src;
+			if (!obs_output_get_video_conversion(output, &src)) {
+				warn("Could not get video conversion");
+				return WEBRTC_VIDEO_CODEC_ERROR;
+			}
+
 			try {
 				if (!LoadFunctions())
 					return WEBRTC_VIDEO_CODEC_ERROR;
@@ -534,7 +540,7 @@ namespace {
 						return WEBRTC_VIDEO_CODEC_ERROR;
 					}
 
-					if (!InitEncoder(max_payload_size)) {
+					if (!InitEncoder(max_payload_size, src.colorspace, src.range)) {
 						if (maybe_retry_without_async())
 							continue;
 
@@ -582,19 +588,12 @@ namespace {
 			}
 
 			{
-				video_scale_info src;
-				src.format = VIDEO_FORMAT_I420;
-				src.width = codec_settings->width;
-				src.height = codec_settings->height;
-				src.range = info->range;
-				src.colorspace = info->colorspace;
-
 				video_scale_info dst;
 				dst.format = VIDEO_FORMAT_NV12;
 				dst.width = codec_settings->width;
 				dst.height = codec_settings->height;
-				dst.range = info->range;
-				dst.colorspace = info->colorspace;
+				dst.range = src.range;
+				dst.colorspace = src.colorspace;
 
 				video_scaler *scaler_ = nullptr;
 				auto res = video_scaler_create(&scaler_, &dst, &src, VIDEO_SCALE_DEFAULT);
@@ -883,7 +882,7 @@ namespace {
 			return true;
 		}
 
-		bool InitEncoder(size_t max_payload_size)
+		bool InitEncoder(size_t max_payload_size, video_colorspace colorspace, video_range_type range)
 		{
 			NV_ENC_PRESET_CONFIG preset_config = { 0 };
 			preset_config.version = NV_ENC_PRESET_CONFIG_VER;
@@ -925,9 +924,10 @@ namespace {
 				auto &h264 = encode_config.encodeCodecConfig.h264Config;
 				auto &vui = h264.h264VUIParameters;
 
-				vui.colourMatrix = info->colorspace == VIDEO_CS_709 ? 1 : 5;
-				vui.colourPrimaries = info->colorspace == VIDEO_CS_709 ? 1 : 5;
-				vui.transferCharacteristics = info->colorspace == VIDEO_CS_709 ? 1 : 5;
+				vui.colourMatrix = colorspace == VIDEO_CS_709 ? 1 : 5;
+				vui.colourPrimaries = colorspace == VIDEO_CS_709 ? 1 : 5;
+				vui.transferCharacteristics = colorspace == VIDEO_CS_709 ? 1 : 5;
+				vui.videoFullRangeFlag = range == VIDEO_RANGE_FULL;
 				vui.colourDescriptionPresentFlag = 1;
 				vui.videoSignalTypePresentFlag = 1;
 				vui.chromaSampleLocationBot = 2;

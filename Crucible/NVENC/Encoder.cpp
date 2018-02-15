@@ -756,12 +756,15 @@ static bool InitEncoder(Encoder *enc)
 		auto video = obs_encoder_video(enc->encoder);
 		auto voi = video_output_get_info(video);
 
+		video_scale_info vsi{};
+		obs_encoder_get_active_video_conversion(enc->encoder, &vsi);
+
 		auto &h264 = enc->encode_config.encodeCodecConfig.h264Config;
 		auto &vui = h264.h264VUIParameters;
 
-		vui.colourMatrix = voi->colorspace == VIDEO_CS_709 ? 1 : 5;
-		vui.colourPrimaries = voi->colorspace == VIDEO_CS_709 ? 1 : 5;
-		vui.transferCharacteristics = voi->colorspace == VIDEO_CS_709 ? 1 : 5;
+		vui.colourMatrix = vsi.colorspace == VIDEO_CS_709 ? 1 : 5;
+		vui.colourPrimaries = vsi.colorspace == VIDEO_CS_709 ? 1 : 5;
+		vui.transferCharacteristics = vsi.colorspace == VIDEO_CS_709 ? 1 : 5;
 		vui.colourDescriptionPresentFlag = 1;
 		vui.videoSignalTypePresentFlag = 1;
 		vui.chromaSampleLocationBot = 2;

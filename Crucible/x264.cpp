@@ -257,10 +257,16 @@ namespace {
 			}
 			param.i_keyint_min = min(param.i_keyint_max, param.i_keyint_min);
 
-			param.vui.i_transfer = get_x264_cs_val(info->colorspace, x264_transfer_names);
-			param.vui.i_colmatrix = get_x264_cs_val(info->colorspace, x264_colmatrix_names);
-			param.vui.i_colorprim = get_x264_cs_val(info->colorspace, x264_colorprim_names);
-			param.vui.b_fullrange = false;
+			video_scale_info src;
+			if (!obs_output_get_video_conversion(output, &src)) {
+				warn("Could not get video conversion");
+				return WEBRTC_VIDEO_CODEC_ERROR;
+			}
+
+			param.vui.i_transfer = get_x264_cs_val(src.colorspace, x264_transfer_names);
+			param.vui.i_colmatrix = get_x264_cs_val(src.colorspace, x264_colmatrix_names);
+			param.vui.i_colorprim = get_x264_cs_val(src.colorspace, x264_colorprim_names);
+			param.vui.b_fullrange = src.range == VIDEO_RANGE_FULL;
 
 			//param.rc.i_qp_max = codec_settings->qpMax;
 			param.rc.i_lookahead = 10;
