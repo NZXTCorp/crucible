@@ -5170,9 +5170,12 @@ static string StartWatchdog()
 
 			case WAIT_OBJECT_0 + 1:
 				uint64_t video_thread_time;
-				if (obs_get_video_thread_time(&video_thread_time) && (os_gettime_ns() - video_thread_time) > video_thread_timeout) {
-					video_thread_caused_break = true;
-					break;
+				if (obs_get_video_thread_time(&video_thread_time)) {
+					auto current_time = os_gettime_ns();
+					if (video_thread_time < current_time && (current_time - video_thread_time) > video_thread_timeout) {
+						video_thread_caused_break = true;
+						break;
+					}
 				}
 				wait_time = max(chrono::duration_cast<clock::duration>(5s), next_queue_at - clock::now());
 				continue;
