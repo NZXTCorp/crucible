@@ -368,12 +368,12 @@ namespace {
 
 		void Error(Encoder *enc, const char *func)
 		{
-			error("%s returned %#x (%s)", sts, Name());
+			error("%s returned %#x (%s)", func, sts, Name());
 		}
 
 		void Warn(Encoder *enc, const char *func)
 		{
-			warn("%s returned %#x (%s)", sts, Name());
+			warn("%s returned %#x (%s)", func, sts, Name());
 		}
 	};
 
