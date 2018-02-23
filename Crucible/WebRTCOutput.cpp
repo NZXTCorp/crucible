@@ -526,56 +526,63 @@ namespace {
 	};
 
 	struct RTCFrameBuffer : webrtc::VideoFrameBuffer {
-		int width_;
-		int height_;
+		video_data_container *container = nullptr;
+		video_data *data = nullptr;
 
-		vector<uint8_t> data_y;
-		vector<uint8_t> data_u;
-		vector<uint8_t> data_v;
+		static atomic<int> count;
 
-		int stride_y;
-		int stride_u;
-		int stride_v;
+		RTCFrameBuffer(video_data_container *container)
+			: container(container), data(video_data_from_container(container))
+		{
+			count++;
+			video_data_container_addref(container);
+		}
+
+		~RTCFrameBuffer()
+		{
+			video_data_container_release(container);
+			count--;
+		}
 
 		// Inherited via VideoFrameBuffer
 		int width() const override
 		{
-			return width_;
+			return data ? data->info.width : 0;
 		}
 
 		int height() const override
 		{
-			return height_;
+			return data ? data->info.height : 0;
 		}
 
 		const uint8_t *DataY() const override
 		{
-			return data_y.data();
+			return data ? data->data[0] : nullptr;
 		}
 
 		const uint8_t *DataU() const override
 		{
-			return data_u.data();
+			return data ? data->data[1] : nullptr;
 		}
 
 		const uint8_t *DataV() const override
 		{
-			return data_v.data();
+			return data ? data->data[2] : nullptr;
 		}
 
 		int StrideY() const override
 		{
-			return stride_y;
+			return data ? data->linesize[0] : 0;
 		}
 
 		int StrideU() const override
 		{
-			return stride_u;
+			return data ? data->linesize[1] : 0;
 		}
 
 		int StrideV() const override
 		{
-			return stride_v;
+			return data ? data->linesize[2] : 0;
 		}
 
 		void *native_handle() const override
@@ -589,6 +596,8 @@ namespace {
 		}
 	};
 
+	atomic<int> RTCFrameBuffer::count = 0;
+
 	struct RTCVideoSource : webrtc::VideoTrackSourceInterface {
 		bool have_video_info = false;
 		shared_ptr<void> monitor;
@@ -601,16 +610,12 @@ namespace {
 
 		ProtectedObject<rtc::Optional<OutputResolution>> max_res;
 
-		std::array<rtc::scoped_refptr<rtc::RefCountedObject<RTCFrameBuffer>>, 6> buffers; // same buffer size as libobs cached frames
-		rtc::scoped_refptr<rtc::RefCountedObject<RTCFrameBuffer>> *last_buffer = nullptr;
+		rtc::scoped_refptr<rtc::RefCountedObject<RTCFrameBuffer>> last_buffer;
 
 		RTCVideoSource()
 		{
 			monitor.reset(reinterpret_cast<void*>(1), [](void *) {});
 			self = shared_ptr<RTCVideoSource>(monitor, this);
-
-			for (auto &buffer : buffers)
-				buffer = new rtc::RefCountedObject<RTCFrameBuffer>();
 		}
 
 		RTCVideoSource &operator=(const RTCVideoSource &) = delete;
@@ -625,32 +630,18 @@ namespace {
 		}
 
 		unsigned frames_duplicated = 0;
-		void ReceiveVideo(video_data *data)
+		void ReceiveVideo(video_data_container *container)
 		{
 			if (!have_video_info || !sink)
 				return;
 
-			if (!data->data[0] || !data->data[1] || !data->data[2])
+			video_data *data = video_data_from_container(container);
+			if (!data || data->info.format != VIDEO_FORMAT_I420)
 				return;
 
-			bool found_buffer = false;
-			for (auto &buffer : buffers)
-				if (buffer->HasOneRef()) {
-					buffer->data_y.assign(data->data[0], data->data[0] + data->linesize[0] * data->info.height);
-					buffer->data_u.assign(data->data[1], data->data[1] + data->linesize[1] * data->info.height / 2);
-					buffer->data_v.assign(data->data[2], data->data[2] + data->linesize[2] * data->info.height / 2);
-
-					width = buffer->width_ = data->info.width;
-					height = buffer->height_ = data->info.height;
-
-					buffer->stride_y = data->linesize[0];
-					buffer->stride_u = data->linesize[1];
-					buffer->stride_v = data->linesize[2];
-
-					last_buffer = &buffer;
-					found_buffer = true;
-					break;
-				}
+			bool found_buffer = RTCFrameBuffer::count < 6; // Allow up to 6 in-flight frame buffers
+			if (found_buffer)
+				last_buffer = new rtc::RefCountedObject<RTCFrameBuffer>(container);
 
 			if (!found_buffer && !frames_duplicated)
 				warn("Could not find free framebuffer, duplicating last frame");
@@ -668,7 +659,7 @@ namespace {
 				return;
 			}
 
-			webrtc::VideoFrame frame(*last_buffer, webrtc::kVideoRotation_0, data->timestamp / 1000);
+			webrtc::VideoFrame frame(last_buffer, webrtc::kVideoRotation_0, data->timestamp / 1000);
 			sink->OnFrame(frame);
 		}
 
@@ -1878,9 +1869,9 @@ static void ReceivePacketRTC(void *data, encoder_packet *packet)
 static void ReceiveVideoRTC(void *data, video_data_container *container)
 {
 	auto out = cast(data);
-	auto frame = video_data_from_container(container);
 
 	{
+		auto frame = video_data_from_container(container);
 		auto timestamps = out->next_timestamps.Lock();
 		if (timestamps) {
 			timestamps->video.emplace(frame->timestamp + out->video_frame_time); // this should allow sending audio up to the next frame, to slightly reduce overall delay
@@ -1894,7 +1885,7 @@ static void ReceiveVideoRTC(void *data, video_data_container *container)
 
 	auto src = out->out->video_source.lock();
 	if (src)
-		src->ReceiveVideo(frame);
+		src->ReceiveVideo(container);
 }
 
 static void ReceiveAudioRTC(void *data, audio_data *frames)
