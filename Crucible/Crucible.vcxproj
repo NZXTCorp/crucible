@@ -85,16 +85,16 @@
     <LocalDebuggerCommandArguments>-standalone</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release+WebRTC|Win32'">
-    <IncludePath>$(OBSLib);$(Boost);$(ForgeLib)\libwebrtc-60\include;$(DepsPath32)\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(DepsPath32)\bin;$(ForgeLib)\libwebrtc-60\lib\RelWithDebInfo;$(OBSBuild)\RelWithDebInfo;$(Boost)\stage\lib;$(OBSBuild)\..\deps\ipc-util\RelWithDebInfo;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ForgeLib)\BugSplat\inc;$(OBSLib);$(Boost);$(ForgeLib)\libwebrtc-60\include;$(DepsPath32)\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ForgeLib)\BugSplat\lib;$(DepsPath32)\bin;$(ForgeLib)\libwebrtc-60\lib\RelWithDebInfo;$(OBSBuild)\RelWithDebInfo;$(Boost)\stage\lib;$(OBSBuild)\..\deps\ipc-util\RelWithDebInfo;$(LibraryPath)</LibraryPath>
     <LocalDebuggerEnvironment>PATH=$(PATH);$(OBSBuild)\..\rundir\RelWithDebInfo\bin\32bit\</LocalDebuggerEnvironment>
     <LocalDebuggerCommandArguments>-standalone</LocalDebuggerCommandArguments>
     <OutDir>$(SolutionDir)\Release\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(CONFIG_DIRECTORY_NAME)'!=''">
-      <ClCompile>
-          <PreprocessorDefinitions>CONFIG_DIRECTORY_NAME=$(CONFIG_DIRECTORY_NAME);%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      </ClCompile>
+    <ClCompile>
+      <PreprocessorDefinitions>CONFIG_DIRECTORY_NAME=$(CONFIG_DIRECTORY_NAME);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -146,7 +146,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <AdditionalOptions>/Zo %(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>WEBRTC_WIN;ANVIL_PIPE_NAME_SUFFIX=$(ANVIL_PIPE_NAME_SUFFIX);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WEBRTC_WIN;ANVIL_PIPE_NAME_SUFFIX=$(ANVIL_PIPE_NAME_SUFFIX);$(BugSplatDefs);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>

@@ -52,6 +52,12 @@ using namespace std;
 
 //#define TEST_WINDOW
 
+#ifdef USE_BUGSPLAT
+#include <BugSplat.h>
+#pragma comment(lib, "bugsplat.lib")
+MiniDmpSender *dmpSender;
+#endif
+
 extern "C" {
 	_declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
@@ -5447,6 +5453,10 @@ static DStr GetConfigDirectory(const char *subdir)
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmd)
 {
+#ifdef USE_BUGSPLAT
+	dmpSender = new MiniDmpSender(BUGSPLAT_DATABASE, L"Crucible", BUGSPLAT_APP_VERSION, L"", MDSF_USEGUARDMEMORY | MDSF_LOGFILE | MDSF_NONINTERACTIVE | MDSF_PREVENTHIJACKING);
+#endif
+
 	main_thread_id = GetCurrentThreadId();
 
 	base_set_log_handler(do_log, nullptr);
