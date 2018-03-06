@@ -723,6 +723,8 @@ static bool OpenDevice(Encoder *enc, int idx, bool allow_async)
 	return true;
 }
 
+static void GetVideoInfo(void *data, video_scale_info *info);
+
 static bool InitEncoder(Encoder *enc)
 {
 	NV_ENC_PRESET_CONFIG preset_config = { 0 };
@@ -758,6 +760,7 @@ static bool InitEncoder(Encoder *enc)
 
 		video_scale_info vsi{};
 		obs_encoder_get_active_video_conversion(enc->encoder, &vsi);
+		GetVideoInfo(enc, &vsi);
 
 		auto &h264 = enc->encode_config.encodeCodecConfig.h264Config;
 		auto &vui = h264.h264VUIParameters;
