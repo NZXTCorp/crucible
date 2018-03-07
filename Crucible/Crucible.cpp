@@ -115,6 +115,27 @@ struct OutputResolution {
 	}
 };
 
+#ifdef USE_BUGSPLAT
+// try to grab the current username stored in registry for bugsplat reporting
+boost::optional<wstring> GetCurrentUsername() 
+{
+	HKEY hKey = NULL;
+	DWORD dwType = REG_SZ;
+	wchar_t name[256] = {};
+	DWORD dwSize = sizeof(name);
+
+	if (RegOpenKeyExW(HKEY_CURRENT_USER, BUGSPLAT_USER_REG_PATH, 0, KEY_READ, &hKey) != ERROR_SUCCESS)
+		return boost::none;
+
+	DEFER{ RegCloseKey(hKey); };
+
+	if (RegGetValueW(hKey, NULL, BUGSPLAT_USER_KEY_NAME, RRF_RT_REG_SZ, &dwType, name, &dwSize) == ERROR_SUCCESS)
+		return wstring(name, dwSize / sizeof(wchar_t));
+
+	return boost::none;
+}
+#endif
+
 // logging lifted straight out of the test app
 void do_log(int log_level, const char *msg, va_list args, void *param)
 {
@@ -4528,6 +4549,11 @@ static void HandleConnectCommand(CrucibleContext &cc, OBSData &obj)
 
 static void HandleCaptureCommand(CrucibleContext &cc, OBSData &obj)
 {
+#ifdef USE_BUGSPLAT
+	if (auto user = GetCurrentUsername())
+		dmpSender->setDefaultUserName(user->c_str());
+#endif
+
 	bool recording_active = cc.RecordingActive();
 
 	if (!recording_active) {
@@ -5476,6 +5502,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	{
 		dmpSender->createReportAndExit();
 	});
+
+	if (auto user = GetCurrentUsername())
+		dmpSender->setDefaultUserName(user->c_str());
 #endif
 
 	main_thread_id = GetCurrentThreadId();
