@@ -54,6 +54,7 @@ using namespace std;
 
 #ifdef USE_BUGSPLAT
 #include <BugSplat.h>
+#include <csignal>
 #pragma comment(lib, "bugsplat.lib")
 MiniDmpSender *dmpSender;
 #endif
@@ -5455,6 +5456,26 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 {
 #ifdef USE_BUGSPLAT
 	dmpSender = new MiniDmpSender(BUGSPLAT_DATABASE, L"Crucible", BUGSPLAT_APP_VERSION, L"", MDSF_USEGUARDMEMORY | MDSF_LOGFILE | MDSF_NONINTERACTIVE | MDSF_PREVENTHIJACKING);
+
+	_set_purecall_handler([]
+	{
+		dmpSender->createReportAndExit();
+	});
+
+	_set_invalid_parameter_handler([](const wchar_t *exp, const wchar_t *function, const wchar_t *file, unsigned line, uintptr_t reserved)
+	{
+		dmpSender->createReportAndExit();
+	});
+
+	signal(SIGABRT, [](int)
+	{
+		dmpSender->createReportAndExit();
+	});
+
+	std::set_terminate([]
+	{
+		dmpSender->createReportAndExit();
+	});
 #endif
 
 	main_thread_id = GetCurrentThreadId();
