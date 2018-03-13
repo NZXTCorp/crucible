@@ -438,6 +438,7 @@ static void HandleCommands(uint8_t *data, size_t size)
 
 	if (!data) {
 		hlog("AnvilRender: command connection died");
+		DismissOverlay(false);
 		RestartCrucibleServer();
 		return;
 	}
