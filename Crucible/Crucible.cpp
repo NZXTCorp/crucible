@@ -1752,7 +1752,7 @@ struct CrucibleContext {
 	OBSOutputSignal sentTrackedFrame, bufferSentTrackedFrame;
 	OBSOutputSignal bufferSaved, bufferSaveFailed;
 	OBSOutputSignal recordingStreamStart, recordingStreamStop;
-	OBSOutputSignal webrtcSessionDescription, webrtcICECandidate, webrtcResolution;
+	OBSOutputSignal webrtcSessionDescription, webrtcICECandidate, webrtcResolution, webrtcTexture;
 	bool record_audio_buffer_only = false;
 	bool check_audio_streams = false;
 	shared_ptr<void> check_audio_streams_timer;
@@ -3615,14 +3615,14 @@ struct CrucibleContext {
 			obs_output_create("webrtc_output", "webrtc", settings, nullptr));
 
 		video_scale_info vsi{};
-		vsi.format = VIDEO_FORMAT_I420;
 		vsi.width = scaled.width;
 		vsi.height = scaled.height;
 		vsi.colorspace = (vsi.width >= 1280 || vsi.height >= 720) ? VIDEO_CS_709 : VIDEO_CS_601;
 		vsi.range = VIDEO_RANGE_PARTIAL;
 		vsi.gpu_conversion = true;
 		vsi.scale_type = OBS_SCALE_BICUBIC;
-		vsi.format = VIDEO_FORMAT_I420;
+		vsi.texture_output = WebRTCNVENCAvailable();
+		vsi.format = vsi.texture_output ? VIDEO_FORMAT_NV12 : VIDEO_FORMAT_I420;
 		vsi.range = VIDEO_RANGE_PARTIAL;
 
 		obs_output_set_video_conversion(webrtc, &vsi);
@@ -3692,7 +3692,6 @@ struct CrucibleContext {
 				vsi.colorspace = (vsi.width >= 1280 || vsi.height >= 720) ? VIDEO_CS_709 : VIDEO_CS_601;
 				vsi.gpu_conversion = true;
 				vsi.scale_type = OBS_SCALE_BICUBIC;
-				vsi.format = VIDEO_FORMAT_I420;
 				vsi.range = VIDEO_RANGE_PARTIAL;
 
 				obs_output_set_video_conversion(out, &vsi);
@@ -3700,6 +3699,29 @@ struct CrucibleContext {
 				blog(LOG_INFO, "webrtcResolution(%s): Updating scaled resolution: %dx%d", obs_output_get_name(out), scaled.width, scaled.height);
 
 				ForgeEvents::SendWebRTCResolutionScaled(webrtc_target_res.MinByPixels(OutputResolution{ ovi.base_width, ovi.base_height }), scaled);
+			});
+		})
+			.Connect();
+
+		webrtcTexture.Disconnect()
+			.SetSignal("request_texture")
+			.SetOwner(webrtc)
+			.SetFunc([&](calldata_t *data)
+		{
+			OBSOutput out = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
+			auto request = calldata_bool(data, "request");
+			QueueOperation([=]
+			{
+				video_scale_info vsi{};
+				obs_output_get_video_conversion(out, &vsi);
+
+				if (request == vsi.texture_output)
+					return;
+
+				vsi.texture_output = request;
+				vsi.format = vsi.texture_output ? VIDEO_FORMAT_NV12 : VIDEO_FORMAT_I420;
+
+				obs_output_set_video_conversion(out, &vsi);
 			});
 		})
 			.Connect();
@@ -4231,7 +4253,6 @@ struct CrucibleContext {
 				vsi.colorspace = (vsi.width >= 1280 || vsi.height >= 720) ? VIDEO_CS_709 : VIDEO_CS_601;
 				vsi.gpu_conversion = true;
 				vsi.scale_type = OBS_SCALE_BICUBIC;
-				vsi.format = VIDEO_FORMAT_I420;
 				vsi.range = VIDEO_RANGE_PARTIAL;
 
 				obs_output_set_video_conversion(webrtc, &vsi);
