@@ -16,6 +16,7 @@
 
 #include <array>
 #include <deque>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -27,6 +28,10 @@
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+
+#include <d3d11.h>
+#include <util/windows/ComPtr.hpp>
+#include <util/platform.h>
 
 using namespace std;
 
@@ -136,6 +141,14 @@ static void RTPFragmentize(webrtc::EncodedImage &encoded_image,
 }
 
 namespace {
+	const static D3D_FEATURE_LEVEL feature_levels[] =
+	{
+		D3D_FEATURE_LEVEL_11_0,
+		D3D_FEATURE_LEVEL_10_1,
+		D3D_FEATURE_LEVEL_10_0,
+		D3D_FEATURE_LEVEL_9_3,
+	};
+
 	struct NVENCEncoder;
 
 #define STRINGIFY_VAL(x) case x: return #x;
@@ -264,6 +277,7 @@ namespace {
 		cuInit_t *cuInit = nullptr;
 		cuDeviceGetCount_t *cuDeviceGetCount = nullptr;
 		cuDeviceGet_t *cuDeviceGet = nullptr;
+		cuD3D11GetDevice_t *cuD3D11GetDevice = nullptr;
 		cuDeviceGetName_t *cuDeviceGetName = nullptr;
 		cuDeviceComputeCapability_t *cuDeviceComputeCapability = nullptr;
 		cuCtxCreate_v2_t *cuCtxCreate = nullptr;
@@ -271,10 +285,19 @@ namespace {
 		cuCtxPopCurrent_v2_t *cuCtxPopCurrent = nullptr;
 		cuCtxDestroy_v2_t *cuCtxDestroy = nullptr;
 		cuMemAlloc_v2_t *cuMemAlloc = nullptr;
+		cuMemAllocPitch_t *cuMemAllocPitch = nullptr;
 		cuMemFree_v2_t *cuMemFree = nullptr;
 		cuMemcpy2D_v2_t *cuMemcpy2D = nullptr;
 		cuGetErrorName_t *cuGetErrorName = nullptr;
 		cuGetErrorString_t *cuGetErrorString = nullptr;
+		cuStreamSynchronize_t *cuStreamSynchronize = nullptr;
+
+		cuGraphicsD3D11RegisterResource_t *cuGraphicsD3D11RegisterResource = nullptr;
+		cuGraphicsMapResources_t *cuGraphicsMapResources = nullptr;
+		cuGraphicsResourceGetMappedPointer_t *cuGraphicsResourceGetMappedPointer = nullptr;
+		cuGraphicsSubResourceGetMappedArray_t *cuGraphicsSubResourceGetMappedArray = nullptr;
+		cuGraphicsUnmapResources_t *cuGraphicsUnmapResources = nullptr;
+		cuGraphicsUnregisterResource_t *cuGraphicsUnregisterResource = nullptr;
 
 		Library lib;
 
@@ -290,6 +313,7 @@ namespace {
 			LOAD_FN(cuInit);
 			LOAD_FN(cuDeviceGetCount);
 			LOAD_FN(cuDeviceGet);
+			LOAD_FN(cuD3D11GetDevice);
 			LOAD_FN(cuDeviceGetName);
 			LOAD_FN(cuDeviceComputeCapability);
 			LOAD_FN(cuCtxCreate);
@@ -297,10 +321,19 @@ namespace {
 			LOAD_FN(cuCtxPopCurrent);
 			LOAD_FN(cuCtxDestroy);
 			LOAD_FN(cuMemAlloc);
+			LOAD_FN(cuMemAllocPitch);
 			LOAD_FN(cuMemFree);
 			LOAD_FN(cuMemcpy2D);
 			LOAD_FN(cuGetErrorName);
 			LOAD_FN(cuGetErrorString);
+			LOAD_FN(cuStreamSynchronize);
+
+			LOAD_FN(cuGraphicsD3D11RegisterResource);
+			LOAD_FN(cuGraphicsMapResources);
+			LOAD_FN(cuGraphicsResourceGetMappedPointer);
+			LOAD_FN(cuGraphicsSubResourceGetMappedArray);
+			LOAD_FN(cuGraphicsUnmapResources);
+			LOAD_FN(cuGraphicsUnregisterResource);
 
 			free_on_error.dismiss();
 
@@ -387,6 +420,12 @@ namespace {
 		NV_ENC_BUFFER_FORMAT format = NV_ENC_BUFFER_FORMAT_NV12_PL;
 
 		unique_ptr<void, HandleDeleter> event;
+
+		CUdeviceptr cuda_memory = 0;
+		size_t cuda_pitch = 0;
+		size_t copy_width = 0;
+		size_t copy_height = 0;
+		void *registered_cuda_memory = nullptr;
 	};
 
 	struct NVENCEncoder : webrtc::VideoEncoder {
@@ -405,6 +444,16 @@ namespace {
 
 		CUDAContext ctx;
 
+		struct cuda_input_tex {
+			uint32_t shared_handle;
+			ComPtr<ID3D11Texture2D> d3d11_tex;
+			CUgraphicsResource cuda_tex;
+		};
+
+		map<gs_texture_t*, cuda_input_tex> input_textures;
+
+		ComPtr<ID3D11Device> d3d11_device;
+
 
 		double keyint_sec = 5.;
 
@@ -418,6 +467,9 @@ namespace {
 
 		NV_ENC_CONFIG encode_config = { 0 };
 		NV_ENC_INITIALIZE_PARAMS init_params = { 0 };
+
+		bool allow_texture_input = true;
+		bool use_texture_input = false;
 
 		vector<Surface> surfaces;
 
@@ -504,6 +556,40 @@ namespace {
 					return WEBRTC_VIDEO_CODEC_ERROR;
 				}
 
+				ComPtr<IDXGIAdapter> adapter;
+				if (codec_settings->expect_encode_from_texture) {
+					[&]
+					{
+						obs_enter_graphics();
+						DEFER{ obs_leave_graphics(); };
+
+						auto hr_error = [&](HRESULT res, const char *name)
+						{
+							if (res == S_OK)
+								return false;
+
+							warn("%s failed: %#x", name, res);
+							return true;
+						};
+
+						auto device_type = gs_get_device_type();
+						if (device_type != GS_DEVICE_DIRECT3D_11) {
+							info("Not using OBS D3D11 backend: %d", device_type);
+							return;
+						}
+
+#define HR_ERROR(x) hr_error(x, #x)
+						ComPtr<IDXGIDevice> dxgi_device;
+						auto device = reinterpret_cast<ID3D11Device*>(gs_get_device_handle());
+
+						if (HR_ERROR(device->QueryInterface(dxgi_device.Assign())))
+							return;
+
+						HR_ERROR(dxgi_device->GetAdapter(adapter.Assign()));
+#undef HR_ERROR
+					}();
+				}
+
 
 				keyint_sec;
 
@@ -528,12 +614,19 @@ namespace {
 
 				do {
 					bool have_device = false;
-					int device = 0;
-					for (; device < device_count; device++)
-						if (OpenDevice(device, allow_async)) {
-							have_device = true;
-							break;
-						}
+					int device = -1;
+					if (adapter && OpenDevice(adapter, allow_async)) {
+						have_device = true;
+						use_texture_input = true;
+					} else {
+						allow_texture_input = false;
+						device = 0;
+						for (; device < device_count; device++)
+							if (OpenDevice(device, allow_async)) {
+								have_device = true;
+								break;
+							}
+					}
 
 					if (!have_device) {
 						warn("No valid device found");
@@ -547,7 +640,7 @@ namespace {
 						return WEBRTC_VIDEO_CODEC_ERROR;
 					}
 
-					if (!InitSurfaces()) {
+					if (!InitSurfaces(adapter)) {
 						if (maybe_retry_without_async())
 							continue;
 
@@ -587,7 +680,7 @@ namespace {
 				return WEBRTC_VIDEO_CODEC_ERROR;
 			}
 
-			{
+			if (!use_texture_input) {
 				video_scale_info dst;
 				dst.format = VIDEO_FORMAT_NV12;
 				dst.width = codec_settings->width;
@@ -645,6 +738,14 @@ namespace {
 				pic.encodePicFlags = NV_ENC_PIC_FLAG_EOS;
 				funcs.nvEncEncodePicture(nv_encoder, &pic);
 
+				for (auto &shared_tex : input_textures) {
+					cuda->cuGraphicsUnmapResources(1, &shared_tex.second.cuda_tex, 0);
+					cuda->cuGraphicsUnregisterResource(shared_tex.second.cuda_tex);
+				}
+				input_textures.clear();
+
+				d3d11_device.Release();
+
 				for (auto &surface : surfaces) {
 					if (funcs.nvEncUnregisterAsyncEvent && surface.event) {
 						NV_ENC_EVENT_PARAMS evt_params{};
@@ -653,8 +754,17 @@ namespace {
 						funcs.nvEncUnregisterAsyncEvent(nv_encoder, &evt_params);
 					}
 
-					if (funcs.nvEncDestroyInputBuffer && surface.input)
-						funcs.nvEncDestroyInputBuffer(nv_encoder, surface.input);
+					if (surface.cuda_memory) {
+						if (funcs.nvEncUnmapInputResource && surface.input)
+							funcs.nvEncUnmapInputResource(nv_encoder, surface.input);
+						if (funcs.nvEncUnregisterResource && surface.registered_cuda_memory)
+							funcs.nvEncUnregisterResource(nv_encoder, surface.registered_cuda_memory);
+						if (surface.cuda_memory)
+							cuda->cuMemFree(surface.cuda_memory);
+					} else {
+						if (funcs.nvEncDestroyInputBuffer && surface.input)
+							funcs.nvEncDestroyInputBuffer(nv_encoder, surface.input);
+					}
 
 					if (funcs.nvEncDestroyBitstreamBuffer && surface.output)
 						funcs.nvEncDestroyBitstreamBuffer(nv_encoder, surface.output);
@@ -718,6 +828,23 @@ namespace {
 			return true;
 		}
 
+		bool OpenDevice(IDXGIAdapter *adapter, bool allow_async)
+		{
+			CUDAResult res(cuda);
+
+			auto cuda_error = [&](const char *func)
+			{
+				warn("%s returned %s (%#x): %s", func, res.Name(), res.res, res.Description());
+				return false;
+			};
+
+			CUdevice device;
+			if (res = cuda->cuD3D11GetDevice(&device, adapter))
+				return cuda_error("cuD3D11GetDevice");
+
+			return ActualOpenDevice(device, allow_async, -1);
+		}
+
 		bool OpenDevice(int idx, bool allow_async)
 		{
 			CUDAResult res(cuda);
@@ -733,6 +860,21 @@ namespace {
 			CUdevice device;
 			if (res = cuda->cuDeviceGet(&device, idx))
 				return cuda_error("cuDeviceGet");
+
+			return ActualOpenDevice(device, allow_async, idx);
+		}
+
+		bool ActualOpenDevice(CUdevice device, bool allow_async, int idx)
+		{
+			CUDAResult res(cuda);
+
+			auto cuda_error = [&](const char *func)
+			{
+				warn("%s returned %s (%#x): %s", func, res.Name(), res.res, res.Description());
+				return false;
+			};
+
+			auto make_version = [](int major, int minor) { return major << 4 | minor; };
 
 			array<char, 128> name;
 			if (res = cuda->cuDeviceGetName(name.data(), name.size(), device))
@@ -982,9 +1124,89 @@ namespace {
 
 			return true;
 		}
-		
-		bool InitSurfaces()
+
+		bool InitD3DSurfaces(IDXGIAdapter *adapter)
 		{
+			video_scale_info vsi{};
+			if (!obs_output_get_active_video_conversion(output, &vsi)) {
+				error("Failed to get active video conversion");
+				return false;
+			}
+
+			video_texture_size vts{};
+			if (!video_get_output_texture_size(&vsi, &vts)) {
+				error("Failed to get output_texture_size");
+				return false;
+			}
+
+			auto width = vts.width;
+			auto height = vts.height;
+
+			CUDAResult res(cuda);
+
+			auto cuda_error = [&](const char *func)
+			{
+				warn("%s returned %s (%#x): %s", func, res.Name(), res.res, res.Description());
+				return false;
+			};
+
+			auto hr_error = [&](HRESULT res, const char *name)
+			{
+				if (res == S_OK)
+					return false;
+
+				warn("%s failed: %#x", name, res);
+				return true;
+			};
+
+#define HR_ERROR(x) hr_error(x, #x)
+
+			D3D_FEATURE_LEVEL level_used;
+			ComPtr<ID3D11DeviceContext> context;
+			if (HR_ERROR(D3D11CreateDevice(adapter, D3D_DRIVER_TYPE_UNKNOWN, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+				feature_levels, sizeof(feature_levels) / sizeof(feature_levels[0]), D3D11_SDK_VERSION, d3d11_device.Assign(), &level_used, context.Assign())))
+				return false;
+
+			return true;
+		}
+		
+		bool InitSurfaces(IDXGIAdapter *adapter)
+		{
+			CUDAResult res(cuda);
+			bool pushed_ctx = false;
+			if (use_texture_input) {
+				if (res = cuda->cuCtxPushCurrent(ctx.get())) {
+					error("Encode: cuCtxPushCurrent returned %s (%d): %s", res.Name(), res.res, res.Description());
+					return false;
+				}
+				pushed_ctx = true;
+			}
+
+			auto pop_context_impl = [&]
+			{
+				if (!pushed_ctx)
+					return true;
+
+				CUcontext dummy;
+				if (res = cuda->cuCtxPopCurrent(&dummy)) {
+					error("Encode: cuCtxPopCurrent returned %s (%d): %s", res.Name(), res.res, res.Description());
+					return false;
+				}
+
+				return true;
+			};
+
+			auto context_guard = guard(pop_context_impl);
+
+			auto cuda_error = [&](const char *func)
+			{
+				warn("%s returned %s (%#x): %s", func, res.Name(), res.res, res.Description());
+				return false;
+			};
+
+			if (use_texture_input && !InitD3DSurfaces(adapter))
+				return false;
+
 			auto num_surfaces = max(4, encode_config.frameIntervalP * 2 * 2); // 2 NVENC encode sessions per GPU * 2 to decrease likelihood of blocking next group of frames
 
 			surfaces.resize(num_surfaces);
@@ -997,13 +1219,6 @@ namespace {
 
 			for (auto &surface : surfaces) {
 				{
-					NV_ENC_CREATE_INPUT_BUFFER alloc_in = { 0 };
-					alloc_in.version = NV_ENC_CREATE_INPUT_BUFFER_VER;
-
-					alloc_in.width = (width + 31) & ~31;
-					alloc_in.height = (height + 31) & ~31;
-					alloc_in.bufferFmt = surface.format;
-
 					if (init_params.enableEncodeAsync) {
 						surface.event.reset(CreateEvent(nullptr, false, false, nullptr));
 
@@ -1014,14 +1229,48 @@ namespace {
 						}
 					}
 
-					if (NVENCStatus sts = funcs.nvEncCreateInputBuffer(nv_encoder, &alloc_in)) {
-						sts.Warn(this, "nvEncCreateInputBuffer");
-						return false;
-					}
+					if (use_texture_input) {
+						surface.copy_width = width;
+						surface.copy_height = height * 3 / 2;
 
-					surface.input = alloc_in.inputBuffer;
-					surface.width = alloc_in.width;
-					surface.height = alloc_in.height;
+						if (res = cuda->cuMemAllocPitch(&surface.cuda_memory, &surface.cuda_pitch, surface.copy_width, surface.copy_height, 16))
+							return cuda_error("cuMemAllocPitch");
+
+						NV_ENC_REGISTER_RESOURCE reg{};
+						reg.version = NV_ENC_REGISTER_RESOURCE_VER;
+						reg.resourceType = NV_ENC_INPUT_RESOURCE_TYPE_CUDADEVICEPTR;
+						reg.resourceToRegister = reinterpret_cast<void*>(surface.cuda_memory);
+						reg.width = width;
+						reg.height = height;
+						reg.pitch = surface.cuda_pitch;
+						reg.bufferFormat = surface.format;
+						if (NVENCStatus sts = funcs.nvEncRegisterResource(nv_encoder, &reg)) {
+							sts.Warn(this, "nvEncRegisterResource");
+							return false;
+						}
+
+						surface.registered_cuda_memory = reg.registeredResource;
+
+						surface.width = width;
+						surface.height = height;
+
+					} else {
+						NV_ENC_CREATE_INPUT_BUFFER alloc_in = { 0 };
+						alloc_in.version = NV_ENC_CREATE_INPUT_BUFFER_VER;
+
+						alloc_in.width = (width + 31) & ~31;
+						alloc_in.height = (height + 31) & ~31;
+						alloc_in.bufferFmt = surface.format;
+
+						if (NVENCStatus sts = funcs.nvEncCreateInputBuffer(nv_encoder, &alloc_in)) {
+							sts.Warn(this, "nvEncCreateInputBuffer");
+							return false;
+						}
+
+						surface.input = alloc_in.inputBuffer;
+						surface.width = alloc_in.width;
+						surface.height = alloc_in.height;
+					}
 				}
 
 				{
@@ -1042,6 +1291,104 @@ namespace {
 			return true;
 		}
 
+
+		bool CopyFrame(const webrtc::VideoFrame &frame_, Surface *surface)
+		{
+			if (surface->input) {
+				if (NVENCStatus sts = funcs.nvEncUnmapInputResource(nv_encoder, surface->input))
+					sts.Warn(this, "nvEncUnmapInputResource");
+				surface->input = nullptr;
+			}
+
+			auto frame = reinterpret_cast<video_texture*>(frame_.video_frame_buffer()->native_handle());
+
+			{
+				CUDAResult res(cuda);
+
+				auto cuda_error = [&](const char *func)
+				{
+					warn("%s returned %s (%#x): %s", func, res.Name(), res.res, res.Description());
+					return false;
+				};
+
+				auto hr_error = [&](HRESULT res, const char *name)
+				{
+					if (res == S_OK)
+						return false;
+
+					warn("%s failed: %#x", name, res);
+					return true;
+				};
+
+				auto &shared_tex = input_textures[frame->tex];
+				if (shared_tex.shared_handle && shared_tex.shared_handle != frame->shared_handle) {
+					cuda->cuGraphicsUnregisterResource(shared_tex.cuda_tex);
+					shared_tex.d3d11_tex.Release();
+					shared_tex.shared_handle = 0;
+				}
+
+#define HR_ERROR(x) hr_error(x, #x)
+				if (!shared_tex.d3d11_tex) {
+					if (HR_ERROR(d3d11_device->OpenSharedResource(reinterpret_cast<HANDLE>(frame->shared_handle), __uuidof(ID3D11Texture2D), (void**)shared_tex.d3d11_tex.Assign())))
+						return false;
+
+					shared_tex.shared_handle = frame->shared_handle;
+
+					if (res = cuda->cuGraphicsD3D11RegisterResource(&shared_tex.cuda_tex, shared_tex.d3d11_tex, CU_GRAPHICS_REGISTER_FLAGS_TEXTURE_GATHER)) {
+						cuda_error("cuGraphicsD3D11RegisterResource");
+						return false;
+					}
+				}
+#undef HR_ERROR
+
+				if (res = cuda->cuGraphicsMapResources(1, &shared_tex.cuda_tex, 0))
+					return cuda_error("cuGraphicsMapResources");
+
+				auto finalize_interop_impl = [&]
+				{
+					if (res = cuda->cuGraphicsUnmapResources(1, &shared_tex.cuda_tex, 0))
+						cuda_error("cuGraphicsUnmapResources");
+
+					if (res = cuda->cuStreamSynchronize(0))
+						cuda_error("cuStreamSynchronize");
+				};
+
+				DEFER{ finalize_interop_impl(); };
+
+				CUarray array;
+				if (res = cuda->cuGraphicsSubResourceGetMappedArray(&array, shared_tex.cuda_tex, 0, 0))
+					return cuda_error("cuGraphicsSubResourceGetMappedArray");
+
+				auto width = init_params.encodeWidth;
+				auto height = init_params.encodeHeight;
+
+				CUDA_MEMCPY2D memcpy2d{};
+				memcpy2d.dstDevice = surface->cuda_memory;
+				memcpy2d.dstMemoryType = CU_MEMORYTYPE_DEVICE;
+				memcpy2d.dstPitch = surface->cuda_pitch;
+
+				memcpy2d.srcArray = array;
+				memcpy2d.srcMemoryType = CU_MEMORYTYPE_ARRAY;
+				memcpy2d.srcPitch = surface->copy_width;
+
+				memcpy2d.Height = surface->copy_height;
+				memcpy2d.WidthInBytes = surface->copy_width;
+
+				if (res = cuda->cuMemcpy2D(&memcpy2d))
+					return cuda_error("cuMemcpy2D");
+			}
+
+			NV_ENC_MAP_INPUT_RESOURCE map{};
+			map.version = NV_ENC_MAP_INPUT_RESOURCE_VER;
+			map.registeredResource = surface->registered_cuda_memory;
+			if (NVENCStatus sts = funcs.nvEncMapInputResource(nv_encoder, &map)) {
+				sts.Warn(this, "nvEncMapInputResource");
+				return false;
+			}
+			surface->input = map.mappedResource;
+
+			return true;
+		}
 
 		bool UploadFrame(const webrtc::VideoFrame &frame, Surface *surface)
 		{
@@ -1159,6 +1506,11 @@ namespace {
 				keyframe = frame_types->front() == webrtc::kVideoFrameKey;
 			}
 
+			if (frame.is_texture() != use_texture_input) {
+				warn("Encode: frame.is_texture() != use_texture_input");
+				return WEBRTC_VIDEO_CODEC_ERROR;
+			}
+
 			try {
 				if (keyframe) {
 					NV_ENC_RECONFIGURE_PARAMS params = { 0 };
@@ -1210,9 +1562,16 @@ namespace {
 					return pop_context_impl();
 				};
 
-				if (!UploadFrame(frame, input)) {
-					error("UploadFrame failed");
-					return WEBRTC_VIDEO_CODEC_ERROR;
+				if (use_texture_input) {
+					if (!CopyFrame(frame, input)) {
+						error("CopyFrame failed");
+						return WEBRTC_VIDEO_CODEC_ERROR;
+					}
+				} else {
+					if (!UploadFrame(frame, input)) {
+						error("UploadFrame failed");
+						return false;
+					}
 				}
 
 				NV_ENC_PIC_PARAMS pic = { 0 };
@@ -1317,6 +1676,11 @@ namespace {
 		ScalingSettings GetScalingSettings() const override
 		{
 			return ScalingSettings(true);
+		}
+
+		bool SupportsNativeHandle() const override
+		{
+			return use_texture_input;
 		}
 	};
 
