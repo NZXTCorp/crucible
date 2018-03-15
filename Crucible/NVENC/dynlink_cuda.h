@@ -56,7 +56,9 @@ typedef enum cudaError_enum {
 
 typedef enum CUmemorytype_enum {
     CU_MEMORYTYPE_HOST = 1,
-    CU_MEMORYTYPE_DEVICE = 2
+    CU_MEMORYTYPE_DEVICE = 2,
+	CU_MEMORYTYPE_ARRAY = 3,
+	CU_MEMORYTYPE_UNIFIED = 4,
 } CUmemorytype;
 
 typedef struct CUDA_MEMCPY2D_st {
@@ -80,9 +82,25 @@ typedef struct CUDA_MEMCPY2D_st {
     size_t Height;
 } CUDA_MEMCPY2D;
 
+
+typedef enum CUgraphicsRegisterFlags_enum
+{
+	CU_GRAPHICS_REGISTER_FLAGS_NONE          = 0x00,
+	CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY     = 0x01,
+	CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD = 0x02,
+	CU_GRAPHICS_REGISTER_FLAGS_SURFACE_LDST  = 0x04,
+	CU_GRAPHICS_REGISTER_FLAGS_TEXTURE_GATHER= 0x08,
+} CUgraphicsRegisterFlags;
+
+typedef struct CUgraphicsResource_st *CUgraphicsResource;
+
+struct ID3D11Resource;
+struct IDXGIAdapter;
+
 typedef CUresult CUDAAPI cuInit_t(unsigned int Flags);
 typedef CUresult CUDAAPI cuDeviceGetCount_t(int *count);
 typedef CUresult CUDAAPI cuDeviceGet_t(CUdevice *device, int ordinal);
+typedef CUresult CUDAAPI cuD3D11GetDevice_t(CUdevice *pCudaDevice, IDXGIAdapter *pAdapter);
 typedef CUresult CUDAAPI cuDeviceGetName_t(char *name, int len, CUdevice dev);
 typedef CUresult CUDAAPI cuDeviceComputeCapability_t(int *major, int *minor, CUdevice dev);
 typedef CUresult CUDAAPI cuCtxCreate_v2_t(CUcontext *pctx, unsigned int flags, CUdevice dev);
@@ -90,8 +108,17 @@ typedef CUresult CUDAAPI cuCtxPushCurrent_v2_t(CUcontext pctx);
 typedef CUresult CUDAAPI cuCtxPopCurrent_v2_t(CUcontext *pctx);
 typedef CUresult CUDAAPI cuCtxDestroy_v2_t(CUcontext ctx);
 typedef CUresult CUDAAPI cuMemAlloc_v2_t(CUdeviceptr *dptr, size_t bytesize);
+typedef CUresult CUDAAPI cuMemAllocPitch_t(CUdeviceptr *dptr, size_t *pPitch, size_t WidthInBytes, size_t Height, unsigned int ElementSizeBytes);
 typedef CUresult CUDAAPI cuMemFree_v2_t(CUdeviceptr dptr);
 typedef CUresult CUDAAPI cuMemcpy2D_v2_t(const CUDA_MEMCPY2D *pcopy);
 typedef CUresult CUDAAPI cuGetErrorName_t(CUresult error, const char **pstr);
 typedef CUresult CUDAAPI cuGetErrorString_t(CUresult error, const char **pstr);
+typedef CUresult CUDAAPI cuStreamSynchronize_t(CUstream hStream);
+
+typedef CUresult CUDAAPI cuGraphicsD3D11RegisterResource_t(CUgraphicsResource *pCudaResource, ID3D11Resource *pD3DResource, unsigned int Flags);
+typedef CUresult CUDAAPI cuGraphicsMapResources_t(unsigned int count, CUgraphicsResource *resources, CUstream hStream);
+typedef CUresult CUDAAPI cuGraphicsResourceGetMappedPointer_t(CUdeviceptr *pDevPtr, size_t *pSize, CUgraphicsResource resource);
+typedef CUresult CUDAAPI cuGraphicsSubResourceGetMappedArray_t(CUarray *pArray, CUgraphicsResource resource, unsigned int arrayIndex, unsigned int mipLevel);
+typedef CUresult CUDAAPI cuGraphicsUnmapResources_t(unsigned int count, CUgraphicsResource *resources, CUstream hStream);
+typedef CUresult CUDAAPI cuGraphicsUnregisterResource_t(CUgraphicsResource resource);
 

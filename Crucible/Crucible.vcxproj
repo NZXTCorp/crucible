@@ -105,7 +105,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>obs.lib;ipc-util.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d11.lib;obs.lib;ipc-util.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug+WebRTC|Win32'">
@@ -117,7 +117,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>msdmo.lib;wmcodecdspuuid.lib;dmoguids.lib;crypt32.lib;iphlpapi.lib;ole32.lib;secur32.lib;winmm.lib;ws2_32.lib;webrtc.lib;obs.lib;ipc-util.lib;x264.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d11.lib;msdmo.lib;wmcodecdspuuid.lib;dmoguids.lib;crypt32.lib;iphlpapi.lib;ole32.lib;secur32.lib;winmm.lib;ws2_32.lib;webrtc.lib;obs.lib;ipc-util.lib;x264.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4217 /IGNORE:4049 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
@@ -135,7 +135,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>obs.lib;ipc-util.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d11.lib;obs.lib;ipc-util.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release+WebRTC|Win32'">
@@ -152,7 +152,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>msdmo.lib;wmcodecdspuuid.lib;dmoguids.lib;crypt32.lib;iphlpapi.lib;ole32.lib;secur32.lib;winmm.lib;ws2_32.lib;webrtc.lib;obs.lib;ipc-util.lib;x264.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d11.lib;msdmo.lib;wmcodecdspuuid.lib;dmoguids.lib;crypt32.lib;iphlpapi.lib;ole32.lib;secur32.lib;winmm.lib;ws2_32.lib;webrtc.lib;obs.lib;ipc-util.lib;x264.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4217 /IGNORE:4049 %(AdditionalOptions)</AdditionalOptions>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
