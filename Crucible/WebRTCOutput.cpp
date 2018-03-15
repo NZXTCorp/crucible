@@ -528,11 +528,16 @@ namespace {
 	struct RTCFrameBuffer : webrtc::VideoFrameBuffer {
 		video_data_container *container = nullptr;
 		video_data *data = nullptr;
+		video_texture *texture = nullptr;
+
+		OBSWeakOutput weak_output;
 
 		static atomic<int> count;
 
 		RTCFrameBuffer(video_data_container *container)
-			: container(container), data(video_data_from_container(container))
+			: container(container),
+			  data(video_data_from_container(container)),
+			  texture(video_texture_from_container(container))
 		{
 			count++;
 			video_data_container_addref(container);
@@ -544,15 +549,24 @@ namespace {
 			count--;
 		}
 
+		const video_scale_info *scale_info() const
+		{
+			if (data) return &data->info;
+			if (texture) return &texture->info;
+			return nullptr;
+		}
+
 		// Inherited via VideoFrameBuffer
 		int width() const override
 		{
-			return data ? data->info.width : 0;
+			auto info = scale_info();
+			return info ? info->width : 0;
 		}
 
 		int height() const override
 		{
-			return data ? data->info.height : 0;
+			auto info = scale_info();
+			return info ? info->height : 0;
 		}
 
 		const uint8_t *DataY() const override
@@ -587,12 +601,25 @@ namespace {
 
 		void *native_handle() const override
 		{
-			return nullptr;
+			return texture;
 		}
 
 		rtc::scoped_refptr<VideoFrameBuffer> NativeToI420Buffer() override
 		{
-			return this;
+			if (!data) {
+				if (auto output = OBSGetStrongRef(weak_output)) {
+					auto sig = obs_output_get_signal_handler(output);
+					
+					calldata cdata{};
+					calldata_set_ptr(&cdata, "output", output);
+					calldata_set_bool(&cdata, "request", false);
+
+					DEFER{ calldata_free(&cdata); };
+
+					signal_handler_signal(sig, "request_texture", &cdata);
+				}
+			}
+			return data ? this : nullptr;
 		}
 	};
 
@@ -630,18 +657,20 @@ namespace {
 		}
 
 		unsigned frames_duplicated = 0;
-		void ReceiveVideo(video_data_container *container)
+		void ReceiveVideo(video_data_container *container, uint64_t timestamp)
 		{
 			if (!have_video_info || !sink)
 				return;
 
 			video_data *data = video_data_from_container(container);
-			if (!data || data->info.format != VIDEO_FORMAT_I420)
+			if (data && data->info.format != VIDEO_FORMAT_I420)
 				return;
 
 			bool found_buffer = RTCFrameBuffer::count < 6; // Allow up to 6 in-flight frame buffers
-			if (found_buffer)
+			if (found_buffer) {
 				last_buffer = new rtc::RefCountedObject<RTCFrameBuffer>(container);
+				last_buffer->weak_output = OBSGetWeakRef(out->output);
+			}
 
 			if (!found_buffer && !frames_duplicated)
 				warn("Could not find free framebuffer, duplicating last frame");
@@ -659,7 +688,7 @@ namespace {
 				return;
 			}
 
-			webrtc::VideoFrame frame(last_buffer, webrtc::kVideoRotation_0, data->timestamp / 1000);
+			webrtc::VideoFrame frame(last_buffer, webrtc::kVideoRotation_0, timestamp / 1000);
 			sink->OnFrame(frame);
 		}
 
@@ -1056,6 +1085,11 @@ namespace {
 				return ScalingSettings(true, 24, 46);
 
 			return res;
+		}
+
+		bool SupportsNativeHandle() const override
+		{
+			return actual_encoder ? actual_encoder->SupportsNativeHandle() : false;
 		}
 	};
 
@@ -1671,6 +1705,7 @@ static const char *signal_prototypes[] = {
 	"void session_description(ptr output, string type, string sdp)",
 	"void ice_candidate(ptr output, string sdp_mid, int sdp_mline_index, string sdp)",
 	"void max_resolution(ptr output, out int width, out int height)",
+	"void request_texture(ptr output, bool request)",
 	nullptr
 };
 
@@ -1870,14 +1905,19 @@ static void ReceiveVideoRTC(void *data, video_data_container *container)
 {
 	auto out = cast(data);
 
+	uint64_t timestamp;
 	{
-		auto frame = video_data_from_container(container);
+		if (auto frame = video_data_from_container(container))
+			timestamp = frame->timestamp;
+		else if (auto texture = video_texture_from_container(container))
+			timestamp = texture->timestamp;
+		
 		auto timestamps = out->next_timestamps.Lock();
 		if (timestamps) {
-			timestamps->video.emplace(frame->timestamp + out->video_frame_time); // this should allow sending audio up to the next frame, to slightly reduce overall delay
+			timestamps->video.emplace(timestamp + out->video_frame_time); // this should allow sending audio up to the next frame, to slightly reduce overall delay
 
-			if (!out->warned_about_audio_timestamp && timestamps->audio && *timestamps->audio < frame->timestamp) {
-				warn("Audio timestamps are behind video timestamps: %llu < %llu", *timestamps->audio, frame->timestamp);
+			if (!out->warned_about_audio_timestamp && timestamps->audio && *timestamps->audio < timestamp) {
+				warn("Audio timestamps are behind video timestamps: %llu < %llu (%llu)", *timestamps->audio, timestamp, timestamp - *timestamps->audio);
 				out->warned_about_audio_timestamp = true;
 			}
 		}
@@ -1885,7 +1925,7 @@ static void ReceiveVideoRTC(void *data, video_data_container *container)
 
 	auto src = out->out->video_source.lock();
 	if (src)
-		src->ReceiveVideo(container);
+		src->ReceiveVideo(container, timestamp);
 }
 
 static void ReceiveAudioRTC(void *data, audio_data *frames)
