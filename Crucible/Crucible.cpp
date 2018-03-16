@@ -5505,6 +5505,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	if (auto user = GetCurrentUsername())
 		dmpSender->setDefaultUserName(user->c_str());
+
+	dmpSender->setCallback([](UINT nCode, LPVOID lVal1, LPVOID lVal2) -> bool {
+		if (nCode == MDSCB_EXCEPTIONCODE)
+		{
+			if (auto name = GetCurrentUsername())
+				dmpSender->setDefaultUserName(name->c_str());
+		}
+		return false;
+	});
 #endif
 
 	main_thread_id = GetCurrentThreadId();
