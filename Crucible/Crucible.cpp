@@ -5243,8 +5243,16 @@ static string StartWatchdog()
 					else
 						watchdog_info->message_thread_stuck = false;
 				}
-			} else
+			} else {
+#ifdef USE_BUGSPLAT
+				wostringstream sstr;
+				sstr << boolalpha << "watchdog triggered dump; graphics_thread_stuck: " << video_thread_caused_break;
+				dmpSender->setDefaultUserDescription(sstr.str().c_str());
+				dmpSender->createReport(); // createReportAndExit seems to not create a report
+				_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT); // turn off other error reporting for abort
+#endif
 				abort(); // Message wasn't handled
+			}
 		}
 	});
 
