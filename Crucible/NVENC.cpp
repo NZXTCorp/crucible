@@ -617,7 +617,6 @@ namespace {
 					int device = -1;
 					if (adapter && OpenDevice(adapter, allow_async)) {
 						have_device = true;
-						use_texture_input = true;
 					} else {
 						allow_texture_input = false;
 						device = 0;
@@ -681,6 +680,8 @@ namespace {
 			}
 
 			if (!use_texture_input) {
+				src.format = VIDEO_FORMAT_I420;
+
 				video_scale_info dst;
 				dst.format = VIDEO_FORMAT_NV12;
 				dst.width = codec_settings->width;
@@ -894,6 +895,12 @@ namespace {
 
 			if (make_version(major, minor) < make_version(3, 0)) // NVENC requires compute >= 3.0?
 				return log_gpu_info(false);
+
+			if (make_version(major, minor) < make_version(5, 0)) { // h264 main output via webrtc doesn't seem to work on kepler cards (tested on a GTX 770 and GTX 765M)
+				info("Disabling texture input due to compute %d.%d < 5.0", major, minor);
+				use_texture_input = false;
+			} else
+				use_texture_input = true;
 
 			CUcontext ctx;
 			if (res = cuda->cuCtxCreate(&ctx, 0, device))
