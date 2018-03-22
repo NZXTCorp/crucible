@@ -1180,7 +1180,7 @@ namespace {
 
 				if (idle.empty()) {
 					error("Encode: no idle surfaces while trying to encode frame");
-					return false;
+					return WEBRTC_VIDEO_CODEC_ERROR;
 				}
 
 				auto input = idle.front();
@@ -1188,7 +1188,7 @@ namespace {
 				CUDAResult res(cuda);
 				if (res = cuda->cuCtxPushCurrent(ctx.get())) {
 					error("Encode: cuCtxPushCurrent returned %s (%d): %s", res.Name(), res.res, res.Description());
-					return false;
+					return WEBRTC_VIDEO_CODEC_ERROR;
 				}
 
 				auto pop_context_impl = [&]
@@ -1212,7 +1212,7 @@ namespace {
 
 				if (!UploadFrame(frame, input)) {
 					error("UploadFrame failed");
-					return false;
+					return WEBRTC_VIDEO_CODEC_ERROR;
 				}
 
 				NV_ENC_PIC_PARAMS pic = { 0 };
