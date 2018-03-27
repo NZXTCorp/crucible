@@ -1051,7 +1051,7 @@ namespace {
 			encode_config.frameFieldMode = NV_ENC_PARAMS_FRAME_FIELD_MODE_FRAME;
 
 			encode_config.frameIntervalP = 1;
-			encode_config.gopLength = 2 * init_params.frameRateNum / init_params.frameRateDen;
+			encode_config.gopLength = NVENC_INFINITE_GOPLENGTH;
 
 			{
 				auto &rc = encode_config.rcParams;
@@ -1084,6 +1084,9 @@ namespace {
 				vui.chromaSampleLocationFlag = 1;
 
 				h264.idrPeriod = encode_config.gopLength;
+
+				h264.enableIntraRefresh = true;
+				h264.intraRefreshPeriod = 2 * init_params.frameRateNum / init_params.frameRateDen;
 
 				if (packetization_mode == webrtc::H264PacketizationMode::SingleNalUnit) {
 					h264.sliceMode = 3;
