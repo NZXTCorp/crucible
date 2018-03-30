@@ -2315,7 +2315,13 @@ struct CrucibleContext {
 			.SetSignal("stop")
 			.SetFunc([=](calldata *data)
 		{
-			OBSOutput output = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
+			auto output_ = reinterpret_cast<obs_output_t*>(calldata_ptr(data, "output"));
+			OBSOutput output = OBSGetRef(output_);
+			if (!output) {
+				blog(LOG_WARNING, "Could not GetRef for output '%s' (%p) during stopRecording", obs_output_get_name(output_), output_);
+				return;
+			}
+
 			QueueOperation([=]
 			{
 				recording_stream = false;
