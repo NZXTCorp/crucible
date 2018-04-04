@@ -180,6 +180,19 @@ void StartFramebufferServer()
 	ForgeEvent::InitBrowser(browsers, g_Proc.m_Stats.m_SizeWnd.cx, g_Proc.m_Stats.m_SizeWnd.cy);
 }
 
+void StopFramebufferServer()
+{
+	for (size_t i = OVERLAY_HIGHLIGHTER; i < OVERLAY_COUNT; i++) {
+		browsers[i].name = name_for_overlay[i];
+
+		auto fbs = forgeFramebufferServer[i].Lock();
+		if (!fbs)
+			continue;
+
+		fbs->Stop();
+	}
+}
+
 vector<uint8_t> *ReadNewFramebuffer(ActiveOverlay ov)
 {
 	auto fbs = forgeFramebufferServer[ov].Lock();

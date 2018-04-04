@@ -605,9 +605,15 @@ C_EXPORT void overlay_reset()
 	overlay_gl_free();
 }
 
+void StopFramebufferServer();
 C_EXPORT void overlay_free()
 {
 	StopInputHook();
+
+	crucibleConnectionRestartThread.Join();
+	crucibleConnection.server.reset();
+
+	StopFramebufferServer();
 
 	if (gdi_token)
 		Gdiplus::GdiplusShutdown(gdi_token);
