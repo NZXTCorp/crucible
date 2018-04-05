@@ -783,6 +783,12 @@ static bool ActualOpenDevice(Encoder *enc, CUdevice device, bool allow_async, in
 	if (make_version(major, minor) < make_version(3, 0)) // NVENC requires compute >= 3.0?
 		return log_gpu_info(false);
 
+	if (idx == -1 && minor == 0 && (major == 3 || major == 5)) { // recording from texture on compute 3.0 and 5.0 cards seems to be broken for some reason (tested on GTX 870M and GTX 750 Ti)
+		info("Disabling texture input due to issues on compute %d.%d cards", major, minor);
+		enc->use_texture_input = false;
+	} else
+		enc->use_texture_input = true;
+
 	CUcontext ctx;
 	if (res = enc->cuda->cuCtxCreate(&ctx, 0, device))
 		return cuda_error("cuCtxCreate");
@@ -1253,7 +1259,6 @@ try {
 		bool have_device = false;
 		if (adapter && OpenDevice(enc.get(), adapter, allow_async)) {
 			have_device = true;
-			enc->use_texture_input = true;
 		} else {
 			enc->allow_texture_input = false;
 			device = 0;
