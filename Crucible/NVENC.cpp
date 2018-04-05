@@ -896,8 +896,8 @@ namespace {
 			if (make_version(major, minor) < make_version(3, 0)) // NVENC requires compute >= 3.0?
 				return log_gpu_info(false);
 
-			if (make_version(major, minor) < make_version(5, 0)) { // h264 main output via webrtc doesn't seem to work on kepler cards (tested on a GTX 770 and GTX 765M)
-				info("Disabling texture input due to compute %d.%d < 5.0", major, minor);
+			if (make_version(major, minor) < make_version(5, 2)) { // h264 main output via webrtc doesn't seem to work on some cards (tested on a GTX 770 and GTX 765M, potentially GTX 750 Ti)
+				info("Disabling texture input due to compute %d.%d < 5.2", major, minor);
 				use_texture_input = false;
 			} else
 				use_texture_input = true;
