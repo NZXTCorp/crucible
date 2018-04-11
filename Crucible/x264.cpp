@@ -31,6 +31,8 @@
 
 using namespace std;
 
+void SendEncoderInfo(const char *encoder_name, bool hw_encoder_used);
+
 namespace std {
 	template <>
 	struct default_delete<x264_t> {
@@ -281,6 +283,8 @@ namespace {
 			context.reset(x264_encoder_open(&param));
 			if (!context)
 				return WEBRTC_VIDEO_CODEC_ERROR;
+
+			SendEncoderInfo("webrtc_stream", false);
 
 			return WEBRTC_VIDEO_CODEC_OK;
 		}

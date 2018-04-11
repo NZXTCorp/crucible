@@ -67,6 +67,8 @@ struct default_delete<video_scaler> {
 	}
 };
 
+void SendEncoderInfo(const char *encoder_name, bool hw_encoder_used);
+
 // Helper method used by H264EncoderImpl::Encode.
 // Copies the encoded bytes from |info| to |encoded_image| and updates the
 // fragmentation information of |frag_header|. The |encoded_image->_buffer| may
@@ -698,6 +700,8 @@ namespace {
 
 				scaler.reset(scaler_);
 			}
+
+			SendEncoderInfo("webrtc_stream", true);
 
 			return WEBRTC_VIDEO_CODEC_OK;
 		}

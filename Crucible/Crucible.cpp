@@ -363,6 +363,15 @@ namespace ForgeEvents {
 		return event;
 	}
 
+	void SendEncoderInfo(const char *encoder_name, bool hw_encoder_used)
+	{
+		auto cmd = EventCreate("encoder_info");
+		obs_data_set_string(cmd, "encoder_name", encoder_name);
+		obs_data_set_bool(cmd, "hw_encoder_used", hw_encoder_used);
+
+		SendEvent(cmd);
+	}
+
 	void SendRecordingStart(const char *filename, bool split_recording, uint32_t recording_bitrate, uint32_t width, uint32_t height)
 	{
 		auto event = EventCreate("started_recording");
@@ -2213,6 +2222,8 @@ struct CrucibleContext {
 
 	bool StartRecordingOutputs(obs_output_t *output, obs_output_t *buffer)
 	{
+		bool hw_encoder_used = true;
+
 		auto set_scale_info = [&]
 		{
 			auto scaled = ScaleResolution(target, game_res, recording_resolution_limit);
@@ -2246,6 +2257,13 @@ struct CrucibleContext {
 			obs_output_set_video_encoder(buffer, h264);
 			obs_output_start(buffer);
 		}
+
+		auto encoder = obs_output_get_video_encoder(output);
+		auto id = obs_encoder_get_id(encoder);
+		if (id && id == "obs_x264"s)
+			hw_encoder_used = false;
+
+		ForgeEvents::SendEncoderInfo("recording", hw_encoder_used);
 
 		return true;
 	}
@@ -4643,6 +4661,11 @@ static void HandleQueryMicsCommand(CrucibleContext&, OBSData&)
 	}
 
 	ForgeEvents::SendQueryMicsResponse(devices);
+}
+
+void SendEncoderInfo(const char *encoder_name, bool hw_encoder_used)
+{
+	ForgeEvents::SendEncoderInfo(encoder_name, hw_encoder_used);
 }
 
 static void HandleUpdateSettingsCommand(CrucibleContext &cc, OBSData &obj)
